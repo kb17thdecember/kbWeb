@@ -1,0 +1,11 @@
+{
+    "name": "KbUser",
+    "alias": "kbuser",
+    "description": "",
+    "keywords": [],
+    "priority": 0,
+    "providers": [
+        "Modules\\KbUser\\Providers\\KbUserServiceProvider"
+    ],
+    "files": []
+}

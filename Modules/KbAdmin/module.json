@@ -1,0 +1,11 @@
+{
+    "name": "KbAdmin",
+    "alias": "kbadmin",
+    "description": "",
+    "keywords": [],
+    "priority": 0,
+    "providers": [
+        "Modules\\KbAdmin\\Providers\\KbAdminServiceProvider"
+    ],
+    "files": []
+}
