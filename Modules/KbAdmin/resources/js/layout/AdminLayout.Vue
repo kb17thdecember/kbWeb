@@ -54,11 +54,9 @@ const statsData = [
       <main class="main">
         <header class="topbar">
           <div class="top-left">
-            <a
-                v-for="item in menuItems"
-            >
-              <span class="top-title" id="topTitle">{{ currentUrl === item.href ? item.label : '' }}</span>
-            </a>
+            <span class="top-title" id="topTitle">
+              {{ menuItems.find(item => currentUrl === item.href)?.label || '' }}
+            </span>
             <label class="global-search">⌕ <input id="globalSearch" type="search" placeholder="Tìm sản phẩm, dự án, khách hàng..."></label>
           </div>
           <div class="profile">
