@@ -4,15 +4,17 @@ namespace Modules\KbUser\Http\Controllers;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
+use Inertia\Inertia;
+use Inertia\Response as InertiaResponse;
 
 class KbUserController extends Controller
 {
     /**
      * Display a listing of the resource.
      */
-    public function index()
+    public function index(): InertiaResponse
     {
-        return view('kbuser::index');
+        return Inertia::render('Home');
     }
 
     /**

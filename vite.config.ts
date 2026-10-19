@@ -11,6 +11,7 @@ export default defineConfig({
         laravel({
             input: [
                 'Modules/KbAdmin/resources/js/kb-admin.ts',
+                'Modules/KbUser/resources/js/kb-user.ts',
             ],
             refresh: true,
             fonts: [

@@ -2,8 +2,8 @@
 
 namespace Modules\KbUser\Providers;
 
-use Nwidart\Modules\Support\ModuleServiceProvider;
 use Illuminate\Console\Scheduling\Schedule;
+use Nwidart\Modules\Support\ModuleServiceProvider;
 
 class KbUserServiceProvider extends ModuleServiceProvider
 {
@@ -34,10 +34,20 @@ class KbUserServiceProvider extends ModuleServiceProvider
         RouteServiceProvider::class,
     ];
 
+    public function boot(): void
+    {
+        parent::boot();
+
+        $this->loadViewsFrom(
+            module_path($this->name, 'resources/views'),
+            'kbuser'
+        );
+    }
+
     /**
      * Define module schedules.
-     * 
-     * @param $schedule
+     *
+     * @param  $schedule
      */
     // protected function configureSchedules(Schedule $schedule): void
     // {
