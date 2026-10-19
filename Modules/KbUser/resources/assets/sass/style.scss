@@ -269,7 +269,7 @@ img,svg {
 }
 .hero h1 span {
   color: var(--green);
-  font-family: Georgia,serif;
+  // font-family: Georgia,serif;
   font-weight: 400;
   font-style: italic;
 }
@@ -360,7 +360,7 @@ img,svg {
 }
 .art-caption strong {
   display: block;
-  font-family: Georgia,serif;
+  // font-family: Georgia,serif;
   font-style: italic;
   font-weight: 400;
   font-size: 25px;
@@ -575,7 +575,7 @@ img,svg {
   margin: 13px 0 0;
 }
 .section-title em {
-  font-family: Georgia,serif;
+  // font-family: Georgia,serif;
   font-weight: 400;
 }
 .section-desc {
@@ -632,6 +632,25 @@ img,svg {
 .cat-art svg {
   width: 95px;
   height: 95px;
+}
+.cat-art img {
+  width: 95px;
+  height: 95px;
+  object-fit: contain;
+}
+.category-art-placeholder {
+  width: 72px;
+  height: 72px;
+  display: grid;
+  place-items: center;
+  border: 1px solid #9caf9f;
+  border-radius: 24px;
+  background: linear-gradient(145deg,#e9eee3,#b8c8b2);
+  color: #345342;
+  font-family: Georgia,serif;
+  font-size: 42px;
+  font-weight: 700;
+  transform: rotate(-8deg);
 }
 .cat-title {
   font-size: 17px;
@@ -768,8 +787,143 @@ img,svg {
   z-index: 1;
   transition: transform .45s;
 }
+.product-photo .product-image {
+  position: relative;
+  z-index: 1;
+  width: 82%;
+  height: 82%;
+  object-fit: contain;
+  transition: transform .45s;
+}
 .product-card:hover .product-photo svg {
   transform: scale(1.06) translateY(-2px);
+}
+.product-card:hover .product-photo .product-image {
+  transform: scale(1.06);
+}
+.project-image {
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform .6s;
+}
+.project-card:hover .project-image {
+  transform: scale(1.05);
+}
+.cart-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.cart-row-total {
+  white-space: nowrap;
+  font-size: 11px;
+}
+.modal-art {
+  position: relative;
+}
+.modal-art > img {
+  width: min(290px,90%);
+  height: 290px;
+  object-fit: contain;
+}
+.modal-image-placeholder {
+  display: grid;
+  width: 80%;
+  height: 230px;
+  place-items: center;
+  border: 1px solid var(--line);
+  border-radius: 22px;
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 20px;
+  font-weight: 800;
+}
+.product-gallery-controls {
+  position: absolute;
+  right: 16px;
+  bottom: 14px;
+  left: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: var(--muted);
+  font-size: 10px;
+}
+.product-gallery-controls button {
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: var(--surface);
+  color: var(--ink);
+}
+.modal-disclaimer {
+  font-size: 9px !important;
+  line-height: 1.7;
+}
+.project-modal {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+.project-modal-image {
+  width: 100%;
+  height: 100%;
+  min-height: 360px;
+  object-fit: cover;
+  border-radius: 24px 0 0 24px;
+}
+.project-modal-copy {
+  padding: 42px 30px;
+}
+.project-modal-copy h2 {
+  margin: 12px 0;
+  font-size: clamp(23px,3vw,32px);
+  line-height: 1.13;
+}
+.project-modal-copy p {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.9;
+}
+.project-modal-copy dl {
+  width: 100%;
+  margin: 18px 0;
+  border-top: 1px solid var(--line);
+}
+.project-modal-copy dl div {
+  display: grid;
+  grid-template-columns: 90px 1fr;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+  font-size: 10px;
+}
+.project-modal-copy dt {
+  color: var(--muted);
+}
+.project-modal-copy dd {
+  margin: 0;
+  font-weight: 700;
+}
+.project-modal-copy .btn {
+  width: 100%;
+}
+@media (max-width:680px) {
+  .project-modal {
+    grid-template-columns: 1fr;
+  }
+  .project-modal-image {
+    height: 220px;
+    min-height: 0;
+    border-radius: 24px 24px 0 0;
+  }
+  .project-modal-copy {
+    padding: 24px;
+  }
 }
 .pill {
   position: absolute;
@@ -922,7 +1076,7 @@ img,svg {
 .feature-big {
   position: absolute;
   color: #f6f8ed;
-  font-family: Georgia,serif;
+  // font-family: Georgia,serif;
   font-size: 70px;
   line-height: .9;
   left: 30px;
@@ -1199,7 +1353,7 @@ img,svg {
   align-items: center;
 }
 .quote-mark {
-  font-family: Georgia,serif;
+  // font-family: Georgia,serif;
   font-size: 100px;
   line-height: .7;
   color: #9bbf5c;

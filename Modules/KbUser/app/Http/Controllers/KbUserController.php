@@ -3,7 +3,11 @@
 namespace Modules\KbUser\Http\Controllers;
 
 use App\Http\Controllers\Controller;
+use App\Models\Category;
+use App\Models\FeaturedProject;
+use App\Models\Product;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Inertia\Response as InertiaResponse;
 
@@ -14,7 +18,79 @@ class KbUserController extends Controller
      */
     public function index(): InertiaResponse
     {
-        return Inertia::render('Home');
+        $categories = Category::query()
+            ->with('children:id,name,parent_id')
+            ->whereNull('parent_id')
+            ->orderBy('name')
+            ->get(['id', 'name', 'description', 'image']);
+
+        $products = Product::query()
+            ->with(['category:id,name', 'subcategory:id,name'])
+            ->orderByDesc('id')
+            ->get([
+                'id',
+                'name',
+                'category_id',
+                'subcategory_id',
+                'description',
+                'price',
+                'image',
+            ]);
+
+        $featuredProjects = FeaturedProject::query()
+            ->latest()
+            ->limit(3)
+            ->get([
+                'id',
+                'name',
+                'description',
+                'location',
+                'category',
+                'subcategory',
+                'type',
+                'image',
+            ]);
+
+        return Inertia::render('Home', [
+            'categories' => $categories,
+            'products' => $products,
+            'featuredProjects' => $featuredProjects,
+        ]);
+    }
+
+    public function categories(Request $request): InertiaResponse
+    {
+        $categories = Category::query()
+            ->whereNull('parent_id')
+            ->with([
+                'children' => fn ($query) => $query
+                    ->withCount('products')
+                    ->orderBy('name'),
+            ])
+            ->withCount('children')
+            ->orderBy('name')
+            ->get(['id', 'name', 'parent_id', 'description', 'image']);
+
+        $requestedCategoryId = $request->integer('category');
+        $selectedCategory = $categories->firstWhere('id', $requestedCategoryId);
+
+        $categories->each(function (Category $category): void {
+            $category->setAttribute(
+                'image_url',
+                $category->image ? Storage::disk('public')->url($category->image) : null,
+            );
+            $category->children->each(function (Category $child): void {
+                $child->setAttribute(
+                    'image_url',
+                    $child->image ? Storage::disk('public')->url($child->image) : null,
+                );
+            });
+        });
+
+        return Inertia::render('categories/Index', [
+            'categories' => $categories,
+            'selectedCategoryId' => $selectedCategory?->id,
+        ]);
     }
 
     /**

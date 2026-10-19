@@ -1,10 +1,32 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 
+const props = defineProps<{
+    cartCount: number;
+    activePage?: 'home' | 'categories';
+}>();
+
+const emit = defineEmits<{
+    openCart: [];
+}>();
+
 const isMenuOpen = ref(false);
 
 const closeMenu = () => {
     isMenuOpen.value = false;
+};
+
+const focusProductSearch = () => {
+    closeMenu();
+    const productSearch = document.querySelector<HTMLInputElement>('#productSearch');
+
+    if (productSearch) {
+        productSearch.focus();
+
+        return;
+    }
+
+    window.location.href = '/#products';
 };
 </script>
 
@@ -15,7 +37,7 @@ const closeMenu = () => {
     
     <header class="nav-shell">
         <div class="wrap nav">
-            <a href="#home" class="brand" aria-label="NOVA TECH trang chủ">
+            <a href="/" class="brand" aria-label="NOVA TECH trang chủ">
                 <span class="brandmark">N</span>
                 <span class="brandname">
                     NOVA TECH
@@ -23,40 +45,47 @@ const closeMenu = () => {
                 </span>
             </a>
 
-            <nav class="navlinks" id="navlinks" aria-label="Điều hướng chính">
-                <a href="?page=home" data-page="home">Trang chủ</a>
-                <a href="?page=categories" data-page="categories" aria-current="page">Danh mục</a>
-                <a href="?page=products" data-page="products">Sản phẩm</a>
-                <a href="?page=projects" data-page="projects">Dự án tiêu biểu</a>
-                <a href="?page=about" data-page="about">Về chúng tôi</a>
-                <a href="?page=contact" data-page="contact">Liên hệ</a>
+            <nav class="navlinks" :class="{ open: isMenuOpen }" id="navlinks" aria-label="Điều hướng chính">
+                <a href="/" :aria-current="props.activePage === 'home' ? 'page' : undefined" @click="closeMenu">Trang chủ</a>
+                <a href="/categories" :aria-current="props.activePage === 'categories' ? 'page' : undefined" @click="closeMenu">Danh mục</a>
+                <a href="/#products" @click="closeMenu">Sản phẩm</a>
+                <a href="/#projects" @click="closeMenu">Dự án tiêu biểu</a>
+                <a href="/#about" @click="closeMenu">Về chúng tôi</a>
+                <a href="/#contact" @click="closeMenu">Liên hệ</a>
             </nav>
 
             <div class="navactions">
-                <button class="icon-btn" id="searchFocus" aria-label="Tìm kiếm">
+                <button class="icon-btn" id="searchFocus" type="button" aria-label="Tìm kiếm" @click="focusProductSearch">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
                         <circle cx="10.8" cy="10.8" r="6.8"></circle>
                         <path d="m16 16 5 5"></path>
                     </svg>
                 </button>
 
-                <button class="icon-btn" id="cartOpen" aria-label="Mở giỏ hàng">
+                <button class="icon-btn" id="cartOpen" type="button" aria-label="Mở giỏ hàng" @click="emit('openCart')">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
                         <path d="M3 4h2l2.2 11.1a2 2 0 0 0 2 1.6h8.4a2 2 0 0 0 1.9-1.4L22 8H6"></path>
                         <circle cx="10" cy="20" r="1"></circle>
                         <circle cx="18" cy="20" r="1"></circle>
                     </svg>
-                    <span class="cart-count" id="cartCount">0</span>
+                    <span class="cart-count" id="cartCount">{{ props.cartCount }}</span>
                 </button>
 
-                <a class="btn btn-primary" href="#contact">
+                <a class="btn btn-primary" href="/#contact">
                     Nhận báo giá
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <path d="M5 12h14m-6-6 6 6-6 6"></path>
                     </svg>
                 </a>
 
-                <button class="icon-btn menu-toggle" id="menuToggle" aria-label="Mở menu">
+                <button
+                    class="icon-btn menu-toggle"
+                    id="menuToggle"
+                    type="button"
+                    aria-label="Mở menu"
+                    :aria-expanded="isMenuOpen"
+                    @click="isMenuOpen = !isMenuOpen"
+                >
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
                         <path d="M4 7h16M4 12h16M4 17h16"></path>
                     </svg>
@@ -64,6 +93,35 @@ const closeMenu = () => {
             </div>
         </div>
     </header>
+
+    <slot />
+
+    <footer class="footer">
+        <div class="wrap">
+          <div class="footer-grid">
+            <div><a href="/" class="brand"><span class="brandmark">N</span><span class="brandname">NOVA TECH<small>ENGINEERING SUPPLY</small></span></a>
+              <p class="footer-desc">Đầu mối cung ứng thiết bị và vật tư kỹ thuật cho các công trình dân dụng, thương mại và công nghiệp.</p>
+              <div class="socials"><a href="#contact" aria-label="Facebook">f</a><a href="#contact" aria-label="LinkedIn">in</a><a href="#contact" aria-label="Zalo">Z</a>
+              </div>
+            </div>
+            <div>
+              <h4>KHÁM PHÁ</h4>
+              <div class="footer-links"><a href="/#about">Về chúng tôi</a><a href="/categories">Danh mục</a><a href="/#products">Sản phẩm</a><a href="/#projects">Dự án</a>
+              </div>
+            </div>
+            <div>
+              <h4>HỖ TRỢ</h4>
+              <div class="footer-links"><a href="/#contact">Yêu cầu báo giá</a><a href="/#contact">Tư vấn kỹ thuật</a><a href="/#contact">Chính sách giao hàng</a><a href="/#contact">Liên hệ hợp tác</a>
+              </div>
+            </div>
+            <div>
+              <h4>THÔNG TIN DOANH NGHIỆP</h4>
+              <div class="footer-links"><span>Hà Nội, Việt Nam (mẫu)</span><span>sales@novatech.vn (mẫu)</span><span>0900 000 000 (mẫu)</span><span>Thứ 2 – Thứ 7 · 08:00–17:30</span>
+              </div>
+            </div>
+          </div>
+          <div class="footer-bottom"><span>© 2026 NOVA TECH. Thiết kế demo — vui lòng cập nhật thông tin pháp lý trước khi sử dụng.</span><span>Chất lượng trong từng chi tiết · Built with intention.</span>
+          </div>
+        </div>
+    </footer>
 </template>
-
-

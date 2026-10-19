@@ -1,1249 +1,900 @@
 <script setup lang="ts">
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
+import { Head } from '@inertiajs/vue3';
 import UserLayout from '../layout/UserLayout.Vue';
 
-const solutions = [
-    {
-        number: '01',
-        title: 'Thiết bị nước nóng',
-        description:
-            'Giải pháp nước nóng tiện nghi, phù hợp cho căn hộ, khách sạn và công trình dịch vụ.',
-        tag: 'ARISTON',
-        symbol: '◒',
-    },
-    {
-        number: '02',
-        title: 'Bảo ôn và cách nhiệt',
-        description:
-            'Vật liệu bảo ôn giúp tối ưu hiệu suất hệ thống và nâng cao độ bền cho công trình.',
-        tag: 'KFLEX',
-        symbol: '◌',
-    },
-    {
-        number: '03',
-        title: 'Giải pháp cơ điện',
-        description:
-            'Tư vấn lựa chọn thiết bị và giải pháp kỹ thuật theo yêu cầu sử dụng thực tế.',
-        tag: 'M&E',
-        symbol: '⌁',
-    },
-];
+type HomeProduct = {
+    id: number;
+    name: string;
+    description: string;
+    price: number;
+    tag: number | null;
+    image: string[] | null;
+    category_id: number;
+    subcategory_id: number | null;
+    category: { id: number; name: string } | null;
+    subcategory: { id: number; name: string } | null;
+};
 
-const projectTypes = [
-    'Chung cư thương mại & NOXH',
-    'Văn phòng, khách sạn & bệnh viện',
-    'Khu công nghiệp',
-];
+type HomeCategory = {
+    id: number;
+    name: string;
+    description: string | null;
+    image: string | null;
+    children: { id: number; name: string; parent_id: number }[];
+};
+
+type HomeProject = {
+    id: number;
+    name: string;
+    description: string;
+    location: string;
+    category: string;
+    subcategory: string;
+    type: number;
+    image: string;
+};
+
+const props = defineProps<{
+    categories: HomeCategory[];
+    products: HomeProduct[];
+    featuredProjects: HomeProject[];
+}>();
+
+const activeFilter = ref('all');
+const activeSubcategoryId = ref<number | null>(null);
+const searchQuery = ref('');
+const contactMessage = ref('');
+const checkoutMessage = ref('');
+const isCartOpen = ref(false);
+const isCheckoutOpen = ref(false);
+const isProductModalOpen = ref(false);
+const isProjectModalOpen = ref(false);
+const cart = ref<Record<number, number>>({});
+const selectedProduct = ref<HomeProduct | null>(null);
+const selectedProject = ref<HomeProject | null>(null);
+const selectedImageIndex = ref(0);
+const currentPage = ref(1);
+const toastMessage = ref('');
+const isToastVisible = ref(false);
+let toastTimer: ReturnType<typeof setTimeout> | undefined;
+let revealObserver: IntersectionObserver | undefined;
+
+const filters = computed(() => [
+    { label: 'Tất cả', value: 'all' },
+    ...props.categories.map((category) => ({
+        label: category.name,
+        value: String(category.id),
+    })),
+]);
+
+const selectedCategory = computed(
+    () => props.categories.find((category) => String(category.id) === activeFilter.value) ?? null,
+);
+
+const normalize = (value: string): string =>
+    value
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLocaleLowerCase('vi')
+        .replace(/[^a-z0-9]/g, '');
+
+const visibleProducts = computed(() => {
+    const query = normalize(searchQuery.value.trim());
+
+    return props.products.filter((product) => {
+        const category = product.category?.name ?? '';
+        const subcategory = product.subcategory?.name ?? '';
+        const matchesFilter =
+            activeFilter.value === 'all' ||
+            String(product.category_id) === activeFilter.value;
+        const matchesSubcategory =
+            activeSubcategoryId.value === null ||
+            product.subcategory_id === activeSubcategoryId.value;
+        const matchesSearch =
+            query === '' ||
+            normalize(`${product.name} ${product.description} ${category} ${subcategory}`)
+                .includes(query);
+
+        return matchesFilter && matchesSubcategory && matchesSearch;
+    });
+});
+
+const productsPerPage = 8;
+const pageCount = computed(() =>
+    Math.max(1, Math.ceil(visibleProducts.value.length / productsPerPage)),
+);
+const paginatedProducts = computed(() =>
+    visibleProducts.value.slice(
+        (currentPage.value - 1) * productsPerPage,
+        currentPage.value * productsPerPage,
+    ),
+);
+
+const cartItems = computed(() =>
+    Object.entries(cart.value)
+        .map(([id, quantity]) => {
+            const product = props.products.find((item) => item.id === Number(id));
+
+            return product ? { product, quantity } : null;
+        })
+        .filter((item): item is { product: HomeProduct; quantity: number } => item !== null),
+);
+const cartCount = computed(() =>
+    cartItems.value.reduce((count, item) => count + item.quantity, 0),
+);
+const cartTotal = computed(() =>
+    cartItems.value.reduce(
+        (total, item) => total + item.product.price * item.quantity,
+        0,
+    ),
+);
+
+const selectedProductImages = computed(() => selectedProduct.value?.image ?? []);
+const selectedProductImage = computed(() => {
+    if (selectedProductImages.value.length === 0) {
+        return null;
+    }
+
+    return productImageUrl(
+        selectedProductImages.value[
+            selectedImageIndex.value % selectedProductImages.value.length
+        ],
+    );
+});
+
+const productImage = (product: HomeProduct): string | null => {
+    const image = product.image?.[0];
+
+    if (!image) {
+        return null;
+    }
+
+    return productImageUrl(image);
+};
+
+const productImageUrl = (image: string): string =>
+    image.startsWith('data:') || image.startsWith('http') || image.startsWith('/')
+        ? image
+        : `/storage/${image}`;
+
+const categoryImageUrl = (category: HomeCategory): string | null =>
+    category.image ? productImageUrl(category.image) : null;
+
+const categoryPageUrl = (categoryId: number): string =>
+    `/categories?category=${encodeURIComponent(String(categoryId))}`;
+
+const formatPrice = (price: number): string =>
+    price > 0 ? `${new Intl.NumberFormat('vi-VN').format(price)}₫` : 'Liên hệ';
+
+const projectTypeLabel = (type: number): string =>
+    ({
+        1: 'Chung cư thương mại & NOXH',
+        2: 'Văn phòng, khách sạn & bệnh viện',
+        3: 'Khu công nghiệp',
+    })[type] ?? 'Dự án tiêu biểu';
+
+const selectFilter = (filter: string): void => {
+    activeFilter.value = filter;
+    activeSubcategoryId.value = null;
+    currentPage.value = 1;
+};
+
+const goToPage = (page: number): void => {
+    currentPage.value = Math.min(Math.max(1, page), pageCount.value);
+    document.querySelector('#products')?.scrollIntoView({ behavior: 'smooth' });
+};
+
+const showAllProducts = (): void => {
+    searchQuery.value = '';
+    selectFilter('all');
+};
+
+const notify = (message: string): void => {
+    toastMessage.value = message;
+    isToastVisible.value = true;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => {
+        isToastVisible.value = false;
+    }, 2400);
+};
+
+const persistCart = (): void => {
+    sessionStorage.setItem('kbuser-cart', JSON.stringify(cart.value));
+};
+
+const loadCart = (): void => {
+    const savedCart = sessionStorage.getItem('kbuser-cart');
+
+    if (!savedCart) {
+        return;
+    }
+
+    let parsedCart: unknown;
+
+    try {
+        parsedCart = JSON.parse(savedCart);
+    } catch (error) {
+        if (!(error instanceof SyntaxError)) {
+            throw error;
+        }
+
+        console.error('Giỏ hàng đã lưu không phải JSON hợp lệ.', error);
+        sessionStorage.removeItem('kbuser-cart');
+
+        return;
+    }
+
+    if (typeof parsedCart !== 'object' || parsedCart === null || Array.isArray(parsedCart)) {
+        console.error('Định dạng giỏ hàng đã lưu không hợp lệ.');
+        sessionStorage.removeItem('kbuser-cart');
+
+        return;
+    }
+
+    const validProductIds = new Set(props.products.map((product) => product.id));
+    const restoredCart: Record<number, number> = {};
+
+    for (const [id, quantity] of Object.entries(parsedCart)) {
+        const productId = Number(id);
+
+        if (
+            Number.isInteger(productId) &&
+            validProductIds.has(productId) &&
+            Number.isInteger(quantity) &&
+            Number(quantity) > 0
+        ) {
+            restoredCart[productId] = Number(quantity);
+        }
+    }
+
+    cart.value = restoredCart;
+}
+
+const addToCart = (product: HomeProduct): void => {
+    cart.value[product.id] = (cart.value[product.id] ?? 0) + 1;
+    persistCart();
+    notify(`Đã thêm ${product.name} vào giỏ hàng.`);
+};
+
+const changeQuantity = (productId: number, delta: number): void => {
+    const quantity = (cart.value[productId] ?? 0) + delta;
+
+    if (quantity <= 0) {
+        delete cart.value[productId];
+    } else {
+        cart.value[productId] = quantity;
+    }
+
+    persistCart();
+};
+
+const removeFromCart = (productId: number): void => {
+    delete cart.value[productId];
+    persistCart();
+    notify('Đã xóa sản phẩm khỏi giỏ hàng.');
+};
+
+const openProduct = (product: HomeProduct): void => {
+    selectedProduct.value = product;
+    selectedImageIndex.value = 0;
+    isProductModalOpen.value = true;
+};
+
+const closeProduct = (): void => {
+    isProductModalOpen.value = false;
+    selectedProduct.value = null;
+};
+
+const stepProductImage = (delta: number): void => {
+    const imageCount = selectedProductImages.value.length;
+
+    if (imageCount > 0) {
+        selectedImageIndex.value =
+            (selectedImageIndex.value + delta + imageCount) % imageCount;
+    }
+};
+
+const openCheckout = (): void => {
+    if (cartCount.value === 0) {
+        notify('Hãy thêm sản phẩm vào giỏ trước nhé.');
+
+        return;
+    }
+
+    checkoutMessage.value = '';
+    isCartOpen.value = false;
+    isCheckoutOpen.value = true;
+};
+
+const submitCheckout = (): void => {
+    checkoutMessage.value =
+        'Đây là yêu cầu báo giá mô phỏng trên giao diện; chưa có đơn hàng hoặc thông tin nào được gửi đi.';
+    notify('Đã hoàn tất mô phỏng yêu cầu báo giá.');
+};
+
+const submitContactForm = (): void => {
+    contactMessage.value =
+        'Đây là biểu mẫu giao diện; hiện chưa kết nối hệ thống gửi yêu cầu nên thông tin chưa được gửi đi.';
+    notify('Biểu mẫu chưa được kết nối hệ thống gửi yêu cầu.');
+};
+
+const onEscape = (event: KeyboardEvent): void => {
+    if (event.key === 'Escape') {
+        isCartOpen.value = false;
+        isCheckoutOpen.value = false;
+        closeProduct();
+        isProjectModalOpen.value = false;
+    }
+};
+
+watch([activeFilter, activeSubcategoryId, searchQuery], () => {
+    currentPage.value = 1;
+});
+
+watch([isCartOpen, isCheckoutOpen, isProductModalOpen, isProjectModalOpen], (states) => {
+    document.body.style.overflow = states.some(Boolean) ? 'hidden' : '';
+});
+
+onMounted(() => {
+    loadCart();
+    window.addEventListener('keydown', onEscape);
+
+    const params = new URLSearchParams(window.location.search);
+    const requestedCategoryId = Number(params.get('category'));
+    const requestedCategory = props.categories.find(
+        (category) => category.id === requestedCategoryId,
+    );
+
+    if (requestedCategory) {
+        activeFilter.value = String(requestedCategory.id);
+
+        const requestedSubcategoryId = Number(params.get('subcategory'));
+
+        if (
+            requestedCategory.children.some(
+                (subcategory) => subcategory.id === requestedSubcategoryId,
+            )
+        ) {
+            activeSubcategoryId.value = requestedSubcategoryId;
+        }
+    }
+
+    if (window.location.hash === '#products') {
+        void nextTick(() => {
+            document.querySelector('#products')?.scrollIntoView({ behavior: 'smooth' });
+        });
+    }
+
+    if ('IntersectionObserver' in window) {
+        revealObserver = new IntersectionObserver(
+            (entries, observer) => {
+                entries.forEach((entry) => {
+                    if (entry.isIntersecting) {
+                        entry.target.classList.add('visible');
+                        observer.unobserve(entry.target);
+                    }
+                });
+            },
+            { threshold: 0.08 },
+        );
+
+        document.querySelectorAll('.reveal').forEach((element) => {
+            revealObserver?.observe(element);
+        });
+    } else {
+        document.querySelectorAll('.reveal').forEach((element) => {
+            element.classList.add('visible');
+        });
+    }
+});
+
+onUnmounted(() => {
+    window.removeEventListener('keydown', onEscape);
+    revealObserver?.disconnect();
+    clearTimeout(toastTimer);
+    document.body.style.overflow = '';
+});
 </script>
 
 <template>
-    <UserLayout>
+    <UserLayout :cart-count="cartCount" active-page="home" @open-cart="isCartOpen = true">
+        <Head title="Trang chủ | NOVA TECH" />
         <main>
-            <section id="home" class="hero">
-                <div class="hero-inner">
-                    <div class="hero-copy">
-                        <span class="eyebrow"><span></span> GIẢI PHÁP KỸ THUẬT CÔNG TRÌNH</span>
-                        <h1>
-                            Nền tảng vững chắc
-                            <span>cho mọi công trình.</span>
-                        </h1>
-                        <p>
-                            KB TECH cung cấp thiết bị và giải pháp kỹ thuật đáng tin cậy,
-                            đồng hành cùng chủ đầu tư và nhà thầu từ lựa chọn sản phẩm đến
-                            triển khai thực tế.
-                        </p>
-                        <div class="hero-actions">
-                            <a class="button button-primary" href="#solutions">
-                                Khám phá giải pháp <span aria-hidden="true">↗</span>
-                            </a>
-                            <a class="button button-secondary" href="#projects">
-                                Xem dự án tiêu biểu
-                            </a>
-                        </div>
-                        <div class="hero-proof">
-                            <span class="proof-check" aria-hidden="true">✓</span>
-                            <span>Đối tác đồng hành tin cậy cho các công trình</span>
-                        </div>
-                    </div>
-
-                    <div class="hero-visual" aria-label="Minh họa giải pháp kỹ thuật cho công trình">
-                        <div class="visual-orbit orbit-one"></div>
-                        <div class="visual-orbit orbit-two"></div>
-                        <div class="visual-building building-back"></div>
-                        <div class="visual-building building-front">
-                            <div class="building-roof"></div>
-                            <div class="building-windows">
-                                <i v-for="window in 12" :key="window"></i>
-                            </div>
-                            <div class="building-base"></div>
-                        </div>
-                        <div class="visual-pipe pipe-one"></div>
-                        <div class="visual-pipe pipe-two"></div>
-                        <div class="visual-label label-top">
-                            <span class="label-dot"></span>
-                            <span><strong>Hiệu quả</strong><small>Giải pháp tối ưu</small></span>
-                        </div>
-                        <div class="visual-label label-bottom">
-                            <span class="label-icon">⌂</span>
-                            <span><strong>Đồng hành</strong><small>Từ thiết kế đến vận hành</small></span>
-                        </div>
-                        <span class="visual-caption">ENGINEERED FOR PERFORMANCE</span>
-                    </div>
+        <section id="home" class="hero">
+          <div class="wrap">
+            <div class="hero-grid">
+              <div class="hero-copy">
+                <div class="eyebrow"><span class="dot"></span> Đối tác vật tư kỹ thuật đáng tin cậy</div>
+                <h1>Kiến tạo công trình.<br><span>Nâng tầm</span> chất lượng.</h1>
+                <p class="hero-lead">Từ thiết bị nước nóng Ariston đến giải pháp bảo ôn K-FLEX và vật tư MEP chuyên dụng — lựa chọn đúng sản phẩm, tối ưu hiệu quả cho từng công trình.</p>
+                <div class="hero-ctas"><a href="#products" class="btn btn-primary">Khám phá sản phẩm <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14m-6-6 6 6-6 6"/></svg></a><a href="#projects" class="btn btn-outline">Xem dự án <span>↗</span></a>
                 </div>
                 <div class="hero-bottom">
-                    <span>GIẢI PHÁP CHO NHỮNG CÔNG TRÌNH BỀN VỮNG</span>
-                    <span class="bottom-line"></span>
+                  <div class="mini-stat"><strong>MEP</strong><span>Giải pháp kỹ thuật</span>
+                  </div>
+                  <div class="mini-stat"><strong>360°</strong><span>Hỗ trợ xuyên suốt</span>
+                  </div>
+                  <div class="mini-stat"><strong>B2B</strong><span>Đồng hành dự án</span>
+                  </div>
                 </div>
-            </section>
-
-            <section class="trust-strip" aria-label="Lĩnh vực phục vụ">
-                <span>GIẢI PHÁP CHO NHIỀU LĨNH VỰC</span>
-                <strong>NHÀ Ở</strong>
-                <i></i>
-                <strong>THƯƠNG MẠI</strong>
-                <i></i>
-                <strong>CÔNG NGHIỆP</strong>
-                <i></i>
-                <strong>Y TẾ & DỊCH VỤ</strong>
-            </section>
-
-            <section id="solutions" class="section solutions-section">
-                <div class="section-heading">
-                    <div>
-                        <span class="eyebrow">GIẢI PHÁP CỦA CHÚNG TÔI</span>
-                        <h2>Đúng giải pháp.<br /><span>Vững công trình.</span></h2>
+              </div>
+              <div class="hero-art" role="img" aria-label="Hình minh họa thiết bị kỹ thuật">
+                <div class="orb"></div>
+                <div class="art-tag">Technical supply · Since 2014</div>
+                <div class="tank">
+                  <div class="tank-cap"></div>
+                  <div class="tank-body"></div>
+                  <div class="tank-band">
+                    <div>ARISTON<small>WATER COMFORT</small>
                     </div>
-                    <p>
-                        Từ thiết bị đến vật liệu kỹ thuật, chúng tôi tập trung vào những
-                        lựa chọn phù hợp với yêu cầu vận hành và giá trị lâu dài của dự án.
-                    </p>
+                  </div>
+                  <div class="tank-foot"></div>
                 </div>
-
-                <div class="solution-grid">
-                    <article
-                        v-for="solution in solutions"
-                        :key="solution.number"
-                        class="solution-card"
-                    >
-                        <div class="solution-top">
-                            <span class="solution-symbol">{{ solution.symbol }}</span>
-                            <span class="solution-number">{{ solution.number }}</span>
-                        </div>
-                        <span class="solution-tag">{{ solution.tag }}</span>
-                        <h3>{{ solution.title }}</h3>
-                        <p>{{ solution.description }}</p>
-                        <a href="#contact" :aria-label="`Tìm hiểu ${solution.title}`">
-                            Tìm hiểu thêm <span aria-hidden="true">↗</span>
-                        </a>
-                    </article>
+                <div class="coil">
+                  <div class="coil-ring"></div><span class="coil-label">K·FLEX INSULATION</span>
                 </div>
-            </section>
-
-            <section class="expertise">
-                <div class="expertise-inner">
-                    <div class="expertise-art" aria-hidden="true">
-                        <div class="art-circle circle-large"></div>
-                        <div class="art-circle circle-small"></div>
-                        <div class="art-grid"></div>
-                        <div class="art-card">
-                            <span>KB</span>
-                            <strong>ENGINEERING</strong>
-                            <small>DESIGNED FOR REAL LIFE</small>
-                        </div>
-                        <div class="art-number">01 <span>— 03</span></div>
-                    </div>
-                    <div class="expertise-copy">
-                        <span class="eyebrow">NĂNG LỰC ĐỒNG HÀNH</span>
-                        <h2>Không chỉ cung cấp sản phẩm, chúng tôi mang đến sự an tâm.</h2>
-                        <p>
-                            Mỗi công trình có một bài toán riêng. KB TECH lắng nghe nhu cầu,
-                            đề xuất phương án phù hợp và phối hợp cùng đối tác trong suốt quá
-                            trình triển khai.
-                        </p>
-                        <ul>
-                            <li><span>✓</span> Tư vấn lựa chọn theo nhu cầu thực tế</li>
-                            <li><span>✓</span> Sản phẩm và giải pháp từ thương hiệu uy tín</li>
-                            <li><span>✓</span> Hỗ trợ xuyên suốt quá trình triển khai</li>
-                        </ul>
-                        <a class="text-link" href="#contact">Trao đổi với chúng tôi <span>↗</span></a>
-                    </div>
+                <div class="floating-card"><small>ENGINEERED FOR EVERY PROJECT</small><strong>Built to perform.</strong><span>Chất lượng trong từng chi tiết</span>
+                  <div class="tinyline"></div>
                 </div>
-            </section>
-
-            <section id="projects" class="section projects-section">
-                <div class="section-heading">
-                    <div>
-                        <span class="eyebrow">DẤU ẤN CÔNG TRÌNH</span>
-                        <h2>Giải pháp thực tế,<br /><span>giá trị bền lâu.</span></h2>
-                    </div>
-                    <a class="text-link" href="#contact">
-                        Khám phá năng lực dự án <span>↗</span>
-                    </a>
+                <div class="art-caption"><strong>Engineered for life.</strong><span>SMARTER MATERIALS · BETTER BUILDS</span>
                 </div>
-
-                <div class="project-panel">
-                    <div class="project-illustration" aria-hidden="true">
-                        <div class="project-sun"></div>
-                        <div class="project-tower tower-one">
-                            <i v-for="window in 8" :key="`one-${window}`"></i>
-                        </div>
-                        <div class="project-tower tower-two">
-                            <i v-for="window in 10" :key="`two-${window}`"></i>
-                        </div>
-                        <div class="project-tower tower-three">
-                            <i v-for="window in 6" :key="`three-${window}`"></i>
-                        </div>
-                        <div class="project-ground"></div>
-                        <span class="project-stamp">KB TECH<br />PROJECTS</span>
-                    </div>
-                    <div class="project-copy">
-                        <span class="project-label">LĨNH VỰC DỰ ÁN</span>
-                        <h3>Giải pháp cho đa dạng quy mô công trình</h3>
-                        <p>
-                            Năng lực sản phẩm và tư vấn phù hợp với nhiều loại hình dự án
-                            dân dụng, thương mại và công nghiệp.
-                        </p>
-                        <ul>
-                            <li v-for="(projectType, index) in projectTypes" :key="projectType">
-                                <span>0{{ index + 1 }}</span>{{ projectType }}<b>↗</b>
-                            </li>
-                        </ul>
-                    </div>
+              </div>
+            </div>
+          </div>
+        </section>
+        <section class="wrap trustbar reveal visible">
+          <div class="trustitem">
+            <div class="trust-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="m12 3 8 4v5c0 5-3.5 7.8-8 9-4.5-1.2-8-4-8-9V7z"/><path d="m8.5 12 2.2 2.2 4.8-5"/></svg>
+            </div>
+            <div><strong>Chọn lọc chất lượng</strong><span>Sản phẩm & nguồn gốc rõ ràng</span>
+            </div>
+          </div>
+          <div class="trustitem">
+            <div class="trust-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M3 6h11v11H3zM14 10h4l3 4v3h-7z"/><circle cx="7.5" cy="19" r="2"/><circle cx="18" cy="19" r="2"/></svg>
+            </div>
+            <div><strong>Cung ứng linh hoạt</strong><span>Hỗ trợ theo tiến độ công trình</span>
+            </div>
+          </div>
+          <div class="trustitem">
+            <div class="trust-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 3v3m0 12v3M3 12h3m12 0h3M5.6 5.6l2.1 2.1m8.6 8.6 2.1 2.1m0-12.8-2.1 2.1m-8.6 8.6-2.1 2.1"/><circle cx="12" cy="12" r="5"/></svg>
+            </div>
+            <div><strong>Tư vấn kỹ thuật</strong><span>Đúng thông số, đúng nhu cầu</span>
+            </div>
+          </div>
+          <div class="trustitem">
+            <div class="trust-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 8v4l3 2"/><circle cx="12" cy="12" r="9"/><path d="m5 3 2 2m12-2-2 2"/></svg>
+            </div>
+            <div><strong>Đồng hành dài lâu</strong><span>Phản hồi rõ ràng, tận tâm</span>
+            </div>
+          </div>
+        </section>
+        <section id="categories" class="section">
+          <div class="wrap">
+            <div class="section-head reveal visible">
+              <div>
+                <div class="eyebrow"><span class="dot"></span> Danh mục sản phẩm</div>
+                <h2 class="section-title">Mọi hạng mục.<br><em>Một điểm đến.</em>
+                </h2>
+              </div>
+              <p class="section-desc">Danh mục được tổ chức rõ ràng giúp bạn tìm nhanh thiết bị phù hợp cho nhà ở, thương mại và công trình công nghiệp.</p>
+            </div>
+            <div v-if="categories.length > 0" class="category-grid">
+              <a
+                  v-for="(category, index) in categories"
+                  :key="category.id"
+                  class="category-card reveal visible"
+                  :href="categoryPageUrl(category.id)"
+              >
+                <span class="cat-number">
+                  {{ String(index + 1).padStart(2, '0') }} /
+                  {{ category.children.length }} DÒNG SẢN PHẨM
+                </span>
+                <div class="cat-art">
+                  <img
+                      v-if="categoryImageUrl(category)"
+                      :src="categoryImageUrl(category) ?? undefined"
+                      :alt="category.name"
+                      loading="lazy"
+                  >
+                  <span v-else class="category-art-placeholder" aria-hidden="true">N</span>
                 </div>
-            </section>
-
-            <section id="contact" class="contact-section">
-                <div class="contact-inner">
-                    <div>
-                        <span class="eyebrow">BẮT ĐẦU CÙNG KB TECH</span>
-                        <h2>Bạn đang chuẩn bị cho công trình tiếp theo?</h2>
-                        <p>Hãy chia sẻ nhu cầu, chúng tôi sẵn sàng cùng bạn tìm giải pháp phù hợp.</p>
-                    </div>
-                    <a class="button button-light" href="#solutions">
-                        Khám phá giải pháp <span aria-hidden="true">↗</span>
-                    </a>
+                <strong class="cat-title">{{ category.name }}</strong>
+                <span class="cat-bottom">
+                  <span>Xem dòng sản phẩm</span>
+                  <span class="circle-arrow" aria-hidden="true">↗</span>
+                </span>
+              </a>
+            </div>
+            <div v-else class="empty-state">
+              Chưa có danh mục sản phẩm nào được cập nhật.
+            </div>
+            <div class="view-all">
+              <a class="btn btn-dark" href="/categories">Khám phá tất cả danh mục <span>↗</span></a>
+            </div>
+          </div>
+        </section>
+        <section id="products" class="product-section">
+          <div class="wrap">
+            <div class="section-head reveal visible">
+              <div>
+                <div class="eyebrow"><span class="dot"></span> Bộ sưu tập nổi bật</div>
+                <h2 class="section-title">Sản phẩm được<br><em>chọn nhiều.</em>
+                </h2>
+              </div>
+              <p class="section-desc">Thiết bị và vật tư thiết yếu, lựa chọn linh hoạt theo quy mô, thông số kỹ thuật và ngân sách của dự án.</p>
+            </div>
+            <div class="product-toolbar">
+              <div class="filters" id="filters">
+                <button
+                    v-for="filter in filters"
+                    :key="filter.value"
+                    class="filter-btn"
+                    :class="{ active: activeFilter === filter.value }"
+                    type="button"
+                    @click="selectFilter(filter.value)"
+                >
+                    {{ filter.label }}
+                </button>
+              </div>
+              <label class="searchbox">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="10.8" cy="10.8" r="6.8"/><path d="m16 16 5 5"/></svg>
+                <input v-model="searchQuery" id="productSearch" type="search" placeholder="Tìm sản phẩm, mã hàng..." aria-label="Tìm sản phẩm">
+              </label>
+            </div>
+            <div v-if="selectedCategory?.children.length" class="subcategory-filters">
+              <span class="subcat-filter-label">Lọc theo dòng</span>
+              <button
+                  class="subcat-filter"
+                  :class="{ active: activeSubcategoryId === null }"
+                  type="button"
+                  @click="activeSubcategoryId = null"
+              >
+                Tất cả {{ selectedCategory.name }}
+              </button>
+              <button
+                  v-for="subcategory in selectedCategory.children"
+                  :key="subcategory.id"
+                  class="subcat-filter"
+                  :class="{ active: activeSubcategoryId === subcategory.id }"
+                  type="button"
+                  @click="activeSubcategoryId = subcategory.id"
+              >
+                {{ subcategory.name }}
+              </button>
+            </div>
+            <div class="product-grid" id="productGrid">
+              <article v-for="product in paginatedProducts" :key="product.id" class="product-card reveal visible">
+                <div class="product-photo">
+                  <span class="pill">{{ product.category?.name ?? 'Sản phẩm kỹ thuật' }}</span>
+                  <button class="quick-btn" type="button" :aria-label="`Xem nhanh ${product.name}`" @click="openProduct(product)">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
+                      <path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6-10-6-10-6Z"/>
+                      <circle cx="12" cy="12" r="3"/>
+                    </svg>
+                  </button>
+                  <img
+                    v-if="productImage(product)"
+                    class="product-image"
+                    :src="productImage(product) ?? undefined"
+                    :alt="product.name"
+                    loading="lazy"
+                  >
+                  <svg v-else class="product-placeholder" viewBox="0 0 110 110" fill="none" aria-hidden="true">
+                    <rect x="29" y="17" width="52" height="76" rx="12" fill="#d1d9c5" stroke="#879b7e" stroke-width="2"/>
+                    <path d="M29 43h52v20H29z" fill="#345342"/>
+                    <path d="M43 77h24" stroke="#879b7e" stroke-width="3" stroke-linecap="round"/>
+                  </svg>
                 </div>
-            </section>
-        </main>
+                <div class="product-body">
+                  <div class="product-meta">{{ product.subcategory?.name ?? 'Danh mục sản phẩm' }}</div>
+                  <h3 class="product-name">{{ product.name }}</h3>
+                  <p class="product-desc">{{ product.description }}</p>
+                  <div class="product-bottom">
+                    <span class="price">
+                      {{ formatPrice(product.price) }}
+                      <small v-if="product.price > 0">Giá tham khảo · / sản phẩm</small>
+                    </span>
+                    <button class="add-btn" type="button" :aria-label="`Thêm ${product.name} vào giỏ`" @click="addToCart(product)">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M3 4h2l2.2 11.1a2 2 0 0 0 2 1.6h8.4a2 2 0 0 0 1.9-1.4L22 8H6"/>
+                        <circle cx="10" cy="20" r="1"/>
+                        <circle cx="18" cy="20" r="1"/>
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+              </article>
+              <div v-if="visibleProducts.length === 0" class="empty-state">
+                Không tìm thấy sản phẩm phù hợp. Hãy thử từ khóa hoặc danh mục khác.
+              </div>
+            </div>
+            <nav v-if="pageCount > 1" class="pagination" aria-label="Phân trang sản phẩm">
+              <button class="page-btn" type="button" aria-label="Trang trước" :disabled="currentPage === 1" @click="goToPage(currentPage - 1)">←</button>
+              <button
+                  v-for="page in pageCount"
+                  :key="page"
+                  class="page-btn"
+                  :class="{ active: currentPage === page }"
+                  type="button"
+                  :aria-current="currentPage === page ? 'page' : undefined"
+                  @click="goToPage(page)"
+              >
+                {{ page }}
+              </button>
+              <span class="page-status">Trang {{ currentPage }} / {{ pageCount }}</span>
+              <button class="page-btn" type="button" aria-label="Trang sau" :disabled="currentPage === pageCount" @click="goToPage(currentPage + 1)">→</button>
+            </nav>
+            <div class="view-all">
+              <button class="btn btn-dark" type="button" @click="showAllProducts">
+                Xem tất cả sản phẩm <span>↗</span>
+              </button>
+            </div>
+            <p class="note">* Giá hiển thị là giá minh họa cho bản demo, chưa phải báo giá thương mại. Vui lòng liên hệ để xác nhận tồn kho, thông số và giá thực tế.</p>
+          </div>
+        </section>
+        <section id="about" class="section">
+          <div class="wrap split-feature">
+            <div class="feature-visual reveal visible">
+              <div class="feature-lines"></div>
+              <div class="feature-big">Less loss.<br>More life.<small>Insulation that works.</small>
+              </div>
+              <div class="insulation-roll">
+                <div class="roll-core"></div>
+              </div>
+              <div class="feature-label"><strong>K-FLEX · THERMAL INSULATION</strong><span>Giải pháp bảo ôn chuyên dụng</span>
+              </div>
+            </div>
+            <div class="feature-copy reveal visible">
+              <div class="eyebrow"><span class="dot"></span> Chọn giải pháp, không chỉ chọn hàng</div>
+              <h2 class="section-title">Từ bản vẽ đến<br><em>công trình thực tế.</em>
+              </h2>
+              <p>Chúng tôi hướng đến việc trở thành đầu mối cung ứng tin cậy cho nhà thầu, đơn vị cơ điện và chủ đầu tư — bằng danh mục rõ ràng, tư vấn phù hợp và quy trình làm việc chuyên nghiệp.</p>
+              <ul class="check-list">
+                <li><span class="check">✓</span> Hỗ trợ tra cứu thông số và lựa chọn sản phẩm</li>
+                <li><span class="check">✓</span> Tổng hợp nhu cầu đa danh mục trong một đầu mối</li>
+                <li><span class="check">✓</span> Đồng hành báo giá, tiến độ và hồ sơ vật tư</li>
+                <li><span class="check">✓</span> Ưu tiên giải pháp bền vững, tối ưu vận hành</li>
+              </ul><a href="#contact" class="btn btn-primary">Trao đổi với chuyên viên <span>↗</span></a>
+            </div>
+          </div>
+        </section>
+        <section id="projects" class="section">
+          <div class="wrap">
+            <div class="project-section">
+              <div class="wrap">
+                <div class="section-head reveal visible">
+                  <div>
+                    <div class="eyebrow"><span class="dot"></span> Dấu ấn công trình</div>
+                    <h2 class="section-title">Giải pháp cho<br><em>những không gian lớn.</em>
+                    </h2>
+                  </div>
+                  <p class="section-desc">Một số dự án tiêu biểu và hạng mục kỹ thuật được KB TECH cập nhật.</p>
+                </div>
+                <div class="project-grid">
+                  <article
+                      v-for="project in featuredProjects"
+                      :key="project.id"
+                      class="project-card reveal"
+                      role="button"
+                      tabindex="0"
+                      @click="selectedProject = project; isProjectModalOpen = true"
+                      @keydown.enter="selectedProject = project; isProjectModalOpen = true"
+                      @keydown.space.prevent="selectedProject = project; isProjectModalOpen = true"
+                  >
+                    <img class="project-image" :src="productImageUrl(project.image)" :alt="project.name" loading="lazy">
+                    <div class="project-info">
+                      <span class="project-type">{{ projectTypeLabel(project.type) }} · {{ project.category }}</span>
+                      <h3>{{ project.name }}</h3>
+                      <p>{{ project.description }}</p>
+                      <div class="project-foot">
+                        <span>{{ project.subcategory }}</span>
+                        <span class="circle-arrow">↗</span>
+                      </div>
+                    </div>
+                  </article>
+                  <div v-if="featuredProjects.length === 0" class="empty-state">
+                    Chưa có dự án tiêu biểu được cập nhật.
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="section-head reveal" style="margin-top:68px">
+              <div>
+                <div class="eyebrow"><span class="dot"></span> Cách chúng tôi làm việc</div>
+                <h2 class="section-title">Rõ ràng từ bước đầu.</h2>
+              </div>
+              <p class="section-desc">Một quy trình tinh gọn giúp giảm thời gian trao đổi và làm rõ yêu cầu trước khi chốt đơn hàng.</p>
+            </div>
+            <div class="process">
+              <div class="process-step reveal"><span class="process-num">01 — DISCOVER</span>
+                <h3>Tiếp nhận nhu cầu</h3>
+                <p>Làm rõ hạng mục, số lượng, thông số và tiến độ dự kiến.</p>
+              </div>
+              <div class="process-step reveal"><span class="process-num">02 — CONSULT</span>
+                <h3>Tư vấn giải pháp</h3>
+                <p>Đề xuất danh mục phù hợp với điều kiện vận hành thực tế.</p>
+              </div>
+              <div class="process-step reveal"><span class="process-num">03 — PROPOSE</span>
+                <h3>Báo giá minh bạch</h3>
+                <p>Thống nhất quy cách, giá và các điều kiện cung ứng.</p>
+              </div>
+              <div class="process-step reveal"><span class="process-num">04 — DELIVER</span>
+                <h3>Phối hợp giao hàng</h3>
+                <p>Đồng hành xử lý các yêu cầu trong quá trình triển khai.</p>
+              </div>
+            </div>
+          </div>
+        </section>
+        <section class="section">
+          <div class="wrap">
+            <div class="testimonial reveal">
+              <div class="quote-mark">“</div>
+              <div class="quote-copy">Một đối tác cung ứng tốt không chỉ giao đúng hàng — mà còn giúp đội dự án chọn đúng giải pháp ngay từ đầu.</div>
+              <div class="quote-meta">
+                <div class="stars">★★★★★</div><strong>Cam kết dịch vụ</strong><span>Định hướng trải nghiệm khách hàng<br>Được trình bày như thông điệp thương hiệu</span>
+              </div>
+            </div>
+          </div>
+        </section>
+        <section id="contact" class="contact-section">
+          <div class="wrap">
+            <div class="contact-card reveal">
+              <div class="contact-copy">
+                <div class="eyebrow"><span class="dot"></span> Bắt đầu một cuộc trao đổi</div>
+                <h2>Công trình của bạn.<br><span style="font-family:Georgia,serif;font-weight:400;font-style:italic">Giải pháp của chúng tôi.</span>
+                </h2>
+                <p>Gửi yêu cầu về mặt hàng, số lượng hoặc bản vẽ. Đội ngũ tư vấn sẽ có cơ sở để hỗ trợ bạn tốt hơn.</p>
+                <div class="contact-details">
+                  <div><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M4 5h16v14H4z"/><path d="m4 7 8 6 8-6"/></svg> sales@novatech.vn <small style="font-weight:500">(thông tin mẫu)</small>
+                  </div>
+                  <div><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M7 3h10v18H7zM10 6h4M10 18h4"/></svg> 0900 000 000 <small style="font-weight:500">(thông tin mẫu)</small>
+                  </div>
+                  <div><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M20 10c0 5-8 11-8 11S4 15 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="2.5"/></svg> Hà Nội, Việt Nam <small style="font-weight:500">(địa chỉ mẫu)</small>
+                  </div>
+                </div>
+              </div>
+              <form class="contact-form" id="contactForm" @submit.prevent="submitContactForm">
+                <div class="form-row">
+                  <div class="field"><label for="fullName">HỌ VÀ TÊN *</label><input id="fullName" name="name" placeholder="Tên của bạn" required>
+                  </div>
+                  <div class="field"><label for="phone">SỐ ĐIỆN THOẠI *</label><input id="phone" name="phone" placeholder="09xx xxx xxx" required inputmode="tel">
+                  </div>
+                </div>
+                <div class="field"><label for="email">EMAIL CÔNG VIỆC</label><input id="email" name="email" type="email" placeholder="ban@congty.vn">
+                </div>
+                <div class="field"><label for="interest">HẠNG MỤC QUAN TÂM</label><select id="interest" name="interest"><option value="">Chọn hạng mục</option><option>Bình nước nóng Ariston</option><option>Bảo ôn K-FLEX</option><option>Vật tư HVAC</option><option>Vật tư MEP tổng hợp</option><option>Cung ứng cho dự án</option></select>
+                </div>
+                <div class="field"><label for="message">MÔ TẢ NHU CẦU</label><textarea id="message" name="message" placeholder="Sản phẩm, quy cách, số lượng, tiến độ..."></textarea>
+                </div><button class="btn" type="submit">Gửi yêu cầu tư vấn <span>↗</span></button>
+                <div v-if="contactMessage" class="form-message show" id="formMessage" role="status">{{ contactMessage }}</div>
+              </form>
+            </div>
+          </div>
+        </section>
+    </main>
+
+    <div v-if="isCartOpen" class="overlay open" aria-label="Đóng giỏ hàng" @click="isCartOpen = false"></div>
+    <aside class="drawer" :class="{ open: isCartOpen }" :aria-hidden="!isCartOpen" aria-label="Giỏ hàng">
+      <div class="drawer-head">
+        <h2>Giỏ hàng <span>({{ cartCount }})</span></h2>
+        <button class="close-btn" type="button" aria-label="Đóng giỏ hàng" @click="isCartOpen = false">×</button>
+      </div>
+      <div class="cart-items">
+        <div v-if="cartItems.length === 0" class="cart-empty">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3">
+            <path d="M3 4h2l2.2 11.1a2 2 0 0 0 2 1.6h8.4a2 2 0 0 0 1.9-1.4L22 8H6"/>
+            <circle cx="10" cy="20" r="1"/>
+            <circle cx="18" cy="20" r="1"/>
+          </svg>
+          <strong>Giỏ hàng đang trống</strong>
+          <span>Thêm sản phẩm bạn quan tâm để bắt đầu.</span>
+          <button class="btn btn-primary" type="button" style="margin-top: 17px" @click="isCartOpen = false; document.querySelector('#products')?.scrollIntoView({ behavior: 'smooth' })">
+            Khám phá sản phẩm
+          </button>
+        </div>
+        <div v-for="{ product, quantity } in cartItems" :key="product.id" class="cart-row">
+          <div class="cart-thumb">
+            <img v-if="productImage(product)" :src="productImage(product) ?? undefined" :alt="product.name">
+            <span v-else>{{ product.category?.name ?? 'KB' }}</span>
+          </div>
+          <div>
+            <div class="cart-product">{{ product.name }}</div>
+            <div class="cart-price">{{ formatPrice(product.price) }}</div>
+            <div class="qty">
+              <button type="button" :aria-label="`Giảm số lượng ${product.name}`" @click="changeQuantity(product.id, -1)">−</button>
+              <span>{{ quantity }}</span>
+              <button type="button" :aria-label="`Tăng số lượng ${product.name}`" @click="changeQuantity(product.id, 1)">+</button>
+            </div>
+            <button class="remove" type="button" @click="removeFromCart(product.id)">Xóa sản phẩm</button>
+          </div>
+          <strong class="cart-row-total">{{ formatPrice(product.price * quantity) }}</strong>
+        </div>
+      </div>
+      <div v-if="cartItems.length > 0" class="cart-summary">
+        <div class="summary-line"><span>Tạm tính ({{ cartCount }} sản phẩm)</span><strong>{{ formatPrice(cartTotal) }}</strong></div>
+        <div class="summary-line"><span>Vận chuyển</span><span>Báo sau</span></div>
+        <div class="summary-line total"><span>Tổng tham khảo</span><span>{{ formatPrice(cartTotal) }}</span></div>
+        <button class="btn btn-primary" type="button" @click="openCheckout">Yêu cầu báo giá ↗</button>
+        <div class="cart-hint">Giá hiển thị chỉ để tham khảo. Báo giá thực tế sẽ được xác nhận theo yêu cầu.</div>
+      </div>
+    </aside>
+
+    <div v-if="isProductModalOpen && selectedProduct" class="modal-wrap open" role="presentation" @click.self="closeProduct">
+      <section class="modal" role="dialog" aria-modal="true" :aria-label="`Thông tin ${selectedProduct.name}`">
+        <button class="close-btn modal-close" type="button" aria-label="Đóng" @click="closeProduct">×</button>
+        <div class="quick-modal">
+          <div class="modal-art">
+            <img v-if="selectedProductImage" :src="selectedProductImage" :alt="selectedProduct.name">
+            <div v-else class="modal-image-placeholder">{{ selectedProduct.category?.name ?? 'KB TECH' }}</div>
+            <div v-if="selectedProductImages.length > 1" class="product-gallery-controls">
+              <button type="button" aria-label="Ảnh trước" @click="stepProductImage(-1)">←</button>
+              <span>{{ selectedImageIndex + 1 }} / {{ selectedProductImages.length }}</span>
+              <button type="button" aria-label="Ảnh tiếp theo" @click="stepProductImage(1)">→</button>
+            </div>
+          </div>
+          <div class="modal-copy">
+            <div class="product-meta">{{ selectedProduct.category?.name }} · {{ selectedProduct.subcategory?.name }}</div>
+            <h2>{{ selectedProduct.name }}</h2>
+            <p>{{ selectedProduct.description }}</p>
+            <div class="modal-price">{{ formatPrice(selectedProduct.price) }} <span>/ sản phẩm · giá tham khảo</span></div>
+            <button class="btn btn-primary" type="button" @click="addToCart(selectedProduct); closeProduct(); isCartOpen = true">
+              Thêm vào giỏ
+            </button>
+            <p class="modal-disclaimer">Thông số và giá bán thực tế cần được xác nhận trước khi đặt hàng.</p>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <div v-if="isCheckoutOpen" class="modal-wrap open" role="presentation" @click.self="isCheckoutOpen = false">
+      <section class="modal checkout-modal" role="dialog" aria-modal="true" aria-label="Yêu cầu báo giá">
+        <button class="close-btn modal-close" type="button" aria-label="Đóng" @click="isCheckoutOpen = false">×</button>
+        <form class="checkout-form" @submit.prevent="submitCheckout">
+          <h3>Yêu cầu báo giá</h3>
+          <div class="checkout-summary">
+            <strong>{{ cartCount }} sản phẩm trong giỏ hàng</strong>
+            <span>Tổng giá trị tham khảo: {{ formatPrice(cartTotal) }}</span>
+          </div>
+          <div class="field">
+            <label for="checkoutName">HỌ VÀ TÊN *</label>
+            <input id="checkoutName" name="name" required autocomplete="name" placeholder="Tên của bạn">
+          </div>
+          <div class="field">
+            <label for="checkoutPhone">SỐ ĐIỆN THOẠI *</label>
+            <input id="checkoutPhone" name="phone" required autocomplete="tel" inputmode="tel" placeholder="09xx xxx xxx">
+          </div>
+          <div class="field">
+            <label for="checkoutEmail">EMAIL</label>
+            <input id="checkoutEmail" name="email" type="email" autocomplete="email" placeholder="ban@congty.vn">
+          </div>
+          <button class="btn btn-primary" type="submit">Gửi yêu cầu báo giá</button>
+          <p v-if="checkoutMessage" class="form-message show" role="status">{{ checkoutMessage }}</p>
+          <p class="modal-disclaimer">Biểu mẫu hiện đang ở chế độ giao diện thử nghiệm; chưa gửi thông tin đến máy chủ.</p>
+        </form>
+      </section>
+    </div>
+
+    <div v-if="isProjectModalOpen && selectedProject" class="modal-wrap open" role="presentation" @click.self="isProjectModalOpen = false">
+      <section class="modal project-modal" role="dialog" aria-modal="true" :aria-label="selectedProject.name">
+        <button class="close-btn modal-close" type="button" aria-label="Đóng" @click="isProjectModalOpen = false">×</button>
+        <img class="project-modal-image" :src="productImageUrl(selectedProject.image)" :alt="selectedProject.name">
+        <div class="project-modal-copy">
+          <span class="project-type">{{ projectTypeLabel(selectedProject.type) }}</span>
+          <h2>{{ selectedProject.name }}</h2>
+          <p>{{ selectedProject.description }}</p>
+          <dl>
+            <div><dt>Địa điểm</dt><dd>{{ selectedProject.location }}</dd></div>
+            <div><dt>Danh mục</dt><dd>{{ selectedProject.category }}</dd></div>
+            <div><dt>Nhóm</dt><dd>{{ selectedProject.subcategory }}</dd></div>
+          </dl>
+          <a class="btn btn-primary" href="#contact" @click="isProjectModalOpen = false">Trao đổi về dự án ↗</a>
+        </div>
+      </section>
+    </div>
+
+    <div class="toast" :class="{ show: isToastVisible }" role="status" aria-live="polite">
+      <span class="toast-dot"></span>{{ toastMessage }}
+    </div>
     </UserLayout>
 </template>
-
-<style scoped>
-.hero {
-    position: relative;
-    min-height: 585px;
-    padding: 50px 24px 0;
-    background:
-        radial-gradient(ellipse at 77% 39%, rgb(220 241 239 / 75%), transparent 37%),
-        linear-gradient(115deg, #f4f8f8 0%, #f6f9f9 53%, #eef6f4 100%);
-}
-
-.hero-inner,
-.section,
-.expertise-inner,
-.contact-inner {
-    width: min(1120px, 100%);
-    margin: 0 auto;
-}
-
-.hero-inner {
-    display: grid;
-    min-height: 470px;
-    grid-template-columns: 1fr 0.9fr;
-    align-items: center;
-    gap: 35px;
-}
-
-.hero-copy {
-    position: relative;
-    z-index: 1;
-    padding: 10px 0 27px;
-}
-
-.eyebrow {
-    display: inline-flex;
-    align-items: center;
-    gap: 9px;
-    color: #087e83;
-    font-size: 10px;
-    font-weight: 800;
-    letter-spacing: 1.5px;
-}
-
-.hero-copy .eyebrow > span {
-    width: 7px;
-    height: 7px;
-    border-radius: 50%;
-    background: #16a1a0;
-    box-shadow: 0 0 0 4px rgb(22 161 160 / 13%);
-}
-
-.hero h1 {
-    max-width: 590px;
-    margin: 22px 0 18px;
-    color: #183347;
-    font-size: clamp(38px, 5vw, 61px);
-    font-weight: 750;
-    letter-spacing: -2.8px;
-    line-height: 1.1;
-}
-
-.hero h1 span,
-.section-heading h2 span {
-    color: #07858a;
-}
-
-.hero-copy > p,
-.section-heading > p,
-.expertise-copy > p {
-    max-width: 505px;
-    color: #627580;
-    font-size: 14px;
-    line-height: 1.9;
-}
-
-.hero-actions {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 12px;
-    margin-top: 27px;
-}
-
-.button {
-    display: inline-flex;
-    min-height: 48px;
-    align-items: center;
-    justify-content: center;
-    gap: 14px;
-    padding: 0 18px;
-    border-radius: 7px;
-    font-size: 12px;
-    font-weight: 700;
-    transition:
-        transform 160ms ease,
-        background 160ms ease;
-}
-
-.button:hover {
-    transform: translateY(-2px);
-}
-
-.button-primary {
-    background: #087e83;
-    color: #fff;
-}
-
-.button-primary:hover {
-    background: #066c71;
-}
-
-.button-secondary {
-    border: 1px solid #d6e1e2;
-    background: rgb(255 255 255 / 65%);
-    color: #244252;
-}
-
-.hero-proof {
-    display: flex;
-    align-items: center;
-    gap: 9px;
-    margin-top: 26px;
-    color: #71828c;
-    font-size: 11px;
-}
-
-.proof-check {
-    display: grid;
-    width: 18px;
-    height: 18px;
-    place-items: center;
-    border-radius: 50%;
-    background: #dcefeb;
-    color: #07857e;
-    font-size: 11px;
-    font-weight: 800;
-}
-
-.hero-visual {
-    position: relative;
-    height: 410px;
-    overflow: hidden;
-    border-radius: 44% 44% 20px 20px;
-    background:
-        linear-gradient(165deg, rgb(210 233 229 / 25%), transparent 55%),
-        linear-gradient(135deg, #d9eae7, #eef4ef 68%, #d4e6e1);
-}
-
-.visual-orbit {
-    position: absolute;
-    border: 1px solid rgb(8 126 131 / 13%);
-    border-radius: 50%;
-}
-
-.orbit-one {
-    top: 34px;
-    left: 54px;
-    width: 380px;
-    height: 380px;
-}
-
-.orbit-two {
-    top: 78px;
-    left: 98px;
-    width: 292px;
-    height: 292px;
-}
-
-.visual-building {
-    position: absolute;
-    bottom: 46px;
-}
-
-.building-back {
-    right: 48px;
-    width: 116px;
-    height: 224px;
-    border: 1px solid #7d9b9b;
-    background: repeating-linear-gradient(
-        0deg,
-        #b2cbca 0,
-        #b2cbca 3px,
-        #d8e5e0 4px,
-        #d8e5e0 23px
-    );
-    box-shadow: 12px 15px 0 rgb(52 94 99 / 7%);
-    transform: skewY(-7deg);
-}
-
-.building-front {
-    right: 125px;
-    bottom: 46px;
-    width: 174px;
-    height: 268px;
-    background: linear-gradient(100deg, #e8f0e9, #bdcfca);
-    box-shadow: 19px 18px 30px rgb(55 96 97 / 15%);
-    clip-path: polygon(0 10%, 77% 0, 100% 8%, 100% 100%, 0 100%);
-}
-
-.building-roof {
-    position: absolute;
-    top: 0;
-    right: 0;
-    width: 23%;
-    height: 100%;
-    background: rgb(66 113 115 / 15%);
-    clip-path: polygon(0 0, 100% 8%, 100% 100%, 0 100%);
-}
-
-.building-windows {
-    position: absolute;
-    top: 42px;
-    left: 20px;
-    display: grid;
-    width: 125px;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 9px;
-}
-
-.building-windows i {
-    height: 27px;
-    border: 1px solid rgb(92 141 143 / 35%);
-    background: linear-gradient(135deg, #80b3b3, #b1d4ce);
-}
-
-.building-base {
-    position: absolute;
-    right: 0;
-    bottom: 0;
-    left: 0;
-    height: 34px;
-    background: #a9c0ba;
-}
-
-.visual-pipe {
-    position: absolute;
-    z-index: 1;
-    width: 48px;
-    height: 5px;
-    border: 2px solid #fff;
-    border-radius: 6px;
-    background: #078c8c;
-    box-shadow: 0 3px 8px rgb(8 126 131 / 20%);
-}
-
-.pipe-one {
-    right: 231px;
-    bottom: 160px;
-    transform: rotate(90deg);
-}
-
-.pipe-two {
-    right: 203px;
-    bottom: 135px;
-    width: 32px;
-    transform: rotate(0deg);
-}
-
-.visual-label {
-    position: absolute;
-    z-index: 2;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 11px 14px;
-    border: 1px solid rgb(255 255 255 / 80%);
-    border-radius: 10px;
-    background: rgb(255 255 255 / 90%);
-    box-shadow: 0 12px 30px rgb(37 72 76 / 10%);
-}
-
-.label-top {
-    top: 80px;
-    left: 0;
-}
-
-.label-bottom {
-    right: 8px;
-    bottom: 82px;
-}
-
-.label-dot {
-    width: 9px;
-    height: 9px;
-    border-radius: 50%;
-    background: #20a489;
-    box-shadow: 0 0 0 5px #e3f4ee;
-}
-
-.label-icon {
-    display: grid;
-    width: 30px;
-    height: 30px;
-    place-items: center;
-    border-radius: 8px;
-    background: #e3f3f1;
-    color: #087e83;
-    font-size: 17px;
-}
-
-.visual-label strong,
-.visual-label small {
-    display: block;
-}
-
-.visual-label strong {
-    color: #244252;
-    font-size: 10px;
-}
-
-.visual-label small {
-    margin-top: 4px;
-    color: #819098;
-    font-size: 8px;
-}
-
-.visual-caption {
-    position: absolute;
-    right: 16px;
-    bottom: 15px;
-    color: #6f8b88;
-    font-size: 7px;
-    font-weight: 800;
-    letter-spacing: 1.5px;
-}
-
-.hero-bottom {
-    display: flex;
-    width: min(1120px, 100%);
-    height: 62px;
-    align-items: center;
-    gap: 20px;
-    margin: 0 auto;
-    border-top: 1px solid rgb(86 122 125 / 15%);
-    color: #7f9298;
-    font-size: 8px;
-    font-weight: 800;
-    letter-spacing: 1.5px;
-}
-
-.bottom-line {
-    width: 54px;
-    height: 1px;
-    background: #0c8989;
-}
-
-.trust-strip {
-    display: flex;
-    min-height: 89px;
-    align-items: center;
-    justify-content: center;
-    gap: clamp(14px, 4vw, 48px);
-    padding: 20px 24px;
-    border-bottom: 1px solid #edf0f0;
-    color: #789098;
-}
-
-.trust-strip > span {
-    color: #a0adb1;
-    font-size: 8px;
-    font-weight: 800;
-    letter-spacing: 1.3px;
-}
-
-.trust-strip strong {
-    color: #617780;
-    font-size: 10px;
-    letter-spacing: 1px;
-}
-
-.trust-strip i {
-    width: 4px;
-    height: 4px;
-    border-radius: 50%;
-    background: #17a09a;
-}
-
-.section {
-    padding: 98px 0;
-}
-
-.section-heading {
-    display: flex;
-    align-items: end;
-    justify-content: space-between;
-    gap: 40px;
-    margin-bottom: 38px;
-}
-
-.section-heading h2,
-.expertise-copy h2,
-.contact-inner h2 {
-    margin: 14px 0 0;
-    color: #183347;
-    font-size: clamp(30px, 4vw, 43px);
-    font-weight: 730;
-    letter-spacing: -1.7px;
-    line-height: 1.18;
-}
-
-.section-heading > p {
-    max-width: 425px;
-    margin: 0 0 4px;
-    font-size: 12px;
-}
-
-.solution-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 17px;
-}
-
-.solution-card {
-    min-height: 266px;
-    padding: 25px 25px 22px;
-    border: 1px solid #e6eded;
-    border-radius: 11px;
-    background: #fff;
-    transition:
-        border-color 160ms ease,
-        box-shadow 160ms ease,
-        transform 160ms ease;
-}
-
-.solution-card:hover {
-    transform: translateY(-4px);
-    border-color: #b8d8d5;
-    box-shadow: 0 16px 34px rgb(28 75 80 / 8%);
-}
-
-.solution-top {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-}
-
-.solution-symbol {
-    display: grid;
-    width: 43px;
-    height: 43px;
-    place-items: center;
-    border-radius: 12px;
-    background: #e8f4f1;
-    color: #078e88;
-    font-size: 25px;
-}
-
-.solution-number {
-    color: #b7c4c7;
-    font-size: 11px;
-    font-weight: 700;
-}
-
-.solution-tag {
-    display: inline-block;
-    margin-top: 24px;
-    color: #078e88;
-    font-size: 8px;
-    font-weight: 800;
-    letter-spacing: 1.5px;
-}
-
-.solution-card h3 {
-    margin: 8px 0;
-    color: #213d4c;
-    font-size: 17px;
-}
-
-.solution-card p {
-    min-height: 48px;
-    margin: 0;
-    color: #71828b;
-    font-size: 11px;
-    line-height: 1.8;
-}
-
-.solution-card > a,
-.text-link {
-    display: inline-flex;
-    align-items: center;
-    gap: 9px;
-    color: #087e83;
-    font-size: 11px;
-    font-weight: 750;
-}
-
-.solution-card > a {
-    margin-top: 17px;
-}
-
-.expertise {
-    padding: 67px 24px;
-    background: #f3f7f6;
-}
-
-.expertise-inner {
-    display: grid;
-    grid-template-columns: 0.95fr 1fr;
-    align-items: center;
-    gap: 80px;
-}
-
-.expertise-art {
-    position: relative;
-    height: 330px;
-    overflow: hidden;
-    border-radius: 14px;
-    background: linear-gradient(145deg, #d5e7e2, #edf3ee);
-}
-
-.art-circle {
-    position: absolute;
-    border: 1px solid rgb(8 126 131 / 18%);
-    border-radius: 50%;
-}
-
-.circle-large {
-    top: -65px;
-    left: -30px;
-    width: 360px;
-    height: 360px;
-}
-
-.circle-small {
-    top: -17px;
-    left: 19px;
-    width: 264px;
-    height: 264px;
-}
-
-.art-grid {
-    position: absolute;
-    right: 0;
-    bottom: 0;
-    width: 74%;
-    height: 66%;
-    background:
-        linear-gradient(90deg, transparent 49%, rgb(91 128 128 / 10%) 50%),
-        linear-gradient(0deg, transparent 49%, rgb(91 128 128 / 10%) 50%);
-    background-size: 32px 32px;
-    mask-image: linear-gradient(135deg, transparent, #000);
-}
-
-.art-card {
-    position: absolute;
-    top: 77px;
-    left: 50%;
-    display: grid;
-    width: 200px;
-    height: 153px;
-    align-content: center;
-    justify-items: center;
-    gap: 11px;
-    border: 1px solid rgb(255 255 255 / 85%);
-    border-radius: 12px;
-    background: rgb(255 255 255 / 75%);
-    box-shadow: 0 18px 38px rgb(39 83 84 / 11%);
-    transform: translateX(-50%) rotate(-5deg);
-}
-
-.art-card > span {
-    display: grid;
-    width: 44px;
-    height: 44px;
-    place-items: center;
-    border-radius: 13px;
-    background: #087e83;
-    color: #fff;
-    font-size: 21px;
-    font-weight: 800;
-}
-
-.art-card strong {
-    color: #244252;
-    font-size: 10px;
-    letter-spacing: 1.5px;
-}
-
-.art-card small {
-    color: #829497;
-    font-size: 6px;
-    font-weight: 700;
-    letter-spacing: 1px;
-}
-
-.art-number {
-    position: absolute;
-    right: 22px;
-    bottom: 17px;
-    color: #477674;
-    font-size: 11px;
-    font-weight: 800;
-}
-
-.art-number span {
-    color: #8ca8a3;
-    font-weight: 500;
-}
-
-.expertise-copy h2 {
-    max-width: 470px;
-    font-size: clamp(28px, 3.3vw, 38px);
-}
-
-.expertise-copy > p {
-    margin: 17px 0;
-    font-size: 12px;
-}
-
-.expertise-copy ul {
-    display: grid;
-    gap: 12px;
-    margin: 23px 0;
-    padding: 0;
-    color: #4c626e;
-    font-size: 11px;
-    list-style: none;
-}
-
-.expertise-copy li {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-}
-
-.expertise-copy li span {
-    display: grid;
-    width: 18px;
-    height: 18px;
-    place-items: center;
-    border-radius: 50%;
-    background: #dcefeb;
-    color: #07857e;
-    font-size: 10px;
-    font-weight: 800;
-}
-
-.projects-section {
-    padding-top: 93px;
-    padding-bottom: 100px;
-}
-
-.projects-section .section-heading {
-    margin-bottom: 34px;
-}
-
-.projects-section .section-heading h2 {
-    font-size: clamp(30px, 3.7vw, 40px);
-}
-
-.project-panel {
-    display: grid;
-    min-height: 360px;
-    grid-template-columns: 1.02fr 0.98fr;
-    overflow: hidden;
-    border: 1px solid #e4eceb;
-    border-radius: 13px;
-    background: #fff;
-}
-
-.project-illustration {
-    position: relative;
-    min-height: 360px;
-    overflow: hidden;
-    background: linear-gradient(150deg, #dcece7 0%, #edf3ee 75%);
-}
-
-.project-sun {
-    position: absolute;
-    top: 47px;
-    right: 67px;
-    width: 93px;
-    height: 93px;
-    border-radius: 50%;
-    background: #c6e2d6;
-}
-
-.project-tower {
-    position: absolute;
-    bottom: 40px;
-    display: grid;
-    align-content: start;
-    justify-content: center;
-    gap: 9px;
-    padding: 18px 12px;
-    border: 1px solid rgb(255 255 255 / 75%);
-    background: linear-gradient(90deg, #aac6c0, #d1e0d9);
-    box-shadow: 8px 9px 22px rgb(60 98 96 / 10%);
-}
-
-.tower-one {
-    left: 17%;
-    width: 92px;
-    height: 167px;
-    grid-template-columns: repeat(2, 1fr);
-    transform: skewY(3deg);
-}
-
-.tower-two {
-    z-index: 1;
-    left: 38%;
-    width: 112px;
-    height: 235px;
-    grid-template-columns: repeat(2, 1fr);
-    padding-top: 23px;
-    background: linear-gradient(90deg, #90b5af, #bed3cb);
-}
-
-.tower-three {
-    left: 64%;
-    width: 76px;
-    height: 139px;
-    grid-template-columns: repeat(2, 1fr);
-    transform: skewY(-4deg);
-}
-
-.project-tower i {
-    min-height: 14px;
-    border: 1px solid rgb(255 255 255 / 44%);
-    background: linear-gradient(135deg, #76a9a4, #a4c9bd);
-}
-
-.project-ground {
-    position: absolute;
-    right: 0;
-    bottom: 0;
-    left: 0;
-    height: 45px;
-    background: #9fbdb2;
-}
-
-.project-stamp {
-    position: absolute;
-    z-index: 2;
-    right: 17px;
-    bottom: 15px;
-    color: #557e78;
-    font-size: 7px;
-    font-weight: 800;
-    letter-spacing: 1px;
-    line-height: 1.5;
-    text-align: right;
-}
-
-.project-copy {
-    padding: 42px 42px 33px;
-}
-
-.project-label {
-    color: #078e88;
-    font-size: 8px;
-    font-weight: 800;
-    letter-spacing: 1.5px;
-}
-
-.project-copy h3 {
-    max-width: 360px;
-    margin: 12px 0 10px;
-    color: #1c394a;
-    font-size: 24px;
-    letter-spacing: -0.7px;
-    line-height: 1.3;
-}
-
-.project-copy > p {
-    color: #71828b;
-    font-size: 11px;
-    line-height: 1.8;
-}
-
-.project-copy ul {
-    display: grid;
-    margin: 22px 0 0;
-    padding: 0;
-    list-style: none;
-}
-
-.project-copy li {
-    display: flex;
-    min-height: 42px;
-    align-items: center;
-    gap: 11px;
-    border-bottom: 1px solid #edf0f0;
-    color: #425a67;
-    font-size: 10px;
-    font-weight: 650;
-}
-
-.project-copy li span {
-    color: #07908a;
-    font-size: 8px;
-    font-weight: 800;
-}
-
-.project-copy li b {
-    margin-left: auto;
-    color: #8fa4a7;
-}
-
-.contact-section {
-    padding: 58px 24px;
-    background:
-        radial-gradient(circle at 82% 20%, rgb(36 161 151 / 18%), transparent 28%),
-        #123b4b;
-}
-
-.contact-inner {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 30px;
-}
-
-.contact-inner .eyebrow {
-    color: #73d0c2;
-}
-
-.contact-inner h2 {
-    max-width: 610px;
-    margin-top: 12px;
-    color: #fff;
-    font-size: clamp(27px, 3.5vw, 38px);
-}
-
-.contact-inner p {
-    margin: 12px 0 0;
-    color: #b7cbd0;
-    font-size: 11px;
-    line-height: 1.8;
-}
-
-.button-light {
-    flex-shrink: 0;
-    background: #fff;
-    color: #087e83;
-}
-
-@media (max-width: 900px) {
-    .hero-inner,
-    .section,
-    .expertise-inner,
-    .contact-inner {
-        width: min(100%, 700px);
-    }
-
-    .hero {
-        padding-right: 28px;
-        padding-left: 28px;
-    }
-
-    .hero-inner {
-        grid-template-columns: 1fr 0.8fr;
-        gap: 12px;
-    }
-
-    .hero-visual {
-        height: 355px;
-        transform: scale(0.94);
-        transform-origin: center right;
-    }
-
-    .section {
-        padding: 78px 28px;
-    }
-
-    .expertise-inner {
-        gap: 40px;
-    }
-
-    .project-copy {
-        padding: 33px 27px 26px;
-    }
-}
-
-@media (max-width: 650px) {
-    .hero {
-        padding: 25px 18px 0;
-    }
-
-    .hero-inner {
-        grid-template-columns: 1fr;
-        gap: 10px;
-    }
-
-    .hero-copy {
-        padding: 14px 0 0;
-    }
-
-    .hero h1 {
-        max-width: 480px;
-        font-size: clamp(39px, 11vw, 54px);
-        letter-spacing: -2.2px;
-    }
-
-    .hero-copy > p {
-        font-size: 13px;
-    }
-
-    .hero-visual {
-        width: min(100%, 390px);
-        height: 330px;
-        justify-self: center;
-        transform: none;
-    }
-
-    .building-front {
-        right: 102px;
-    }
-
-    .building-back {
-        right: 28px;
-    }
-
-    .label-bottom {
-        right: 0;
-    }
-
-    .hero-bottom {
-        height: 55px;
-        font-size: 7px;
-    }
-
-    .trust-strip {
-        flex-wrap: wrap;
-        justify-content: flex-start;
-        gap: 13px 17px;
-        padding: 22px 20px;
-    }
-
-    .trust-strip > span {
-        width: 100%;
-    }
-
-    .trust-strip strong {
-        font-size: 8px;
-    }
-
-    .section {
-        padding: 68px 20px;
-    }
-
-    .section-heading {
-        display: grid;
-        gap: 14px;
-        margin-bottom: 27px;
-    }
-
-    .section-heading > p {
-        font-size: 11px;
-    }
-
-    .solution-grid {
-        grid-template-columns: 1fr;
-    }
-
-    .solution-card {
-        min-height: auto;
-    }
-
-    .solution-card p {
-        min-height: auto;
-    }
-
-    .expertise {
-        padding: 45px 20px;
-    }
-
-    .expertise-inner {
-        grid-template-columns: 1fr;
-        gap: 32px;
-    }
-
-    .expertise-art {
-        height: 270px;
-    }
-
-    .circle-large {
-        width: 310px;
-        height: 310px;
-    }
-
-    .circle-small {
-        width: 230px;
-        height: 230px;
-    }
-
-    .art-card {
-        top: 58px;
-        height: 145px;
-    }
-
-    .project-panel {
-        grid-template-columns: 1fr;
-    }
-
-    .project-illustration {
-        min-height: 280px;
-    }
-
-    .project-copy {
-        padding: 28px 22px;
-    }
-
-    .contact-section {
-        padding: 42px 20px;
-    }
-
-    .contact-inner {
-        align-items: flex-start;
-        flex-direction: column;
-    }
-}
-
-@media (prefers-reduced-motion: reduce) {
-    *,
-    *::before,
-    *::after {
-        scroll-behavior: auto !important;
-        transition-duration: 0.01ms !important;
-    }
-}
-</style>
