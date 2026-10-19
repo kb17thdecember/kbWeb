@@ -47,8 +47,7 @@
                         <tbody>
                             <tr v-for="child in category.children" :key="child.id">
                                 <td>
-                                    <b>{{ child.name }}</b>
-                                    <small>{{ categorySlug(child.name) }}</small>
+                                    <b class="category-child-name">{{ child.name }}</b>
                                 </td>
                                 <td>
                                     <div class="row-actions">
@@ -188,16 +187,6 @@
         });
     }
 
-    function categorySlug(name: string): string {
-        return name
-            .normalize('NFD')
-            .replace(/[\u0300-\u036f]/g, '')
-            .replace(/đ/gi, 'd')
-            .toLocaleLowerCase()
-            .replace(/[^a-z0-9]+/g, '-')
-            .replace(/^-|-$/g, '');
-    }
-
     function showToast(message: string): void {
         if (toastTimeout) {
             clearTimeout(toastTimeout);
@@ -219,6 +208,10 @@
 </script>
 
 <style scoped>
+    .category-child-name {
+        white-space: nowrap;
+    }
+
     .category-heading-main {
         display: flex;
         align-items: center;

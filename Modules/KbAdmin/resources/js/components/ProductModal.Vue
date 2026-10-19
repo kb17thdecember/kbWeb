@@ -16,6 +16,7 @@
                 <div class="field ">
                     <label>Danh mục chính</label>
                     <select v-model="selectedCategoryId" name="category_id" required>
+                        <option value="" disabled>Chọn danh mục chính</option>
                         <option v-for="category in categories" :key="category.id" :value="String(category.id)">
                             {{ category.name }}
                         </option>
@@ -23,7 +24,15 @@
                 </div>
                 <div class="field ">
                     <label>Dòng sản phẩm</label>
-                    <select v-model="selectedSubcategory" name="subcategory_id" required>
+                    <select
+                        v-model="selectedSubcategory"
+                        name="subcategory_id"
+                        required
+                        :disabled="!selectedCategoryId || !visibleSubcategories.length"
+                    >
+                        <option value="" disabled>
+                            {{ selectedCategoryId ? 'Danh mục này chưa có dòng sản phẩm' : 'Chọn danh mục chính trước' }}
+                        </option>
                         <option v-for="subcategory in visibleSubcategories" :key="subcategory.id" :value="String(subcategory.id)">
                             {{ subcategory.name }}
                         </option>
@@ -159,9 +168,13 @@
         })),
     ]);
 
-    watch(selectedCategoryId, () => {
-        selectedSubcategory.value = String(visibleSubcategories.value[0]?.id ?? '');
-    }, { flush: 'sync' });
+    watch(
+        selectedCategoryId,
+        () => {
+            selectedSubcategory.value = String(visibleSubcategories.value[0]?.id ?? '');
+        },
+        { flush: 'sync' },
+    );
 
     watch(
         () => props.open,
@@ -193,7 +206,7 @@
 
     function resetForm(product: Product | null): void {
         productName.value = product?.name ?? '';
-        selectedCategoryId.value = String(product?.category_id ?? props.categories[0]?.id ?? '');
+        selectedCategoryId.value = product ? String(product.category_id) : '';
         selectedSubcategory.value = String(
             product?.subcategory_id ?? visibleSubcategories.value[0]?.id ?? '',
         );
