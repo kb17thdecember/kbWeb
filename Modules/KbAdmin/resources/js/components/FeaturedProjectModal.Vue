@@ -30,9 +30,9 @@
                     </div>
                     <div class="field">
                         <label for="featuredProjectCategory">Hạng mục</label>
-                        <select id="featuredProjectCategory" v-model="selectedCategoryId" required>
+                        <select id="featuredProjectCategory" v-model="selectedCategory" required>
                             <option value="" disabled>Chọn hạng mục</option>
-                            <option v-for="item in categories" :key="item.id" :value="String(item.id)">
+                            <option v-for="item in categories" :key="item.id" :value="item.name">
                                 {{ item.name }}
                             </option>
                         </select>
@@ -41,19 +41,24 @@
                         <label for="featuredProjectSubcategory">Nhóm</label>
                         <select
                             id="featuredProjectSubcategory"
-                            v-model="selectedSubcategoryId"
+                            v-model="selectedSubcategory"
                             required
-                            :disabled="!selectedCategoryId || !visibleSubcategories.length"
+                            :disabled="!selectedCategory || !visibleSubcategories.length"
                         >
-                            <option value="" disabled>{{ selectedCategoryId ? 'Chọn nhóm' : 'Chọn hạng mục trước' }}</option>
-                            <option v-for="item in visibleSubcategories" :key="item.id" :value="String(item.id)">
+                            <option value="" disabled>{{ selectedCategory ? 'Chọn nhóm' : 'Chọn hạng mục trước' }}</option>
+                            <option v-for="item in visibleSubcategories" :key="item.id" :value="item.name">
                                 {{ item.name }}
                             </option>
                         </select>
                     </div>
                     <div class="field full">
                         <label for="featuredProjectType">Loại dự án</label>
-                        <input id="featuredProjectType" v-model="type" maxlength="255" required placeholder="Ví dụ: Văn phòng & thương mại">
+                        <select id="featuredProjectType" v-model="type" required>
+                            <option value="" disabled>Vui lòng chọn loại dự án</option>
+                            <option value="1">Chung cư thương mại &amp; NOXH</option>
+                            <option value="2">Văn phòng &amp; Khách sạn &amp; Bệnh viện</option>
+                            <option value="3">Khu công nghiệp</option>
+                        </select>
                     </div>
                     <div class="field full">
                         <label>Ảnh dự án (chọn 1 ảnh)</label>
@@ -104,8 +109,6 @@
         name: string;
         description: string;
         location: string;
-        category_id: number | null;
-        subcategory_id: number | null;
         category: string;
         subcategory: string;
         type: string;
@@ -137,8 +140,8 @@
     const name = ref('');
     const description = ref('');
     const location = ref('');
-    const selectedCategoryId = ref('');
-    const selectedSubcategoryId = ref('');
+    const selectedCategory = ref('');
+    const selectedSubcategory = ref('');
     const type = ref('');
     const selectedImage = ref<File | null>(null);
     const imagePreviewUrl = ref('');
@@ -149,13 +152,13 @@
     let toastTimeout: ReturnType<typeof setTimeout> | undefined;
 
     const visibleSubcategories = computed(() =>
-        props.categories.find((item) => String(item.id) === selectedCategoryId.value)?.children ?? [],
+        props.categories.find((item) => item.name === selectedCategory.value)?.children ?? [],
     );
 
     watch(
-        selectedCategoryId,
+        selectedCategory,
         () => {
-            selectedSubcategoryId.value = String(visibleSubcategories.value[0]?.id ?? '');
+            selectedSubcategory.value = visibleSubcategories.value[0]?.name ?? '';
         },
         { flush: 'sync' },
     );
@@ -173,14 +176,10 @@
         name.value = props.project?.name ?? '';
         description.value = props.project?.description ?? '';
         location.value = props.project?.location ?? '';
-        const parentCategory = props.categories.find((item) =>
-            item.id === props.project?.category_id || item.name === props.project?.category,
-        );
-        const childCategory = parentCategory?.children.find((item) =>
-            item.id === props.project?.subcategory_id || item.name === props.project?.subcategory,
-        );
-        selectedCategoryId.value = parentCategory ? String(parentCategory.id) : '';
-        selectedSubcategoryId.value = childCategory ? String(childCategory.id) : '';
+        const parentCategory = props.categories.find((item) => item.name === props.project?.category);
+        const childCategory = parentCategory?.children.find((item) => item.name === props.project?.subcategory);
+        selectedCategory.value = parentCategory?.name ?? '';
+        selectedSubcategory.value = childCategory?.name ?? '';
         type.value = props.project?.type ?? '';
         selectedImage.value = null;
         setImagePreview(props.project?.image_url ?? '');
@@ -304,8 +303,8 @@
             name: name.value,
             description: description.value,
             location: location.value,
-            category_id: Number(selectedCategoryId.value),
-            subcategory_id: Number(selectedSubcategoryId.value),
+            category: selectedCategory.value,
+            subcategory: selectedSubcategory.value,
             type: type.value,
             image: selectedImage.value,
         };

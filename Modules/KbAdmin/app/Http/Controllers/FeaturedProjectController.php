@@ -19,10 +19,6 @@ class FeaturedProjectController extends Controller
     public function index(): Response
     {
         $projects = FeaturedProject::query()
-            ->with([
-                'parentCategory:id,name',
-                'childCategory:id,name',
-            ])
             ->orderByDesc('created_at')
             ->get()
             ->each(function (FeaturedProject $project): void {
@@ -43,11 +39,7 @@ class FeaturedProjectController extends Controller
     public function store(Request $request): RedirectResponse
     {
         $validated = $request->validate($this->rules($request));
-        $parentCategory = Category::query()->findOrFail($validated['category_id']);
-        $childCategory = Category::query()->findOrFail($validated['subcategory_id']);
         $validated['image'] = $this->storeImage($validated['image']);
-        $validated['category'] = $parentCategory->name;
-        $validated['subcategory'] = $childCategory->name;
 
         FeaturedProject::create($validated);
 
@@ -57,8 +49,6 @@ class FeaturedProjectController extends Controller
     public function update(Request $request, FeaturedProject $featuredProject): RedirectResponse
     {
         $validated = $request->validate($this->rules($request, false));
-        $parentCategory = Category::query()->findOrFail($validated['category_id']);
-        $childCategory = Category::query()->findOrFail($validated['subcategory_id']);
         $oldImage = $featuredProject->image;
         $imageUpload = $validated['image'] ?? null;
         unset($validated['image']);
@@ -66,9 +56,6 @@ class FeaturedProjectController extends Controller
         if ($imageUpload instanceof UploadedFile) {
             $validated['image'] = $this->storeImage($imageUpload);
         }
-        $validated['category'] = $parentCategory->name;
-        $validated['subcategory'] = $childCategory->name;
-
         $featuredProject->update($validated);
 
         if (isset($validated['image']) && $oldImage !== $featuredProject->image) {
@@ -92,29 +79,31 @@ class FeaturedProjectController extends Controller
      */
     private function rules(Request $request, bool $imageRequired = true): array
     {
-        $rawCategoryId = $request->input('category_id');
-        $categoryId = is_string($rawCategoryId) || is_int($rawCategoryId)
-            ? filter_var($rawCategoryId, FILTER_VALIDATE_INT)
-            : false;
-        $categoryId = $categoryId === false ? 0 : $categoryId;
+        $rawCategory = $request->input('category');
+        $parentCategory = is_string($rawCategory)
+            ? Category::query()->whereNull('parent_id')->where('name', $rawCategory)->first(['id'])
+            : null;
+        $parentCategoryId = $parentCategory?->id ?? 0;
 
         return [
             'name' => ['required', 'string', 'max:255'],
             'description' => ['required', 'string', 'max:255'],
             'location' => ['required', 'string', 'max:255'],
-            'category_id' => [
+            'category' => [
                 'required',
-                'integer',
-                Rule::exists('categories', 'id')->whereNull('parent_id'),
+                'string',
+                'max:255',
+                Rule::exists('categories', 'name')->whereNull('parent_id'),
             ],
-            'subcategory_id' => [
+            'subcategory' => [
                 'required',
-                'integer',
-                Rule::exists('categories', 'id')->where(
-                    fn ($query) => $query->where('parent_id', $categoryId),
+                'string',
+                'max:255',
+                Rule::exists('categories', 'name')->where(
+                    fn ($query) => $query->where('parent_id', $parentCategoryId),
                 ),
             ],
-            'type' => ['required', 'string', 'max:255'],
+            'type' => ['required', 'string', Rule::in(['1', '2', '3'])],
             'image' => [$imageRequired ? 'required' : 'nullable', 'image', 'max:5120'],
         ];
     }

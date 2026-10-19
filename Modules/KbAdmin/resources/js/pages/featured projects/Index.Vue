@@ -36,8 +36,8 @@
                                 </div>
                             </div>
                         </td>
-                        <td>{{ project.parent_category?.name ?? project.category }}</td>
-                        <td>{{ project.child_category?.name ?? project.subcategory }} · {{ project.type }}</td>
+                        <td>{{ project.category }}</td>
+                        <td>{{ project.subcategory }} · {{ projectTypeLabel(project.type) }}</td>
                         <td>{{ project.image ? '1 ảnh' : '0 ảnh' }}</td>
                         <td>
                             <div class="row-actions">
@@ -79,15 +79,11 @@
         name: string;
         description: string;
         location: string;
-        category_id: number | null;
-        subcategory_id: number | null;
         category: string;
         subcategory: string;
         type: string;
         image: string;
         image_url: string | null;
-        parent_category: { id: number; name: string } | null;
-        child_category: { id: number; name: string } | null;
     };
 
     type Category = {
@@ -124,12 +120,22 @@
                 project.name,
                 project.description,
                 project.location,
-                    project.parent_category?.name ?? project.category,
-                    project.child_category?.name ?? project.subcategory,
-                project.type,
+                project.category,
+                project.subcategory,
+                projectTypeLabel(project.type),
             ].some((value) => value.toLocaleLowerCase().includes(query)),
         );
     });
+
+    function projectTypeLabel(type: string): string {
+        const labels: Record<string, string> = {
+            '1': 'Chung cư thương mại & NOXH',
+            '2': 'Văn phòng & Khách sạn & Bệnh viện',
+            '3': 'Khu công nghiệp',
+        };
+
+        return labels[type] ?? type;
+    }
 
     function createProject(): void {
         selectedProject.value = null;

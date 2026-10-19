@@ -16,11 +16,9 @@ test('the featured projects page lists saved projects', function () {
         'name' => 'Tổ hợp văn phòng',
         'description' => 'Dự án văn phòng tại Hà Nội',
         'location' => 'Hà Nội',
-        'category_id' => $parent->id,
-        'subcategory_id' => $child->id,
         'category' => $parent->name,
         'subcategory' => $child->name,
-        'type' => 'Văn phòng',
+        'type' => '1',
         'image' => 'https://example.com/office.jpg',
     ]);
 
@@ -31,8 +29,8 @@ test('the featured projects page lists saved projects', function () {
             ->where('projects.0.id', $project->id)
             ->where('projects.0.name', 'Tổ hợp văn phòng')
             ->where('projects.0.image_url', 'https://example.com/office.jpg')
-            ->where('projects.0.parent_category.name', 'Văn phòng')
-            ->where('projects.0.child_category.name', 'MEP'),
+            ->where('projects.0.category', 'Văn phòng')
+            ->where('projects.0.subcategory', 'MEP'),
         );
 });
 
@@ -48,9 +46,9 @@ test('a featured project can be created with an uploaded image', function () {
         'name' => 'Tổ hợp văn phòng',
         'description' => 'Dự án văn phòng tại Hà Nội',
         'location' => 'Hà Nội',
-        'category_id' => $parent->id,
-        'subcategory_id' => $child->id,
-        'type' => 'Văn phòng',
+        'category' => $parent->name,
+        'subcategory' => $child->name,
+        'type' => '2',
         'image' => UploadedFile::fake()->image('office.jpg'),
     ]);
 
@@ -59,8 +57,6 @@ test('a featured project can be created with an uploaded image', function () {
     $project = FeaturedProject::query()->sole();
 
     expect($project->name)->toBe('Tổ hợp văn phòng')
-        ->and($project->category_id)->toBe($parent->id)
-        ->and($project->subcategory_id)->toBe($child->id)
         ->and($project->category)->toBe('Văn phòng')
         ->and($project->subcategory)->toBe('MEP')
         ->and($project->image)->toStartWith('featured-projects/');
@@ -76,9 +72,9 @@ test('a featured project requires an image when created', function () {
             'name' => 'Tổ hợp văn phòng',
             'description' => 'Dự án văn phòng tại Hà Nội',
             'location' => 'Hà Nội',
-            'category_id' => $parent->id,
-            'subcategory_id' => $child->id,
-            'type' => 'Văn phòng',
+            'category' => $parent->name,
+            'subcategory' => $child->name,
+            'type' => '3',
         ]);
 
     $response->assertRedirect(route('admin.case-studies.index'))
@@ -101,7 +97,7 @@ test('a featured project can be updated without replacing its image', function (
         'location' => 'Hà Nội',
         'category' => 'Văn phòng',
         'subcategory' => 'MEP',
-        'type' => 'Thương mại',
+        'type' => '1',
         'image' => $imagePath,
     ]);
 
@@ -109,16 +105,14 @@ test('a featured project can be updated without replacing its image', function (
         'name' => 'Tổ hợp mới',
         'description' => 'Mô tả mới',
         'location' => 'Hồ Chí Minh',
-        'category_id' => $parent->id,
-        'subcategory_id' => $child->id,
-        'type' => 'Dân dụng',
+        'category' => $parent->name,
+        'subcategory' => $child->name,
+        'type' => '2',
     ]);
 
     $response->assertRedirect(route('admin.case-studies.index'));
 
     expect($project->fresh()->name)->toBe('Tổ hợp mới')
-        ->and($project->fresh()->category_id)->toBe($parent->id)
-        ->and($project->fresh()->subcategory_id)->toBe($child->id)
         ->and($project->fresh()->category)->toBe('Khu căn hộ')
         ->and($project->fresh()->subcategory)->toBe('Cấp nước')
         ->and($project->fresh()->image)->toBe($imagePath);
@@ -134,7 +128,7 @@ test('a featured project can be deleted together with its stored image', functio
         'location' => 'Hà Nội',
         'category' => 'Văn phòng',
         'subcategory' => 'MEP',
-        'type' => 'Thương mại',
+        'type' => '3',
         'image' => $imagePath,
     ]);
 
@@ -158,14 +152,35 @@ test('a featured project cannot select a child category from a different parent'
             'name' => 'Tổ hợp văn phòng',
             'description' => 'Dự án văn phòng tại Hà Nội',
             'location' => 'Hà Nội',
-            'category_id' => $parent->id,
-            'subcategory_id' => $otherChild->id,
-            'type' => 'Văn phòng',
+            'category' => $parent->name,
+            'subcategory' => $otherChild->name,
+            'type' => '1',
             'image' => UploadedFile::fake()->image('office.jpg'),
         ]);
 
     $response->assertRedirect(route('admin.case-studies.index'))
-        ->assertSessionHasErrors('subcategory_id');
+        ->assertSessionHasErrors('subcategory');
+
+    expect(FeaturedProject::query()->count())->toBe(0);
+});
+
+test('a featured project rejects an unsupported project type', function () {
+    $parent = Category::factory()->create();
+    $child = Category::factory()->create(['parent_id' => $parent->id]);
+
+    $response = $this->from(route('admin.case-studies.index'))
+        ->post(route('admin.case-studies.store'), [
+            'name' => 'Tổ hợp văn phòng',
+            'description' => 'Dự án văn phòng tại Hà Nội',
+            'location' => 'Hà Nội',
+            'category' => $parent->name,
+            'subcategory' => $child->name,
+            'type' => '4',
+            'image' => UploadedFile::fake()->image('office.jpg'),
+        ]);
+
+    $response->assertRedirect(route('admin.case-studies.index'))
+        ->assertSessionHasErrors('type');
 
     expect(FeaturedProject::query()->count())->toBe(0);
 });
