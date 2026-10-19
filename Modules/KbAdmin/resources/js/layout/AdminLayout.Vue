@@ -1,11 +1,10 @@
 
 <script setup lang="ts">
-import { ref, computed } from 'vue';
-import { Link } from '@inertiajs/vue3'
+import { computed } from 'vue';
+import { Link, usePage } from '@inertiajs/vue3';
 
-const currentUrl = window.location.pathname;
-
-const sidebarOpen = ref(true);
+const page = usePage();
+const currentUrl = computed(() => page.url.split('?')[0]);
 
 const menuItems = [
     { label: 'Dashboard', icon: '▦', href: '/admin/dashboard' },
@@ -43,7 +42,7 @@ const statsData = [
                     :title="item.label"
                 >
                     <span class="nav-icon">{{ item.icon }}</span>
-                    <span class="active" data-page="overview">{{ item.label }}</span>
+                    <span>{{ item.label }}</span>
           </Link>
           </nav>
         </div>
