@@ -1,6 +1,7 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue';
+import { Link } from '@inertiajs/vue3'
 
 const currentUrl = window.location.pathname;
 
@@ -34,7 +35,7 @@ const statsData = [
         <div>
           <p class="navlabel">MENU QUẢN TRỊ</p>
           <nav class="nav" id="nav">
-            <a
+            <Link
                     v-for="item in menuItems"
                     :key="item.label"
                     :href="item.href"
@@ -43,7 +44,7 @@ const statsData = [
                 >
                     <span class="nav-icon">{{ item.icon }}</span>
                     <span class="active" data-page="overview">{{ item.label }}</span>
-            </a>
+          </Link>
           </nav>
         </div>
         <div class="side-note">
