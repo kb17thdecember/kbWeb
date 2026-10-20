@@ -394,8 +394,8 @@ onUnmounted(() => {
                             </div>
                             <div class="product-body">
                                 <div class="product-meta">{{ product.subcategory?.name ?? 'Danh mục sản phẩm' }}</div>
-                                <h3 class="product-name">{{ product.product_title || product.name }}</h3>
-                                <p class="product-desc">{{ product.product_title || product.name }}</p>
+                                <h3 class="product-name">{{ product.name }}</h3>
+                                <p class="product-desc">{{ product.product_title }}</p>
                                 <div class="product-bottom">
                                     <span class="price">
                                         {{ formatPrice(product.price) }}

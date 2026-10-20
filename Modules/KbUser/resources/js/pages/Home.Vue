@@ -532,7 +532,6 @@ onUnmounted(() => {
                   <img src="../../assets/images/ariston_water_heater.svg" alt="Bình nước nóng Ariston">
                 </div>
                 <div class="coil">
-                  <!-- <div class="coil-ring"></div> -->
                    <img src="../../assets/images/foam.png" alt="Bảo ôn K-FLEX" class="">
                   <span class="coil-label">K·FLEX INSULATION</span>
                 </div>
@@ -690,8 +689,8 @@ onUnmounted(() => {
                 </div>
                 <div class="product-body">
                   <div class="product-meta">{{ product.subcategory?.name ?? 'Danh mục sản phẩm' }}</div>
-                  <h3 class="product-name">{{ product.product_title || product.name }}</h3>
-                  <p class="product-desc">{{ product.product_title || product.name }}</p>
+                  <h3 class="product-name">{{ product.name }}</h3>
+                  <p class="product-desc">{{ product.product_title }}</p>
                   <div class="product-bottom">
                     <span class="price">
                       {{ formatPrice(product.price) }}
