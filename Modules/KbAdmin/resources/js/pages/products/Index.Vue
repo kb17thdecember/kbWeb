@@ -7,7 +7,7 @@
             </div>
             <div class="actions">
                 <button class="btn primary" type="button" @click="createProduct">＋ Thêm sản phẩm</button>
-                <input class="search" id="localSearch" placeholder="Tìm sản phẩm..." value="">
+                <input v-model="search" class="search" type="search" placeholder="Tìm sản phẩm..." aria-label="Tìm sản phẩm">
             </div>
         </div>
         <div class="tablewrap">
@@ -22,7 +22,7 @@
                     </tr>
                 </thead>
                 <tbody>
-                    <tr v-for="product in products" :key="product.id">
+                    <tr v-for="product in paginatedProducts" :key="product.id">
                         <td>
                             <div class="item">
                                 <div class="thumb">
@@ -56,6 +56,11 @@
                 </tbody>
             </table>
         </div>
+        <AdminPagination
+            :current-page="currentPage"
+            :total-items="filteredProducts.length"
+            @page-change="goToPage"
+        />
         <ProductModal
             v-model:open="isProductModalOpen"
             :product="selectedProduct"
@@ -68,9 +73,11 @@
 
 <script setup lang="ts">
     import { router } from '@inertiajs/vue3';
-    import { onBeforeUnmount, onMounted, ref } from 'vue';
+    import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
     import AdminLayout from '../../layout/AdminLayout.Vue';
+    import AdminPagination from '../../components/AdminPagination.Vue';
     import ProductModal from '../../components/ProductModal.Vue';
+    import { useClientPagination } from '../../composables/useClientPagination';
 
     type Product = {
         id: number;
@@ -107,11 +114,30 @@
     }>();
 
     const isProductModalOpen = ref(false);
+    const search = ref('');
     const selectedProduct = ref<Product | null>(null);
     const deletingProductId = ref<number | null>(null);
     const isToastVisible = ref(false);
     const toastMessage = ref('');
     let toastTimeout: ReturnType<typeof setTimeout> | undefined;
+
+    const filteredProducts = computed(() => {
+        const query = search.value.trim().toLocaleLowerCase();
+        if (!query) {
+            return props.products;
+        }
+
+        return props.products.filter((product) => [
+            product.name,
+            product.product_title ?? '',
+            product.category?.name ?? '',
+            product.subcategory?.name ?? '',
+            product.tag?.toString() ?? '',
+        ].some((value) => value.toLocaleLowerCase().includes(query)));
+    });
+    const { currentPage, goToPage, paginatedItems: paginatedProducts, resetPage } = useClientPagination(filteredProducts);
+
+    watch(search, resetPage);
 
     function showToast(message: string): void {
         if (toastTimeout) {

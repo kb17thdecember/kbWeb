@@ -12,7 +12,7 @@
         </div>
 
         <div v-if="filteredCategories.length" class="cardgrid">
-            <article v-for="category in filteredCategories" :key="category.id" class="card">
+            <article v-for="category in paginatedCategories" :key="category.id" class="card">
                 <div style="display:flex;align-items:start;justify-content:space-between;gap:10px">
                     <div class="category-heading-main">
                         <img v-if="category.image_url" class="category-image" :src="category.image_url" :alt="category.name">
@@ -45,7 +45,7 @@
                             </tr>
                         </thead>
                         <tbody>
-                            <tr v-for="child in category.children" :key="child.id">
+                            <tr v-for="child in paginatedChildren(category)" :key="child.id">
                                 <td>
                                     <b class="category-child-name">{{ child.name }}</b>
                                 </td>
@@ -63,6 +63,11 @@
                             </tr>
                         </tbody>
                     </table>
+                    <AdminPagination
+                        :current-page="categoryChildPage(category)"
+                        :total-items="category.children.length"
+                        @page-change="setCategoryChildPage(category, $event)"
+                    />
                 </div>
                 <p v-else class="empty-children">Chưa có dòng danh mục con.</p>
             </article>
@@ -70,6 +75,11 @@
         <div v-else class="card">
             {{ search ? 'Không tìm thấy danh mục phù hợp.' : 'Chưa có danh mục nào. Hãy thêm danh mục cha đầu tiên.' }}
         </div>
+        <AdminPagination
+            :current-page="currentPage"
+            :total-items="filteredCategories.length"
+            @page-change="goToPage"
+        />
 
         <CategoryModal
             v-model:open="isCategoryModalOpen"
@@ -83,9 +93,11 @@
 
 <script setup lang="ts">
     import { router } from '@inertiajs/vue3';
-    import { computed, onBeforeUnmount, ref } from 'vue';
+    import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue';
     import AdminLayout from '../../layout/AdminLayout.Vue';
+    import AdminPagination from '../../components/AdminPagination.Vue';
     import CategoryModal from '../../components/CategoryModal.Vue';
+    import { ADMIN_PAGE_SIZE, useClientPagination } from '../../composables/useClientPagination';
 
     type Category = {
         id: number;
@@ -123,6 +135,7 @@
     }>();
 
     const search = ref('');
+    const childPages = reactive<Record<number, number>>({});
     const isCategoryModalOpen = ref(false);
     const selectedCategory = ref<CategoryRecord | null>(null);
     const selectedParentId = ref<number | null>(null);
@@ -142,6 +155,32 @@
                 .some((value) => value?.toLocaleLowerCase().includes(query)),
         );
     });
+    const { currentPage, goToPage, paginatedItems: paginatedCategories, resetPage } = useClientPagination(filteredCategories);
+
+    watch(search, () => {
+        resetPage();
+        for (const categoryId of Object.keys(childPages)) {
+            delete childPages[Number(categoryId)];
+        }
+    });
+
+    function paginatedChildren(category: Category): CategoryChild[] {
+        const page = categoryChildPage(category);
+        const start = (page - 1) * ADMIN_PAGE_SIZE;
+
+        return category.children.slice(start, start + ADMIN_PAGE_SIZE);
+    }
+
+    function categoryChildPage(category: Category): number {
+        const maxPage = Math.max(1, Math.ceil(category.children.length / ADMIN_PAGE_SIZE));
+
+        return Math.min(childPages[category.id] ?? 1, maxPage);
+    }
+
+    function setCategoryChildPage(category: Category, page: number): void {
+        const maxPage = Math.max(1, Math.ceil(category.children.length / ADMIN_PAGE_SIZE));
+        childPages[category.id] = Math.min(Math.max(1, page), maxPage);
+    }
 
     function openCreateParent(): void {
         selectedCategory.value = null;

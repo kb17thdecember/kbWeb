@@ -48,7 +48,7 @@
                     </tr>
                 </thead>
                 <tbody>
-                    <tr v-for="contact in filteredContacts" :key="contact.id">
+                    <tr v-for="contact in paginatedContacts" :key="contact.id">
                         <td>
                             <div class="item">
                                 <div class="request-detail-avatar">{{ initials(contact.name) }}</div>
@@ -117,6 +117,11 @@
                     : 'Chưa có yêu cầu tư vấn nào được gửi từ website.'
             }}
         </div>
+        <AdminPagination
+            :current-page="currentPage"
+            :total-items="filteredContacts.length"
+            @page-change="goToPage"
+        />
 
         <div v-if="selectedContact" class="modal open" role="presentation" @click.self="closeDetail">
             <section
@@ -195,6 +200,8 @@
     import { router } from '@inertiajs/vue3';
     import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
     import AdminLayout from '../../layout/AdminLayout.Vue';
+    import AdminPagination from '../../components/AdminPagination.Vue';
+    import { useClientPagination } from '../../composables/useClientPagination';
 
     type Contact = {
         id: number;
@@ -254,6 +261,9 @@
             );
         });
     });
+    const { currentPage, goToPage, paginatedItems: paginatedContacts, resetPage } = useClientPagination(filteredContacts);
+
+    watch([search, dateFrom, dateTo], resetPage);
 
     function contactStatus(status: string): ContactStatus {
         if (status === 'processing' || status === 'resolved') {

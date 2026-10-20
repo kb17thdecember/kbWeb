@@ -23,7 +23,7 @@
                     </tr>
                 </thead>
                 <tbody>
-                    <tr v-for="project in filteredProjects" :key="project.id">
+                    <tr v-for="project in paginatedProjects" :key="project.id">
                         <td>
                             <div class="item">
                                 <div class="thumb">
@@ -57,6 +57,11 @@
         <div v-else class="card">
             {{ search ? 'Không tìm thấy dự án phù hợp.' : 'Chưa có dự án tiêu biểu nào. Hãy thêm dự án đầu tiên.' }}
         </div>
+        <AdminPagination
+            :current-page="currentPage"
+            :total-items="filteredProjects.length"
+            @page-change="goToPage"
+        />
 
         <FeaturedProjectModal
             v-model:open="isProjectModalOpen"
@@ -70,9 +75,11 @@
 
 <script setup lang="ts">
     import { router } from '@inertiajs/vue3';
-    import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
+    import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
     import AdminLayout from '../../layout/AdminLayout.Vue';
+    import AdminPagination from '../../components/AdminPagination.Vue';
     import FeaturedProjectModal from '../../components/FeaturedProjectModal.Vue';
+    import { useClientPagination } from '../../composables/useClientPagination';
 
     type FeaturedProject = {
         id: number;
@@ -136,6 +143,9 @@
             ].some((value) => value.toLocaleLowerCase().includes(query)),
         );
     });
+    const { currentPage, goToPage, paginatedItems: paginatedProjects, resetPage } = useClientPagination(filteredProjects);
+
+    watch(search, resetPage);
 
     function projectTypeLabel(type: string): string {
         const labels: Record<string, string> = {

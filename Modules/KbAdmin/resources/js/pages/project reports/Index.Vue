@@ -35,7 +35,7 @@
                     </tr>
                 </thead>
                 <tbody>
-                    <tr v-for="report in filteredReports" :key="report.id">
+                    <tr v-for="report in paginatedReports" :key="report.id">
                         <td>{{ report.id }}</td>
                         <td>
                             <div class="item">
@@ -75,6 +75,11 @@
                     : 'Chưa có báo cáo dự án nào. Hãy thêm dự án đầu tiên.'
             }}
         </div>
+        <AdminPagination
+            :current-page="currentPage"
+            :total-items="filteredReports.length"
+            @page-change="goToPage"
+        />
 
         <ProjectReportModal
             v-model:open="isModalOpen"
@@ -88,9 +93,11 @@
 
 <script setup lang="ts">
     import { router } from '@inertiajs/vue3';
-    import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
+    import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
     import AdminLayout from '../../layout/AdminLayout.Vue';
+    import AdminPagination from '../../components/AdminPagination.Vue';
     import ProjectReportModal from '../../components/ProjectReportModal.Vue';
+    import { useClientPagination } from '../../composables/useClientPagination';
 
     type ProjectReport = {
         id: number;
@@ -150,6 +157,9 @@
             ].some((value) => value.toLocaleLowerCase().includes(query)),
         );
     });
+    const { currentPage, goToPage, paginatedItems: paginatedReports, resetPage } = useClientPagination(filteredReports);
+
+    watch(search, resetPage);
 
     function createReport(): void {
         selectedReport.value = null;
