@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
-import { Head } from '@inertiajs/vue3';
+import { Head, Link, useForm } from '@inertiajs/vue3';
 import UserLayout from '../layout/UserLayout.Vue';
 
 type HomeProduct = {
@@ -31,8 +31,11 @@ type HomeProject = {
     location: string;
     category: string;
     subcategory: string;
-    type: number;
+    type: number | string;
     image: string;
+    image_url: string | null;
+    images: string[] | null;
+    images_url: string[];
 };
 
 const props = defineProps<{
@@ -44,7 +47,6 @@ const props = defineProps<{
 const activeFilter = ref('all');
 const activeSubcategoryId = ref<number | null>(null);
 const searchQuery = ref('');
-const contactMessage = ref('');
 const checkoutMessage = ref('');
 const isCartOpen = ref(false);
 const isCheckoutOpen = ref(false);
@@ -53,12 +55,24 @@ const isProjectModalOpen = ref(false);
 const cart = ref<Record<number, number>>({});
 const selectedProduct = ref<HomeProduct | null>(null);
 const selectedProject = ref<HomeProject | null>(null);
+const selectedProjectImageIndex = ref(0);
 const selectedImageIndex = ref(0);
 const currentPage = ref(1);
+const activeProjectType = ref<string | null>(null);
+const projectPage = ref(1);
 const toastMessage = ref('');
 const isToastVisible = ref(false);
+const contactSuccessMessage = ref('');
 let toastTimer: ReturnType<typeof setTimeout> | undefined;
 let revealObserver: IntersectionObserver | undefined;
+const contactForm = useForm({
+    name: '',
+    phone: '',
+    email: '',
+    category_id: '',
+    project_name: '',
+    message: '',
+});
 
 const filters = computed(() => [
     { label: 'Tất cả', value: 'all' },
@@ -167,12 +181,97 @@ const categoryPageUrl = (categoryId: number): string =>
 const formatPrice = (price: number): string =>
     price > 0 ? `${new Intl.NumberFormat('vi-VN').format(price)}₫` : 'Liên hệ';
 
-const projectTypeLabel = (type: number): string =>
+const projectTypeLabel = (type: number | string): string =>
     ({
-        1: 'Chung cư thương mại & NOXH',
-        2: 'Văn phòng, khách sạn & bệnh viện',
-        3: 'Khu công nghiệp',
-    })[type] ?? 'Dự án tiêu biểu';
+        '1': 'Chung cư thương mại & NOXH',
+        '2': 'Văn phòng, khách sạn & bệnh viện',
+        '3': 'Khu công nghiệp',
+    })[String(type)] ?? 'Dự án tiêu biểu';
+
+const projectGroups = computed(() => [
+    {
+        value: '1',
+        title: 'Chung cư thương mại & NOXH',
+        description: 'Giải pháp cấp nước, nước nóng và vật tư kỹ thuật cho các khu chung cư.',
+    },
+    {
+        value: '2',
+        title: 'Văn phòng, khách sạn & bệnh viện',
+        description: 'Vật tư cơ điện, HVAC và thiết bị cho các công trình dịch vụ.',
+    },
+    {
+        value: '3',
+        title: 'Khu công nghiệp',
+        description: 'Vật tư bảo ôn, đường ống và thiết bị cho nhà máy, khu công nghiệp.',
+    },
+].map((group) => ({
+    ...group,
+    projects: props.featuredProjects.filter(
+        (project) => String(project.type) === group.value,
+    ),
+})));
+
+const visibleFeaturedProjects = computed(() =>
+    props.featuredProjects.filter(
+        (project) => String(project.type) === activeProjectType.value,
+    ),
+);
+const projectPageCount = computed(() =>
+    Math.max(1, Math.ceil(visibleFeaturedProjects.value.length / 2)),
+);
+const paginatedFeaturedProjects = computed(() =>
+    visibleFeaturedProjects.value.slice((projectPage.value - 1) * 2, projectPage.value * 2),
+);
+const projectImageUrl = (project: HomeProject): string => {
+    if (project.image_url) {
+        return project.image_url;
+    }
+
+    return project.image.startsWith('http') || project.image.startsWith('/')
+        ? project.image
+        : `/storage/${project.image}`;
+};
+const selectedProjectImages = computed(() => {
+    if (!selectedProject.value) {
+        return [];
+    }
+
+    return selectedProject.value.images_url.length
+        ? selectedProject.value.images_url
+        : [projectImageUrl(selectedProject.value)];
+});
+
+const selectProjectGroup = (type: string): void => {
+    activeProjectType.value = type;
+    projectPage.value = 1;
+};
+
+const goToProjectPage = (page: number): void => {
+    projectPage.value = Math.min(Math.max(page, 1), projectPageCount.value);
+};
+
+const openProject = (project: HomeProject): void => {
+    selectedProject.value = project;
+    selectedProjectImageIndex.value = 0;
+    isProjectModalOpen.value = true;
+};
+
+const selectProjectImage = (index: number): void => {
+    selectedProjectImageIndex.value = index;
+};
+
+const stepProjectImage = (delta: number): void => {
+    const imageCount = selectedProjectImages.value.length;
+    if (imageCount) {
+        selectedProjectImageIndex.value =
+            (selectedProjectImageIndex.value + delta + imageCount) % imageCount;
+    }
+};
+
+const closeProject = (): void => {
+    isProjectModalOpen.value = false;
+    selectedProject.value = null;
+};
 
 const selectFilter = (filter: string): void => {
     activeFilter.value = filter;
@@ -314,9 +413,15 @@ const submitCheckout = (): void => {
 };
 
 const submitContactForm = (): void => {
-    contactMessage.value =
-        'Đây là biểu mẫu giao diện; hiện chưa kết nối hệ thống gửi yêu cầu nên thông tin chưa được gửi đi.';
-    notify('Biểu mẫu chưa được kết nối hệ thống gửi yêu cầu.');
+    contactSuccessMessage.value = '';
+    contactForm.post('/contacts?from=home', {
+        preserveScroll: true,
+        onSuccess: () => {
+            contactForm.reset();
+            contactSuccessMessage.value = 'Yêu cầu báo giá đã được gửi. Chúng tôi sẽ liên hệ với bạn sớm.';
+            notify(contactSuccessMessage.value);
+        },
+    });
 };
 
 const onEscape = (event: KeyboardEvent): void => {
@@ -324,7 +429,7 @@ const onEscape = (event: KeyboardEvent): void => {
         isCartOpen.value = false;
         isCheckoutOpen.value = false;
         closeProduct();
-        isProjectModalOpen.value = false;
+        closeProject();
     }
 };
 
@@ -408,7 +513,7 @@ onUnmounted(() => {
                 <div class="eyebrow"><span class="dot"></span> Đối tác vật tư kỹ thuật đáng tin cậy</div>
                 <h1>Kiến tạo công trình.<br><span>Nâng tầm</span> chất lượng.</h1>
                 <p class="hero-lead">Từ thiết bị nước nóng Ariston đến giải pháp bảo ôn K-FLEX và vật tư MEP chuyên dụng — lựa chọn đúng sản phẩm, tối ưu hiệu quả cho từng công trình.</p>
-                <div class="hero-ctas"><a href="#products" class="btn btn-primary">Khám phá sản phẩm <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14m-6-6 6 6-6 6"/></svg></a><a href="#projects" class="btn btn-outline">Xem dự án <span>↗</span></a>
+                <div class="hero-ctas"><Link href="/products" class="btn btn-primary">Khám phá sản phẩm <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14m-6-6 6 6-6 6"/></svg></Link><Link href="/featured-projects" class="btn btn-outline">Xem dự án <span>↗</span></Link>
                 </div>
                 <div class="hero-bottom">
                   <div class="mini-stat"><strong>MEP</strong><span>Giải pháp kỹ thuật</span>
@@ -471,7 +576,7 @@ onUnmounted(() => {
         </section>
         <section id="categories" class="section">
           <div class="wrap">
-            <div class="section-head reveal visible">
+            <div v-if="activeProjectType === null" class="section-head reveal visible">
               <div>
                 <div class="eyebrow"><span class="dot"></span> Danh mục sản phẩm</div>
                 <h2 class="section-title">Mọi hạng mục.<br><em>Một điểm đến.</em>
@@ -480,7 +585,7 @@ onUnmounted(() => {
               <p class="section-desc">Danh mục được tổ chức rõ ràng giúp bạn tìm nhanh thiết bị phù hợp cho nhà ở, thương mại và công trình công nghiệp.</p>
             </div>
             <div v-if="categories.length > 0" class="category-grid">
-              <a
+              <Link
                   v-for="(category, index) in categories"
                   :key="category.id"
                   class="category-card reveal visible"
@@ -504,13 +609,13 @@ onUnmounted(() => {
                   <span>Xem dòng sản phẩm</span>
                   <span class="circle-arrow" aria-hidden="true">↗</span>
                 </span>
-              </a>
+              </Link>
             </div>
             <div v-else class="empty-state">
               Chưa có danh mục sản phẩm nào được cập nhật.
             </div>
-            <div class="view-all">
-              <a class="btn btn-dark" href="/categories">Khám phá tất cả danh mục <span>↗</span></a>
+            <div v-if="activeProjectType === null" class="view-all">
+              <Link class="btn btn-dark" href="/categories">Khám phá tất cả danh mục <span>↗</span></Link>
             </div>
           </div>
         </section>
@@ -655,7 +760,7 @@ onUnmounted(() => {
                 <li><span class="check">✓</span> Tổng hợp nhu cầu đa danh mục trong một đầu mối</li>
                 <li><span class="check">✓</span> Đồng hành báo giá, tiến độ và hồ sơ vật tư</li>
                 <li><span class="check">✓</span> Ưu tiên giải pháp bền vững, tối ưu vận hành</li>
-              </ul><a href="#contact" class="btn btn-primary">Trao đổi với chuyên viên <span>↗</span></a>
+              </ul><Link href="/contacts" class="btn btn-primary">Trao đổi với chuyên viên <span>↗</span></Link>
             </div>
           </div>
         </section>
@@ -671,42 +776,126 @@ onUnmounted(() => {
                   </div>
                   <p class="section-desc">Một số dự án tiêu biểu và hạng mục kỹ thuật được KB TECH cập nhật.</p>
                 </div>
-                <div class="project-grid">
-                  <article
-                      v-for="project in featuredProjects"
-                      :key="project.id"
-                      class="project-card reveal"
-                      role="button"
-                      tabindex="0"
-                      @click="selectedProject = project; isProjectModalOpen = true"
-                      @keydown.enter="selectedProject = project; isProjectModalOpen = true"
-                      @keydown.space.prevent="selectedProject = project; isProjectModalOpen = true"
+                <div v-if="activeProjectType === null" class="project-directory-grid">
+                  <button
+                    v-for="(group, index) in projectGroups"
+                    :key="group.value"
+                    class="project-group-card"
+                    type="button"
+                    @click="selectProjectGroup(group.value)"
                   >
-                    <img class="project-image" :src="productImageUrl(project.image)" :alt="project.name" loading="lazy">
-                    <div class="project-info">
-                      <span class="project-type">{{ projectTypeLabel(project.type) }} · {{ project.category }}</span>
-                      <h3>{{ project.name }}</h3>
-                      <p>{{ project.description }}</p>
-                      <div class="project-foot">
-                        <span>{{ project.subcategory }}</span>
-                        <span class="circle-arrow">↗</span>
+                    <div class="project-group-art">
+                      <img
+                        v-if="group.projects[0]"
+                        class="project-group-image"
+                        :src="projectImageUrl(group.projects[0])"
+                        :alt="group.projects[0].name"
+                        loading="lazy"
+                      >
+                      <span class="project-image-tag">DỰ ÁN TIÊU BIỂU</span>
+                    </div>
+                    <div class="project-group-copy">
+                      <span class="project-detail-type">NHÓM DỰ ÁN · 0{{ index + 1 }}</span>
+                      <h3>{{ group.title }}</h3>
+                      <p>{{ group.description }}</p>
+                      <div class="project-group-footer">
+                        <span>{{ group.projects.length }} dự án</span>
+                        <span class="circle-arrow" aria-hidden="true">↗</span>
                       </div>
                     </div>
-                  </article>
-                  <div v-if="featuredProjects.length === 0" class="empty-state">
-                    Chưa có dự án tiêu biểu được cập nhật.
+                  </button>
+                </div>
+                <div v-else class="project-directory-details">
+                  <div class="project-detail-back">
+                    <button class="text-back" type="button" @click="activeProjectType = null">
+                      ← Tất cả nhóm dự án
+                    </button>
+                    <span>
+                      {{ projectGroups.find((group) => group.value === activeProjectType)?.title }}
+                      · {{ visibleFeaturedProjects.length }} hồ sơ dự án
+                    </span>
                   </div>
+                  <div v-if="paginatedFeaturedProjects.length" class="project-detail-grid">
+                    <article
+                      v-for="project in paginatedFeaturedProjects"
+                      :key="project.id"
+                      class="project-detail-card"
+                    >
+                      <div class="project-detail-art">
+                        <img
+                          class="project-detail-image"
+                          :src="projectImageUrl(project)"
+                          :alt="project.name"
+                          loading="lazy"
+                        >
+                        <span class="project-image-tag">{{ projectTypeLabel(project.type) }}</span>
+                      </div>
+                      <div class="project-detail-copy">
+                        <span class="project-detail-type">CASE STUDY · {{ projectTypeLabel(project.type) }}</span>
+                        <h3>{{ project.name }}</h3>
+                        <p>{{ project.description }}</p>
+                        <div class="project-detail-meta">
+                          <div><span>Vị trí</span><strong>{{ project.location }}</strong></div>
+                          <div><span>Hạng mục tham chiếu</span><strong>{{ project.category }} · {{ project.subcategory }}</strong></div>
+                        </div>
+                        <div class="project-detail-note">
+                          Thông tin dự án được cập nhật theo dữ liệu hiện có. Vui lòng liên hệ để xác nhận phạm vi cung ứng.
+                        </div>
+                        <div class="project-card-actions">
+                          <button
+                            class="project-view-detail"
+                            type="button"
+                            @click="openProject(project)"
+                          >
+                            Xem chi tiết dự án ↗
+                          </button>
+                        </div>
+                      </div>
+                    </article>
+                  </div>
+                  <div v-else class="empty-state">
+                    Chưa có dự án thuộc nhóm công trình này.
+                  </div>
+                  <nav v-if="projectPageCount > 1" class="pagination" aria-label="Phân trang dự án">
+                    <button
+                      class="page-btn"
+                      type="button"
+                      aria-label="Trang trước"
+                      :disabled="projectPage === 1"
+                      @click="goToProjectPage(projectPage - 1)"
+                    >←</button>
+                    <button
+                      v-for="page in projectPageCount"
+                      :key="page"
+                      class="page-btn"
+                      :class="{ active: projectPage === page }"
+                      type="button"
+                      :aria-current="projectPage === page ? 'page' : undefined"
+                      @click="goToProjectPage(page)"
+                    >{{ page }}</button>
+                    <span class="page-status">Trang {{ projectPage }} / {{ projectPageCount }}</span>
+                    <button
+                      class="page-btn"
+                      type="button"
+                      aria-label="Trang sau"
+                      :disabled="projectPage === projectPageCount"
+                      @click="goToProjectPage(projectPage + 1)"
+                    >→</button>
+                  </nav>
+                </div>
+                <div class="view-all">
+                  <Link class="btn btn-primary" href="/featured-projects">Xem tất cả dự án <span>↗</span></Link>
                 </div>
               </div>
             </div>
-            <div class="section-head reveal" style="margin-top:68px">
+            <div v-if="activeProjectType === null" class="section-head reveal" style="margin-top:68px">
               <div>
                 <div class="eyebrow"><span class="dot"></span> Cách chúng tôi làm việc</div>
                 <h2 class="section-title">Rõ ràng từ bước đầu.</h2>
               </div>
               <p class="section-desc">Một quy trình tinh gọn giúp giảm thời gian trao đổi và làm rõ yêu cầu trước khi chốt đơn hàng.</p>
             </div>
-            <div class="process">
+            <div v-if="activeProjectType === null" class="process">
               <div class="process-step reveal"><span class="process-num">01 — DISCOVER</span>
                 <h3>Tiếp nhận nhu cầu</h3>
                 <p>Làm rõ hạng mục, số lượng, thông số và tiến độ dự kiến.</p>
@@ -756,18 +945,94 @@ onUnmounted(() => {
               </div>
               <form class="contact-form" id="contactForm" @submit.prevent="submitContactForm">
                 <div class="form-row">
-                  <div class="field"><label for="fullName">HỌ VÀ TÊN *</label><input id="fullName" name="name" placeholder="Tên của bạn" required>
+                  <div class="field">
+                    <label for="fullName">HỌ VÀ TÊN *</label>
+                    <input
+                      id="fullName"
+                      v-model="contactForm.name"
+                      autocomplete="name"
+                      placeholder="Tên của bạn"
+                      required
+                      :aria-invalid="Boolean(contactForm.errors.name)"
+                    >
+                    <span v-if="contactForm.errors.name" class="field-error">{{ contactForm.errors.name }}</span>
                   </div>
-                  <div class="field"><label for="phone">SỐ ĐIỆN THOẠI *</label><input id="phone" name="phone" placeholder="09xx xxx xxx" required inputmode="tel">
+                  <div class="field">
+                    <label for="phone">SỐ ĐIỆN THOẠI *</label>
+                    <input
+                      id="phone"
+                      v-model="contactForm.phone"
+                      type="tel"
+                      autocomplete="tel"
+                      placeholder="09xx xxx xxx"
+                      required
+                      inputmode="tel"
+                      :aria-invalid="Boolean(contactForm.errors.phone)"
+                    >
+                    <span v-if="contactForm.errors.phone" class="field-error">{{ contactForm.errors.phone }}</span>
                   </div>
                 </div>
-                <div class="field"><label for="email">EMAIL CÔNG VIỆC</label><input id="email" name="email" type="email" placeholder="ban@congty.vn">
+                <div class="field">
+                  <label for="email">EMAIL CÔNG VIỆC *</label>
+                  <input
+                    id="email"
+                    v-model="contactForm.email"
+                    type="email"
+                    autocomplete="email"
+                    placeholder="ban@congty.vn"
+                    required
+                    :aria-invalid="Boolean(contactForm.errors.email)"
+                  >
+                  <span v-if="contactForm.errors.email" class="field-error">{{ contactForm.errors.email }}</span>
                 </div>
-                <div class="field"><label for="interest">HẠNG MỤC QUAN TÂM</label><select id="interest" name="interest"><option value="">Chọn hạng mục</option><option>Bình nước nóng Ariston</option><option>Bảo ôn K-FLEX</option><option>Vật tư HVAC</option><option>Vật tư MEP tổng hợp</option><option>Cung ứng cho dự án</option></select>
+                <div class="field">
+                  <label for="interest">HẠNG MỤC QUAN TÂM</label>
+                  <select
+                    id="interest"
+                    v-model="contactForm.category_id"
+                    :aria-invalid="Boolean(contactForm.errors.category_id)"
+                  >
+                    <option value="">Chọn hạng mục</option>
+                    <option value="Bình nước nóng Ariston">Bình nước nóng Ariston</option>
+                    <option value="Bảo ôn K-FLEX">Bảo ôn K-FLEX</option>
+                    <option value="Vật tư HVAC">Vật tư HVAC</option>
+                    <option value="Vật tư MEP tổng hợp">Vật tư MEP tổng hợp</option>
+                    <option value="Cung ứng cho dự án">Cung ứng cho dự án</option>
+                  </select>
+                  <span v-if="contactForm.errors.category_id" class="field-error">{{ contactForm.errors.category_id }}</span>
                 </div>
-                <div class="field"><label for="message">MÔ TẢ NHU CẦU</label><textarea id="message" name="message" placeholder="Sản phẩm, quy cách, số lượng, tiến độ..."></textarea>
-                </div><button class="btn" type="submit">Gửi yêu cầu tư vấn <span>↗</span></button>
-                <div v-if="contactMessage" class="form-message show" id="formMessage" role="status">{{ contactMessage }}</div>
+                <div class="field">
+                  <label for="projectName">DỰ ÁN CẦN BÁO GIÁ</label>
+                  <input
+                    id="projectName"
+                    v-model="contactForm.project_name"
+                    placeholder="Tên dự án hoặc công trình"
+                    maxlength="255"
+                    :aria-invalid="Boolean(contactForm.errors.project_name)"
+                  >
+                  <span v-if="contactForm.errors.project_name" class="field-error">{{ contactForm.errors.project_name }}</span>
+                </div>
+                <div class="field">
+                  <label for="message">MÔ TẢ NHU CẦU *</label>
+                  <textarea
+                    id="message"
+                    v-model="contactForm.message"
+                    placeholder="Sản phẩm, quy cách, số lượng, tiến độ..."
+                    maxlength="5000"
+                    required
+                    :aria-invalid="Boolean(contactForm.errors.message)"
+                  ></textarea>
+                  <span v-if="contactForm.errors.message" class="field-error">{{ contactForm.errors.message }}</span>
+                </div>
+                <button class="btn" type="submit" :disabled="contactForm.processing">
+                  {{ contactForm.processing ? 'Đang gửi...' : 'Gửi yêu cầu tư vấn' }} <span>↗</span>
+                </button>
+                <div v-if="contactSuccessMessage" class="form-message show" id="formMessage" role="status" aria-live="polite">
+                  {{ contactSuccessMessage }}
+                </div>
+                <p class="contact-form-note">
+                  Các trường có dấu * là bắt buộc. Thông tin dự án giúp chúng tôi chuẩn bị báo giá phù hợp.
+                </p>
               </form>
             </div>
           </div>
@@ -875,20 +1140,64 @@ onUnmounted(() => {
       </section>
     </div>
 
-    <div v-if="isProjectModalOpen && selectedProject" class="modal-wrap open" role="presentation" @click.self="isProjectModalOpen = false">
-      <section class="modal project-modal" role="dialog" aria-modal="true" :aria-label="selectedProject.name">
-        <button class="close-btn modal-close" type="button" aria-label="Đóng" @click="isProjectModalOpen = false">×</button>
-        <img class="project-modal-image" :src="productImageUrl(selectedProject.image)" :alt="selectedProject.name">
-        <div class="project-modal-copy">
-          <span class="project-type">{{ projectTypeLabel(selectedProject.type) }}</span>
-          <h2>{{ selectedProject.name }}</h2>
-          <p>{{ selectedProject.description }}</p>
-          <dl>
-            <div><dt>Địa điểm</dt><dd>{{ selectedProject.location }}</dd></div>
-            <div><dt>Danh mục</dt><dd>{{ selectedProject.category }}</dd></div>
-            <div><dt>Nhóm</dt><dd>{{ selectedProject.subcategory }}</dd></div>
-          </dl>
-          <a class="btn btn-primary" href="#contact" @click="isProjectModalOpen = false">Trao đổi về dự án ↗</a>
+    <div
+      v-if="isProjectModalOpen && selectedProject"
+      class="modal-wrap open"
+      role="presentation"
+      @click.self="closeProject"
+    >
+      <section class="modal project-modal-detail" role="dialog" aria-modal="true" :aria-label="`Chi tiết dự án ${selectedProject.name}`">
+        <button class="close-btn modal-close" type="button" aria-label="Đóng" @click="closeProject">×</button>
+        <div class="project-modal-layout">
+          <div class="project-modal-art project-modal-gallery">
+            <div class="project-gallery-shell">
+              <div class="project-gallery-stage">
+                <img
+                  class="gallery-photo"
+                  :src="selectedProjectImages[selectedProjectImageIndex]"
+                  :alt="`${selectedProject.name} · ảnh ${selectedProjectImageIndex + 1}`"
+                >
+              </div>
+              <div v-if="selectedProjectImages.length > 1" class="gallery-control-row project-gallery-control">
+                <button class="gallery-step" type="button" aria-label="Ảnh trước" @click="stepProjectImage(-1)">←</button>
+                <span>{{ String(selectedProjectImageIndex + 1).padStart(2, '0') }} / {{ String(selectedProjectImages.length).padStart(2, '0') }}</span>
+                <button class="gallery-step" type="button" aria-label="Ảnh tiếp theo" @click="stepProjectImage(1)">→</button>
+              </div>
+              <div v-if="selectedProjectImages.length > 1" class="gallery-thumbs project-gallery-thumbs">
+                <button
+                  v-for="(image, index) in selectedProjectImages"
+                  :key="image"
+                  class="gallery-thumb"
+                  :class="{ active: selectedProjectImageIndex === index }"
+                  type="button"
+                  :aria-label="`Hiển thị ảnh ${index + 1}`"
+                  :aria-pressed="selectedProjectImageIndex === index"
+                  @click="selectProjectImage(index)"
+                >
+                  <img class="gallery-photo" :src="image" :alt="`${selectedProject.name} · ảnh ${index + 1}`">
+                  <span>Ảnh {{ index + 1 }}</span>
+                </button>
+              </div>
+            </div>
+            <span class="project-image-tag">HÌNH ẢNH DỰ ÁN</span>
+          </div>
+          <div class="project-modal-copy">
+            <div class="project-detail-type">CHI TIẾT DỰ ÁN</div>
+            <h2>{{ selectedProject.name }}</h2>
+            <p>{{ selectedProject.description }}</p>
+            <div class="project-modal-meta">
+              <div><span>Nhóm dự án</span><strong>{{ projectTypeLabel(selectedProject.type) }}</strong></div>
+              <div><span>Vị trí</span><strong>{{ selectedProject.location }}</strong></div>
+              <div><span>Danh mục</span><strong>{{ selectedProject.category }}</strong></div>
+              <div><span>Hạng mục</span><strong>{{ selectedProject.subcategory }}</strong></div>
+            </div>
+            <p class="project-detail-note">
+              Thông tin địa điểm và hạng mục được cung cấp theo dữ liệu dự án. Vui lòng liên hệ để xác nhận chi tiết.
+            </p>
+            <Link class="btn btn-primary" href="/contacts" @click="closeProject">
+              Trao đổi về hạng mục này ↗
+            </Link>
+          </div>
         </div>
       </section>
     </div>

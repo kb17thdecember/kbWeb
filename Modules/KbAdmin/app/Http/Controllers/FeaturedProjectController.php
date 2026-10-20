@@ -22,7 +22,16 @@ class FeaturedProjectController extends Controller
             ->orderByDesc('created_at')
             ->get()
             ->each(function (FeaturedProject $project): void {
-                $project->setAttribute('image_url', $this->imageUrl($project->image));
+                $images = $this->projectImages($project);
+                $project->setAttribute('images', $images);
+                $project->setAttribute(
+                    'images_url',
+                    array_values(array_filter(array_map(
+                        fn (string $image): ?string => $this->imageUrl($image),
+                        $images,
+                    ))),
+                );
+                $project->setAttribute('image_url', $this->imageUrl($images[0] ?? null));
             });
         $categories = Category::query()
             ->whereNull('parent_id')
@@ -39,7 +48,10 @@ class FeaturedProjectController extends Controller
     public function store(Request $request): RedirectResponse
     {
         $validated = $request->validate($this->rules($request));
-        $validated['image'] = $this->storeImage($validated['image']);
+        $uploadedImages = $validated['images'] ?? [$validated['image']];
+        $imagePaths = $this->storeImages($uploadedImages);
+        $validated['image'] = $imagePaths[0];
+        $validated['images'] = $imagePaths;
 
         FeaturedProject::create($validated);
 
@@ -49,17 +61,26 @@ class FeaturedProjectController extends Controller
     public function update(Request $request, FeaturedProject $featuredProject): RedirectResponse
     {
         $validated = $request->validate($this->rules($request, false));
-        $oldImage = $featuredProject->image;
-        $imageUpload = $validated['image'] ?? null;
-        unset($validated['image']);
+        $oldImages = $this->projectImages($featuredProject);
+        $uploadedImages = $validated['images'] ?? [];
+        if ($uploadedImages === [] && ($validated['image'] ?? null) instanceof UploadedFile) {
+            $uploadedImages = [$validated['image']];
+        }
 
-        if ($imageUpload instanceof UploadedFile) {
-            $validated['image'] = $this->storeImage($imageUpload);
+        unset($validated['image'], $validated['images']);
+        if ($uploadedImages !== []) {
+            $imagePaths = $this->storeImages($uploadedImages);
+            $validated['image'] = $imagePaths[0];
+            $validated['images'] = $imagePaths;
         }
         $featuredProject->update($validated);
 
-        if (isset($validated['image']) && $oldImage !== $featuredProject->image) {
-            $this->deleteStoredImage($oldImage);
+        if (isset($validated['images'])) {
+            foreach ($oldImages as $oldImage) {
+                if (! in_array($oldImage, $validated['images'], true)) {
+                    $this->deleteStoredImage($oldImage);
+                }
+            }
         }
 
         return to_route('admin.case-studies.index');
@@ -67,9 +88,11 @@ class FeaturedProjectController extends Controller
 
     public function destroy(FeaturedProject $featuredProject): RedirectResponse
     {
-        $image = $featuredProject->image;
+        $images = $this->projectImages($featuredProject);
         $featuredProject->delete();
-        $this->deleteStoredImage($image);
+        foreach ($images as $image) {
+            $this->deleteStoredImage($image);
+        }
 
         return to_route('admin.case-studies.index');
     }
@@ -104,18 +127,47 @@ class FeaturedProjectController extends Controller
                 ),
             ],
             'type' => ['required', 'string', Rule::in(['1', '2', '3'])],
-            'image' => [$imageRequired ? 'required' : 'nullable', 'image', 'max:5120'],
+            'image' => [
+                $imageRequired ? 'required_without:images' : 'nullable',
+                'image',
+                'max:5120',
+            ],
+            'images' => [
+                $imageRequired ? 'required_without:image' : 'nullable',
+                'array',
+                'min:1',
+                'max:3',
+            ],
+            'images.*' => ['required', 'image', 'max:5120'],
         ];
     }
 
-    private function storeImage(UploadedFile $image): string
+    /**
+     * @param  array<int, UploadedFile>  $images
+     * @return array<int, string>
+     */
+    private function storeImages(array $images): array
     {
-        $imagePath = $image->store('featured-projects', 'public');
-        if ($imagePath === false) {
-            throw new RuntimeException('Unable to store the featured project image.');
+        $imagePaths = [];
+        foreach ($images as $image) {
+            $imagePath = $image->store('featured-projects', 'public');
+            if ($imagePath === false) {
+                throw new RuntimeException('Unable to store a featured project image.');
+            }
+            $imagePaths[] = $imagePath;
         }
 
-        return $imagePath;
+        return $imagePaths;
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function projectImages(FeaturedProject $project): array
+    {
+        $images = $project->images ?? [];
+
+        return $images !== [] ? $images : [$project->image];
     }
 
     private function deleteStoredImage(?string $image): void

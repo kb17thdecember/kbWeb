@@ -14,5 +14,13 @@ class FeaturedProject extends Model
         'subcategory',
         'type',
         'image',
+        'images',
     ];
+
+    protected function casts(): array
+    {
+        return [
+            'images' => 'array',
+        ];
+    }
 }

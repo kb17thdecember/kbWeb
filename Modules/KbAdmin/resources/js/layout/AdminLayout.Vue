@@ -6,6 +6,17 @@ import { Link, usePage } from '@inertiajs/vue3';
 const page = usePage();
 const currentUrl = computed(() => page.url.split('?')[0]);
 
+type AdminStat = {
+    label: string;
+    count: number;
+    description: string;
+};
+
+const props = defineProps<{
+    stats?: AdminStat[];
+    openRequestsCount?: number;
+}>();
+
 const menuItems = [
     { label: 'Dashboard', icon: '▦', href: '/admin/dashboard' },
     { label: 'Sản Phẩm', icon: '▧', href: '/admin/products' },
@@ -14,12 +25,13 @@ const menuItems = [
     { label: 'Yêu Cầu Tư Vấn', icon: '☷', href: '/admin/consultations' },
 ];
 
-const statsData = [
+const defaultStats = [
     { label: 'Sản phẩm', count: 0, description: 'Tổng số mặt hàng' },
     { label: 'Dự án tiêu biểu', count: 0, description: 'Hồ sơ dự án' },
     { label: 'Danh mục', count: 0, description: 'Nhóm chính' },
     { label: 'Yêu cầu cần xử lý', count: 0, description: 'Chưa hoàn tất' },
 ];
+const visibleStats = computed(() => props.stats ?? defaultStats);
 </script>
 
 <template>
@@ -43,6 +55,10 @@ const statsData = [
                 >
                     <span class="nav-icon">{{ item.icon }}</span>
                     <span>{{ item.label }}</span>
+                    <span
+                        v-if="item.href === '/admin/consultations' && props.openRequestsCount !== undefined"
+                        class="count"
+                    >{{ props.openRequestsCount }}</span>
           </Link>
           </nav>
         </div>
@@ -77,7 +93,7 @@ const statsData = [
           </div>
           <div class="warning" id="storageWarning">Dữ liệu được lưu trong trình duyệt. Bản HTML tĩnh chưa có máy chủ, đăng nhập bảo mật hoặc đồng bộ giữa các thiết bị.</div>
           <div class="stats" id="stats">
-            <div class="stat" v-for="stat in statsData" :key="stat.label">
+            <div class="stat" v-for="stat in visibleStats" :key="stat.label">
               <span>{{ stat.label }}</span>
               <strong>{{ stat.count }}</strong>
               <small>{{ stat.description }}</small>

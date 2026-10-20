@@ -645,6 +645,32 @@ button {
   white-space: normal;
   line-height: 1.6;
 }
+.table.consultation-table {
+  min-width: 1120px;
+}
+.request-date {
+  white-space: nowrap;
+}
+.request-status {
+  width: 130px;
+  padding: 8px 24px 8px 9px;
+  font-weight: 750;
+}
+.request-status.status-pending {
+  border-color: #dce4ff;
+  background: #f3f5ff;
+  color: #5066f6;
+}
+.request-status.status-processing {
+  border-color: #f6e2c1;
+  background: #fff8ec;
+  color: #bd7a22;
+}
+.request-status.status-resolved {
+  border-color: #cce9dc;
+  background: #f0faf5;
+  color: #27875f;
+}
 .request-detail-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;

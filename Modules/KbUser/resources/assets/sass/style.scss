@@ -1485,6 +1485,13 @@ img,svg {
   border-color: #96bd50;
   box-shadow: 0 0 0 4px #a5cf5b25;
 }
+.field input[aria-invalid="true"],.field select[aria-invalid="true"],.field textarea[aria-invalid="true"] {
+  border-color: #b64a3a;
+}
+.field-error {
+  color: #9d3326;
+  font-size: 10px;
+}
 .contact-form .btn {
   width: 100%;
   background: #1b3025;
@@ -1499,6 +1506,12 @@ img,svg {
 .form-message.show {
   display: block;
   animation: fadeup .3s both;
+}
+.contact-form-note {
+  margin: 12px 0 0;
+  color: #6a7d6b;
+  font-size: 9px;
+  line-height: 1.6;
 }
 .footer {
   background: #12241d;
@@ -3224,7 +3237,9 @@ body {
   border: 1px solid #ffffff20;
   background: #20372b;
   color: #f0f5ee;
+  font: inherit;
   border-radius: 22px;
+  cursor: pointer;
   overflow: hidden;
   transition: transform .28s,border-color .28s,box-shadow .28s;
 }
@@ -3249,7 +3264,16 @@ body {
   max-width: none;
   transition: transform .6s cubic-bezier(.2,.8,.2,1);
 }
-.project-group-card:hover .project-group-art svg {
+.project-group-art img,
+.project-detail-art img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform .6s cubic-bezier(.2,.8,.2,1);
+}
+.project-group-card:hover .project-group-art svg,
+.project-group-card:hover .project-group-art img,
+.project-detail-card:hover .project-detail-art img {
   transform: scale(1.05);
 }
 .project-group-copy {

@@ -2,6 +2,7 @@
 
 use Illuminate\Support\Facades\Route;
 use Modules\KbAdmin\Http\Controllers\CategoryController;
+use Modules\KbAdmin\Http\Controllers\ConsultationController;
 use Modules\KbAdmin\Http\Controllers\DashboardController;
 use Modules\KbAdmin\Http\Controllers\FeaturedProjectController;
 use Modules\KbAdmin\Http\Controllers\ProductController;
@@ -21,6 +22,15 @@ Route::middleware(UseKbAdminRootView::class)
 
         Route::get('/case-studies', [FeaturedProjectController::class, 'index'])
             ->name('admin.case-studies.index');
+
+        Route::get('/consultations', [ConsultationController::class, 'index'])
+            ->name('admin.consultations.index');
+
+        Route::patch('/consultations/{contact}/status', [ConsultationController::class, 'updateStatus'])
+            ->name('admin.consultations.update-status');
+
+        Route::delete('/consultations/{contact}', [ConsultationController::class, 'destroy'])
+            ->name('admin.consultations.destroy');
 
         Route::post('/case-studies', [FeaturedProjectController::class, 'store'])
             ->name('admin.case-studies.store');

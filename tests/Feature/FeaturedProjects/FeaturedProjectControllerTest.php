@@ -6,6 +6,20 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Testing\AssertableInertia as Assert;
 
+function fakeFeaturedProjectImage(string $name): UploadedFile
+{
+    $imageContents = base64_decode(
+        'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR4nGNgYAAAAAMAASsJTYQAAAAASUVORK5CYII=',
+        true,
+    );
+
+    if ($imageContents === false) {
+        throw new RuntimeException('Unable to decode the test image fixture.');
+    }
+
+    return UploadedFile::fake()->createWithContent($name, $imageContents);
+}
+
 test('the featured projects page lists saved projects', function () {
     $parent = Category::factory()->create(['name' => 'Văn phòng']);
     $child = Category::factory()->create([
@@ -49,7 +63,7 @@ test('a featured project can be created with an uploaded image', function () {
         'category' => $parent->name,
         'subcategory' => $child->name,
         'type' => '2',
-        'image' => UploadedFile::fake()->image('office.jpg'),
+        'image' => fakeFeaturedProjectImage('office.png'),
     ]);
 
     $response->assertRedirect(route('admin.case-studies.index'));
@@ -61,6 +75,123 @@ test('a featured project can be created with an uploaded image', function () {
         ->and($project->subcategory)->toBe('MEP')
         ->and($project->image)->toStartWith('featured-projects/');
     Storage::disk('public')->assertExists($project->image);
+});
+
+test('a featured project can be created with up to three uploaded images', function () {
+    Storage::fake('public');
+    $parent = Category::factory()->create(['name' => 'Văn phòng']);
+    $child = Category::factory()->create([
+        'name' => 'MEP',
+        'parent_id' => $parent->id,
+    ]);
+
+    $this->post(route('admin.case-studies.store'), [
+        'name' => 'Tổ hợp văn phòng',
+        'description' => 'Dự án văn phòng tại Hà Nội',
+        'location' => 'Hà Nội',
+        'category' => $parent->name,
+        'subcategory' => $child->name,
+        'type' => '2',
+        'images' => [
+            fakeFeaturedProjectImage('office-front.png'),
+            fakeFeaturedProjectImage('office-hall.png'),
+            fakeFeaturedProjectImage('office-system.png'),
+        ],
+    ])->assertRedirect(route('admin.case-studies.index'));
+
+    $project = FeaturedProject::query()->sole();
+    expect($project->images)->toHaveCount(3)
+        ->and($project->image)->toBe($project->images[0]);
+
+    foreach ($project->images as $imagePath) {
+        Storage::disk('public')->assertExists($imagePath);
+    }
+
+    $this->get(route('admin.case-studies.index'))
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('projects.0.images_url', array_map(
+                fn (string $image): string => Storage::disk('public')->url($image),
+                $project->images,
+            )),
+        );
+});
+
+test('a featured project cannot be created with more than three images', function () {
+    Storage::fake('public');
+    $parent = Category::factory()->create(['name' => 'Văn phòng']);
+    $child = Category::factory()->create([
+        'name' => 'MEP',
+        'parent_id' => $parent->id,
+    ]);
+
+    $this->from(route('admin.case-studies.index'))
+        ->post(route('admin.case-studies.store'), [
+            'name' => 'Tổ hợp văn phòng',
+            'description' => 'Dự án văn phòng tại Hà Nội',
+            'location' => 'Hà Nội',
+            'category' => $parent->name,
+            'subcategory' => $child->name,
+            'type' => '2',
+            'images' => [
+                fakeFeaturedProjectImage('office-front.png'),
+                fakeFeaturedProjectImage('office-hall.png'),
+                fakeFeaturedProjectImage('office-system.png'),
+                fakeFeaturedProjectImage('office-extra.png'),
+            ],
+        ])
+        ->assertRedirect(route('admin.case-studies.index'))
+        ->assertSessionHasErrors('images');
+
+    expect(FeaturedProject::query()->count())->toBe(0);
+    Storage::disk('public')->assertDirectoryEmpty('featured-projects');
+});
+
+test('updating a featured project can replace its image gallery', function () {
+    Storage::fake('public');
+    $oldImages = [
+        fakeFeaturedProjectImage('old-front.png')->store('featured-projects', 'public'),
+        fakeFeaturedProjectImage('old-detail.png')->store('featured-projects', 'public'),
+    ];
+    $parent = Category::factory()->create(['name' => 'Văn phòng']);
+    $child = Category::factory()->create([
+        'name' => 'MEP',
+        'parent_id' => $parent->id,
+    ]);
+    $project = FeaturedProject::create([
+        'name' => 'Tổ hợp văn phòng',
+        'description' => 'Mô tả cũ',
+        'location' => 'Hà Nội',
+        'category' => $parent->name,
+        'subcategory' => $child->name,
+        'type' => '2',
+        'image' => $oldImages[0],
+        'images' => $oldImages,
+    ]);
+
+    $this->post(route('admin.case-studies.update', $project), [
+        '_method' => 'put',
+        'name' => 'Tổ hợp văn phòng',
+        'description' => 'Mô tả mới',
+        'location' => 'Hà Nội',
+        'category' => $parent->name,
+        'subcategory' => $child->name,
+        'type' => '2',
+        'images' => [
+            fakeFeaturedProjectImage('new-front.png'),
+            fakeFeaturedProjectImage('new-detail.png'),
+        ],
+    ])->assertRedirect(route('admin.case-studies.index'));
+
+    $updatedProject = $project->fresh();
+    expect($updatedProject->images)->toHaveCount(2)
+        ->and($updatedProject->image)->toBe($updatedProject->images[0]);
+
+    foreach ($oldImages as $imagePath) {
+        Storage::disk('public')->assertMissing($imagePath);
+    }
+    foreach ($updatedProject->images as $imagePath) {
+        Storage::disk('public')->assertExists($imagePath);
+    }
 });
 
 test('a featured project requires an image when created', function () {
@@ -90,7 +221,7 @@ test('a featured project can be updated without replacing its image', function (
         'name' => 'Cấp nước',
         'parent_id' => $parent->id,
     ]);
-    $imagePath = UploadedFile::fake()->image('office.jpg')->store('featured-projects', 'public');
+    $imagePath = fakeFeaturedProjectImage('office.png')->store('featured-projects', 'public');
     $project = FeaturedProject::create([
         'name' => 'Tổ hợp cũ',
         'description' => 'Mô tả cũ',
@@ -121,7 +252,7 @@ test('a featured project can be updated without replacing its image', function (
 
 test('a featured project can be deleted together with its stored image', function () {
     Storage::fake('public');
-    $imagePath = UploadedFile::fake()->image('office.jpg')->store('featured-projects', 'public');
+    $imagePath = fakeFeaturedProjectImage('office.png')->store('featured-projects', 'public');
     $project = FeaturedProject::create([
         'name' => 'Tổ hợp cần xóa',
         'description' => 'Dự án cần xóa',
@@ -155,7 +286,7 @@ test('a featured project cannot select a child category from a different parent'
             'category' => $parent->name,
             'subcategory' => $otherChild->name,
             'type' => '1',
-            'image' => UploadedFile::fake()->image('office.jpg'),
+            'image' => fakeFeaturedProjectImage('office.png'),
         ]);
 
     $response->assertRedirect(route('admin.case-studies.index'))
@@ -176,7 +307,7 @@ test('a featured project rejects an unsupported project type', function () {
             'category' => $parent->name,
             'subcategory' => $child->name,
             'type' => '4',
-            'image' => UploadedFile::fake()->image('office.jpg'),
+            'image' => fakeFeaturedProjectImage('office.png'),
         ]);
 
     $response->assertRedirect(route('admin.case-studies.index'))

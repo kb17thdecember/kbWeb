@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue';
-import { Head } from '@inertiajs/vue3';
+import { Head, Link } from '@inertiajs/vue3';
 import UserLayout from '../../layout/UserLayout.Vue';
 
 type CategoryItem = {
@@ -39,7 +39,7 @@ const categoryProductsUrl = (categoryId: number, subcategoryId?: number): string
         params.set('subcategory', String(subcategoryId));
     }
 
-    return `/?${params.toString()}#products`;
+    return `/products?${params.toString()}#products`;
 };
 </script>
 
@@ -65,12 +65,12 @@ const categoryProductsUrl = (categoryId: number, subcategoryId?: number): string
                             }}
                         </p>
                     </div>
-                    <a
+                    <Link
                         v-if="selectedCategory"
                         class="page-home-link"
                         href="/categories"
-                    >← Tất cả danh mục</a>
-                    <a v-else class="page-home-link" href="/">← Về trang chủ</a>
+                    >← Tất cả danh mục</Link>
+                    <Link v-else class="page-home-link" href="/">← Về trang chủ</Link>
                 </div>
             </section>
 
@@ -95,7 +95,7 @@ const categoryProductsUrl = (categoryId: number, subcategoryId?: number): string
                     </div>
 
                     <div v-if="!selectedCategory && categories.length > 0" class="category-grid">
-                        <a
+                        <Link
                             v-for="(category, index) in categories"
                             :key="category.id"
                             class="category-card"
@@ -119,7 +119,7 @@ const categoryProductsUrl = (categoryId: number, subcategoryId?: number): string
                                 <span>Chọn dòng sản phẩm</span>
                                 <span class="circle-arrow" aria-hidden="true">↗</span>
                             </span>
-                        </a>
+                        </Link>
                     </div>
 
                     <div v-else-if="!selectedCategory && categories.length === 0" class="empty-state">
@@ -147,11 +147,11 @@ const categoryProductsUrl = (categoryId: number, subcategoryId?: number): string
                                     }}
                                 </p>
                             </div>
-                            <a class="text-back" href="/categories">← Tất cả danh mục</a>
+                            <Link class="text-back" href="/categories">← Tất cả danh mục</Link>
                         </div>
 
                         <div v-if="selectedCategory.children.length > 0" class="subcategory-grid">
-                            <a
+                            <Link
                                 v-for="(subcategory, index) in selectedCategory.children"
                                 :key="subcategory.id"
                                 class="subcategory-card"
@@ -179,7 +179,7 @@ const categoryProductsUrl = (categoryId: number, subcategoryId?: number): string
                                     <span>{{ subcategory.products_count }} sản phẩm</span>
                                     <b aria-hidden="true">↗</b>
                                 </span>
-                            </a>
+                            </Link>
                         </div>
                         <p v-else class="empty-state">
                             Danh mục này chưa có dòng sản phẩm.

@@ -38,7 +38,7 @@
                         </td>
                         <td>{{ project.category }}</td>
                         <td>{{ project.subcategory }} · {{ projectTypeLabel(project.type) }}</td>
-                        <td>{{ project.image ? '1 ảnh' : '0 ảnh' }}</td>
+                        <td>{{ project.images_url.length }} ảnh</td>
                         <td>
                             <div class="row-actions">
                                 <button class="mini" type="button" @click="editProject(project)">Sửa</button>
@@ -84,6 +84,8 @@
         type: string;
         image: string;
         image_url: string | null;
+        images: string[] | null;
+        images_url: string[];
     };
 
     type Category = {

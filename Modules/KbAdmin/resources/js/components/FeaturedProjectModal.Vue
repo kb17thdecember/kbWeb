@@ -61,31 +61,38 @@
                         </select>
                     </div>
                     <div class="field full">
-                        <label>Ảnh dự án (chọn 1 ảnh)</label>
+                        <label>Ảnh dự án (tối đa 3 ảnh)</label>
                         <label class="image-upload">
                             <div>
                                 <b>＋ Chọn ảnh từ máy tính</b>
-                                <small>JPG, PNG, WEBP · tối đa 5 MB</small>
+                                <small>JPG, PNG, WEBP · tối đa 5 MB/ảnh · có thể chọn nhiều ảnh</small>
                             </div>
                             <span aria-hidden="true">⇧</span>
                             <input
                                 type="file"
                                 accept="image/*"
-                                :required="!project && !selectedImage"
+                                multiple
                                 :disabled="isProcessingImage || isSubmitting"
-                                @change="handleImageFile"
+                                @change="handleImageFiles"
                             >
                         </label>
-                        <div v-if="imagePreviewUrl" class="project-image-preview-wrap">
-                            <img class="project-image-preview" :src="imagePreviewUrl" alt="Xem trước ảnh dự án">
-                            <button
-                                v-if="selectedImage"
-                                type="button"
-                                class="image-remove"
-                                aria-label="Bỏ ảnh vừa chọn"
-                                @click="clearSelectedImage"
-                            >×</button>
+                        <div class="image-count" aria-live="polite">
+                            {{ visibleImages.length }} / 3 ảnh
+                            <span v-if="selectedImages.length && project"> · ảnh mới sẽ thay thế bộ ảnh hiện tại</span>
                         </div>
+                        <div v-if="visibleImages.length" class="project-images-preview" aria-live="polite">
+                            <div v-for="(image, index) in visibleImages" :key="image.key" class="project-image-preview-wrap">
+                                <img class="project-image-preview" :src="image.url" :alt="`Ảnh dự án số ${index + 1}`">
+                                <button
+                                    v-if="selectedImages.length"
+                                    type="button"
+                                    class="image-remove"
+                                    :aria-label="`Bỏ ảnh số ${index + 1}`"
+                                    @click="removeSelectedImage(index)"
+                                >×</button>
+                            </div>
+                        </div>
+                        <p v-if="project" class="image-help">Không chọn ảnh mới để giữ nguyên bộ ảnh hiện tại.</p>
                     </div>
                 </div>
                 <div class="formfoot">
@@ -114,6 +121,8 @@
         type: string;
         image: string;
         image_url: string | null;
+        images: string[] | null;
+        images_url: string[];
     };
 
     type Category = {
@@ -143,8 +152,8 @@
     const selectedCategory = ref('');
     const selectedSubcategory = ref('');
     const type = ref('');
-    const selectedImage = ref<File | null>(null);
-    const imagePreviewUrl = ref('');
+    const selectedImages = ref<File[]>([]);
+    const selectedImagePreviewUrls = ref<string[]>([]);
     const isProcessingImage = ref(false);
     const isSubmitting = ref(false);
     const toastMessage = ref('');
@@ -154,6 +163,23 @@
     const visibleSubcategories = computed(() =>
         props.categories.find((item) => item.name === selectedCategory.value)?.children ?? [],
     );
+    const existingImages = computed(() => {
+        if (props.project?.images_url.length) {
+            return props.project.images_url;
+        }
+
+        return props.project?.image_url ? [props.project.image_url] : [];
+    });
+    const visibleImages = computed(() => {
+        const urls = selectedImagePreviewUrls.value.length
+            ? selectedImagePreviewUrls.value
+            : existingImages.value;
+
+        return urls.map((url, index) => ({
+            key: `${selectedImages.value.length ? 'selected' : 'existing'}-${index}`,
+            url,
+        }));
+    });
 
     watch(
         selectedCategory,
@@ -181,8 +207,7 @@
         selectedCategory.value = parentCategory?.name ?? '';
         selectedSubcategory.value = childCategory?.name ?? '';
         type.value = props.project?.type ?? '';
-        selectedImage.value = null;
-        setImagePreview(props.project?.image_url ?? '');
+        clearSelectedImages();
         toastMessage.value = '';
         isToastVisible.value = false;
     }
@@ -206,25 +231,31 @@
         }, 2400);
     }
 
-    async function handleImageFile(event: Event): Promise<void> {
+    async function handleImageFiles(event: Event): Promise<void> {
         const input = event.target;
         if (!(input instanceof HTMLInputElement)) {
             return;
         }
 
-        const file = input.files?.[0];
-        if (!file) {
+        const files = Array.from(input.files ?? []);
+        if (!files.length) {
             return;
         }
 
-        if (!file.type.startsWith('image/')) {
-            showToast('Tệp đã chọn không phải ảnh.');
+        if (files.length > 3) {
+            showToast('Bạn chỉ có thể chọn tối đa 3 ảnh cho mỗi dự án.');
             input.value = '';
             return;
         }
 
-        if (file.size > 5 * 1024 * 1024) {
-            showToast('Ảnh vượt quá 5 MB. Vui lòng chọn ảnh nhỏ hơn.');
+        if (files.some((file) => !file.type.startsWith('image/'))) {
+            showToast('Tệp đã chọn không phải ảnh. Vui lòng chỉ chọn tệp ảnh.');
+            input.value = '';
+            return;
+        }
+
+        if (files.some((file) => file.size > 5 * 1024 * 1024)) {
+            showToast('Mỗi ảnh phải nhỏ hơn 5 MB.');
             input.value = '';
             return;
         }
@@ -232,11 +263,13 @@
         isProcessingImage.value = true;
 
         try {
-            selectedImage.value = await optimizeImage(file);
-            setImagePreview(URL.createObjectURL(selectedImage.value));
-            showToast('Đã chọn ảnh dự án.');
+            const optimizedImages = await Promise.all(files.map((file) => optimizeImage(file)));
+            clearSelectedImages();
+            selectedImages.value = optimizedImages;
+            selectedImagePreviewUrls.value = optimizedImages.map((image) => URL.createObjectURL(image));
+            showToast(`Đã chọn ${optimizedImages.length} ảnh dự án.`);
         } catch {
-            showToast('Không thể xử lý ảnh. Vui lòng chọn ảnh khác.');
+            showToast('Không thể xử lý ảnh. Vui lòng chọn lại ảnh.');
         } finally {
             input.value = '';
             isProcessingImage.value = false;
@@ -280,21 +313,28 @@
         }
     }
 
-    function setImagePreview(url: string): void {
-        if (imagePreviewUrl.value.startsWith('blob:')) {
-            URL.revokeObjectURL(imagePreviewUrl.value);
-        }
-
-        imagePreviewUrl.value = url;
+    function clearSelectedImages(): void {
+        selectedImagePreviewUrls.value.forEach((url) => URL.revokeObjectURL(url));
+        selectedImages.value = [];
+        selectedImagePreviewUrls.value = [];
     }
 
-    function clearSelectedImage(): void {
-        selectedImage.value = null;
-        setImagePreview(props.project?.image_url ?? '');
+    function removeSelectedImage(index: number): void {
+        const previewUrl = selectedImagePreviewUrls.value[index];
+        if (previewUrl) {
+            URL.revokeObjectURL(previewUrl);
+        }
+
+        selectedImages.value.splice(index, 1);
+        selectedImagePreviewUrls.value.splice(index, 1);
     }
 
     function saveProject(): void {
         if (isSubmitting.value || isProcessingImage.value) {
+            return;
+        }
+        if (!props.project && selectedImages.value.length === 0) {
+            showToast('Vui lòng chọn ít nhất một ảnh cho dự án.');
             return;
         }
 
@@ -306,7 +346,7 @@
             category: selectedCategory.value,
             subcategory: selectedSubcategory.value,
             type: type.value,
-            image: selectedImage.value,
+            images: selectedImages.value.length ? selectedImages.value : null,
         };
         const options = {
             preserveScroll: true,
@@ -332,9 +372,7 @@
     }
 
     onBeforeUnmount(() => {
-        if (imagePreviewUrl.value.startsWith('blob:')) {
-            URL.revokeObjectURL(imagePreviewUrl.value);
-        }
+        clearSelectedImages();
 
         if (toastTimeout) {
             clearTimeout(toastTimeout);
@@ -399,5 +437,25 @@
         color: #b42318;
         font-size: 20px;
         cursor: pointer;
+    }
+
+    .project-images-preview {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 9px;
+        margin-top: 10px;
+    }
+
+    .project-images-preview .project-image-preview-wrap {
+        width: 100%;
+        min-width: 0;
+        margin-top: 0;
+    }
+
+    .project-images-preview .project-image-preview {
+        width: 100%;
+        height: 125px;
+        max-height: none;
+        object-fit: cover;
     }
 </style>

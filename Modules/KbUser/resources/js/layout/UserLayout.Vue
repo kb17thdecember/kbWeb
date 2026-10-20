@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { ref } from 'vue';
+import { Link } from '@inertiajs/vue3';
 
 const props = defineProps<{
     cartCount: number;
-    activePage?: 'home' | 'categories';
+    activePage?: 'home' | 'categories' | 'products' | 'projects' | 'about' | 'contact';
 }>();
 
 const emit = defineEmits<{
@@ -26,7 +27,7 @@ const focusProductSearch = () => {
         return;
     }
 
-    window.location.href = '/#products';
+    window.location.href = '/products#products';
 };
 </script>
 
@@ -37,21 +38,21 @@ const focusProductSearch = () => {
     
     <header class="nav-shell">
         <div class="wrap nav">
-            <a href="/" class="brand" aria-label="NOVA TECH trang chủ">
+            <Link href="/" class="brand" aria-label="NOVA TECH trang chủ">
                 <span class="brandmark">N</span>
                 <span class="brandname">
                     NOVA TECH
                     <small>ENGINEERING SUPPLY</small>
                 </span>
-            </a>
+            </Link>
 
             <nav class="navlinks" :class="{ open: isMenuOpen }" id="navlinks" aria-label="Điều hướng chính">
-                <a href="/" :aria-current="props.activePage === 'home' ? 'page' : undefined" @click="closeMenu">Trang chủ</a>
-                <a href="/categories" :aria-current="props.activePage === 'categories' ? 'page' : undefined" @click="closeMenu">Danh mục</a>
-                <a href="/#products" @click="closeMenu">Sản phẩm</a>
-                <a href="/#projects" @click="closeMenu">Dự án tiêu biểu</a>
-                <a href="/#about" @click="closeMenu">Về chúng tôi</a>
-                <a href="/#contact" @click="closeMenu">Liên hệ</a>
+                <Link href="/" :aria-current="props.activePage === 'home' ? 'page' : undefined" @click="closeMenu">Trang chủ</Link>
+                <Link href="/categories" :aria-current="props.activePage === 'categories' ? 'page' : undefined" @click="closeMenu">Danh mục</Link>
+                <Link href="/products" :aria-current="props.activePage === 'products' ? 'page' : undefined" @click="closeMenu">Sản phẩm</Link>
+                <Link href="/featured-projects" :aria-current="props.activePage === 'projects' ? 'page' : undefined" @click="closeMenu">Dự án tiêu biểu</Link>
+                <Link href="/about-us" :aria-current="props.activePage === 'about' ? 'page' : undefined" @click="closeMenu">Về chúng tôi</Link>
+                <Link href="/contacts" :aria-current="props.activePage === 'contact' ? 'page' : undefined" @click="closeMenu">Liên hệ</Link>
             </nav>
 
             <div class="navactions">
@@ -71,12 +72,12 @@ const focusProductSearch = () => {
                     <span class="cart-count" id="cartCount">{{ props.cartCount }}</span>
                 </button>
 
-                <a class="btn btn-primary" href="/#contact">
+                <Link class="btn btn-primary" href="/contacts">
                     Nhận báo giá
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <path d="M5 12h14m-6-6 6 6-6 6"></path>
                     </svg>
-                </a>
+                </Link>
 
                 <button
                     class="icon-btn menu-toggle"
@@ -99,19 +100,19 @@ const focusProductSearch = () => {
     <footer class="footer">
         <div class="wrap">
           <div class="footer-grid">
-            <div><a href="/" class="brand"><span class="brandmark">N</span><span class="brandname">NOVA TECH<small>ENGINEERING SUPPLY</small></span></a>
+            <div><Link href="/" class="brand"><span class="brandmark">N</span><span class="brandname">NOVA TECH<small>ENGINEERING SUPPLY</small></span></Link>
               <p class="footer-desc">Đầu mối cung ứng thiết bị và vật tư kỹ thuật cho các công trình dân dụng, thương mại và công nghiệp.</p>
-              <div class="socials"><a href="#contact" aria-label="Facebook">f</a><a href="#contact" aria-label="LinkedIn">in</a><a href="#contact" aria-label="Zalo">Z</a>
+              <div class="socials"><Link href="/contacts" aria-label="Facebook">f</Link><Link href="/contacts" aria-label="LinkedIn">in</Link><Link href="/contacts" aria-label="Zalo">Z</Link>
               </div>
             </div>
             <div>
               <h4>KHÁM PHÁ</h4>
-              <div class="footer-links"><a href="/#about">Về chúng tôi</a><a href="/categories">Danh mục</a><a href="/#products">Sản phẩm</a><a href="/#projects">Dự án</a>
+              <div class="footer-links"><Link href="/about-us">Về chúng tôi</Link><Link href="/categories">Danh mục</Link><Link href="/products">Sản phẩm</Link><Link href="/featured-projects">Dự án</Link>
               </div>
             </div>
             <div>
               <h4>HỖ TRỢ</h4>
-              <div class="footer-links"><a href="/#contact">Yêu cầu báo giá</a><a href="/#contact">Tư vấn kỹ thuật</a><a href="/#contact">Chính sách giao hàng</a><a href="/#contact">Liên hệ hợp tác</a>
+              <div class="footer-links"><Link href="/contacts">Yêu cầu báo giá</Link><Link href="/contacts">Tư vấn kỹ thuật</Link><Link href="/contacts">Chính sách giao hàng</Link><Link href="/contacts">Liên hệ hợp tác</Link>
               </div>
             </div>
             <div>

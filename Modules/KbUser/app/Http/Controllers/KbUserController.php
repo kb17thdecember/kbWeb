@@ -3,11 +3,16 @@
 namespace Modules\KbUser\Http\Controllers;
 
 use App\Http\Controllers\Controller;
+use App\Mail\ContactInquiryReceived;
 use App\Models\Category;
+use App\Models\Contact;
 use App\Models\FeaturedProject;
 use App\Models\Product;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response as InertiaResponse;
 
@@ -39,7 +44,6 @@ class KbUserController extends Controller
 
         $featuredProjects = FeaturedProject::query()
             ->latest()
-            ->limit(3)
             ->get([
                 'id',
                 'name',
@@ -49,7 +53,11 @@ class KbUserController extends Controller
                 'subcategory',
                 'type',
                 'image',
-            ]);
+                'images',
+            ])
+            ->each(function (FeaturedProject $project): void {
+                $this->appendProjectImageUrls($project);
+            });
 
         return Inertia::render('Home', [
             'categories' => $categories,
@@ -91,6 +99,128 @@ class KbUserController extends Controller
             'categories' => $categories,
             'selectedCategoryId' => $selectedCategory?->id,
         ]);
+    }
+
+    public function products(): InertiaResponse
+    {
+        $categories = Category::query()
+            ->with('children:id,name,parent_id')
+            ->whereNull('parent_id')
+            ->orderBy('name')
+            ->get(['id', 'name', 'description', 'image']);
+
+        $products = Product::query()
+            ->with(['category:id,name', 'subcategory:id,name'])
+            ->orderByDesc('id')
+            ->get([
+                'id',
+                'name',
+                'category_id',
+                'subcategory_id',
+                'description',
+                'price',
+                'image',
+            ]);
+
+        return Inertia::render('products/Index', [
+            'categories' => $categories,
+            'products' => $products,
+        ]);
+    }
+
+    public function featuredProjects(): InertiaResponse
+    {
+        $projects = FeaturedProject::query()
+            ->latest()
+            ->get([
+                'id',
+                'name',
+                'description',
+                'location',
+                'category',
+                'subcategory',
+                'type',
+                'image',
+                'images',
+            ])
+            ->each(function (FeaturedProject $project): void {
+                $this->appendProjectImageUrls($project);
+            });
+
+        return Inertia::render('featured projects/Index', [
+            'projects' => $projects,
+        ]);
+    }
+
+    public function about(): InertiaResponse
+    {
+        return Inertia::render('about us/Index');
+    }
+
+    public function contacts(): InertiaResponse
+    {
+        return Inertia::render('contacts/Index');
+    }
+
+    public function storeContact(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'name' => ['required', 'string', 'max:255'],
+            'phone' => ['required', 'string', 'max:30'],
+            'email' => ['required', 'email', 'max:255'],
+            'category_id' => [
+                'nullable',
+                'string',
+                Rule::in([
+                    'Bình nước nóng Ariston',
+                    'Bảo ôn K-FLEX',
+                    'Vật tư HVAC',
+                    'Vật tư MEP tổng hợp',
+                    'Cung ứng cho dự án',
+                ]),
+            ],
+            'project_name' => ['nullable', 'string', 'max:255'],
+            'message' => ['required', 'string', 'max:5000'],
+        ]);
+
+        $contact = Contact::query()->create($validated);
+        Mail::to(config('mail.to.address'))->send(new ContactInquiryReceived($contact));
+
+        return $request->query('from') === 'home'
+            ? to_route('kbuser.home')
+            : to_route('kbuser.contacts');
+    }
+
+    private function imageUrl(?string $image): ?string
+    {
+        if ($image === null || $image === '') {
+            return null;
+        }
+
+        if (
+            str_starts_with($image, 'http://')
+            || str_starts_with($image, 'https://')
+            || str_starts_with($image, 'data:image/')
+            || str_starts_with($image, '/')
+        ) {
+            return $image;
+        }
+
+        return Storage::disk('public')->url($image);
+    }
+
+    private function appendProjectImageUrls(FeaturedProject $project): void
+    {
+        $images = $project->images !== [] && $project->images !== null
+            ? $project->images
+            : [$project->image];
+        $imageUrls = array_values(array_filter(array_map(
+            fn (string $image): ?string => $this->imageUrl($image),
+            $images,
+        )));
+
+        $project->setAttribute('images_url', $imageUrls);
+        $project->setAttribute('image_url', $imageUrls[0] ?? null);
     }
 
     /**
