@@ -12,11 +12,12 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
+use Modules\KbAdmin\Support\AdminDashboardStats;
 use RuntimeException;
 
 class CategoryController extends Controller
 {
-    public function index(): Response
+    public function index(AdminDashboardStats $dashboardStats): Response
     {
         $categories = Category::query()
             ->whereNull('parent_id')
@@ -38,6 +39,7 @@ class CategoryController extends Controller
 
         return Inertia::render('categories/Index', [
             'categories' => $categories,
+            ...$dashboardStats->summary(),
         ]);
     }
 

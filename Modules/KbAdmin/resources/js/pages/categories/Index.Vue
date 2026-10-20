@@ -1,5 +1,5 @@
 <template>
-    <AdminLayout>
+    <AdminLayout :stats="props.stats" :open-requests-count="props.openRequestsCount">
         <div class="page-head">
             <div>
                 <h2>Quản lý danh mục</h2>
@@ -110,8 +110,16 @@
 
     type CategoryRecord = Category | CategoryChild;
 
+    type AdminStat = {
+        label: string;
+        count: number;
+        description: string;
+    };
+
     const props = defineProps<{
         categories: Category[];
+        stats: AdminStat[];
+        openRequestsCount: number;
     }>();
 
     const search = ref('');

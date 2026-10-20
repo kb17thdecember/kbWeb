@@ -13,8 +13,8 @@ type AdminStat = {
 };
 
 const props = defineProps<{
-    stats?: AdminStat[];
-    openRequestsCount?: number;
+    stats: AdminStat[];
+    openRequestsCount: number;
 }>();
 
 const menuItems = [
@@ -25,13 +25,7 @@ const menuItems = [
     { label: 'Yêu Cầu Tư Vấn', icon: '☷', href: '/admin/consultations' },
 ];
 
-const defaultStats = [
-    { label: 'Sản phẩm', count: 0, description: 'Tổng số mặt hàng' },
-    { label: 'Dự án tiêu biểu', count: 0, description: 'Hồ sơ dự án' },
-    { label: 'Danh mục', count: 0, description: 'Nhóm chính' },
-    { label: 'Yêu cầu cần xử lý', count: 0, description: 'Chưa hoàn tất' },
-];
-const visibleStats = computed(() => props.stats ?? defaultStats);
+const visibleStats = computed(() => props.stats);
 </script>
 
 <template>
@@ -55,10 +49,7 @@ const visibleStats = computed(() => props.stats ?? defaultStats);
                 >
                     <span class="nav-icon">{{ item.icon }}</span>
                     <span>{{ item.label }}</span>
-                    <span
-                        v-if="item.href === '/admin/consultations' && props.openRequestsCount !== undefined"
-                        class="count"
-                    >{{ props.openRequestsCount }}</span>
+                    <span v-if="item.href === '/admin/consultations'" class="count">{{ props.openRequestsCount }}</span>
           </Link>
           </nav>
         </div>

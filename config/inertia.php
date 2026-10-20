@@ -37,6 +37,7 @@ return [
 
         'paths' => [
             resource_path('js/pages'),
+            base_path('Modules/KbAdmin/resources/js/pages'),
             base_path('Modules/KbUser/resources/js/pages'),
         ],
 

@@ -8,6 +8,8 @@ use App\Models\Product;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
+use Inertia\Response;
+use Modules\KbAdmin\Support\AdminDashboardStats;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 
 class ProductController extends Controller
@@ -15,7 +17,7 @@ class ProductController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index()
+    public function index(AdminDashboardStats $dashboardStats): Response
     {
         $categories = Category::query()
             ->with('children:id,name,parent_id')
@@ -29,6 +31,7 @@ class ProductController extends Controller
         return Inertia::render('products/Index', [
             'products' => $products,
             'categories' => $categories,
+            ...$dashboardStats->summary(),
         ]);
     }
 

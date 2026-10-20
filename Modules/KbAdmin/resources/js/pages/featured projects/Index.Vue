@@ -1,5 +1,5 @@
 <template>
-    <AdminLayout>
+    <AdminLayout :stats="props.stats" :open-requests-count="props.openRequestsCount">
         <div class="page-head">
             <div>
                 <h2>Quản lý dự án tiêu biểu</h2>
@@ -70,7 +70,7 @@
 
 <script setup lang="ts">
     import { router } from '@inertiajs/vue3';
-    import { computed, onBeforeUnmount, ref } from 'vue';
+    import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
     import AdminLayout from '../../layout/AdminLayout.Vue';
     import FeaturedProjectModal from '../../components/FeaturedProjectModal.Vue';
 
@@ -98,9 +98,17 @@
         }>;
     };
 
+    type AdminStat = {
+        label: string;
+        count: number;
+        description: string;
+    };
+
     const props = defineProps<{
         projects: FeaturedProject[];
         categories: Category[];
+        stats: AdminStat[];
+        openRequestsCount: number;
     }>();
 
     const search = ref('');
@@ -143,6 +151,12 @@
         selectedProject.value = null;
         isProjectModalOpen.value = true;
     }
+
+    onMounted(() => {
+        if (new URLSearchParams(window.location.search).get('action') === 'create') {
+            createProject();
+        }
+    });
 
     function editProject(project: FeaturedProject): void {
         selectedProject.value = project;

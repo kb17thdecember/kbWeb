@@ -1,5 +1,5 @@
 <template>
-    <AdminLayout>
+    <AdminLayout :stats="props.stats" :open-requests-count="props.openRequestsCount">
         <div class="page-head">
             <div>
                 <h2>Quản lý sản phẩm</h2>
@@ -67,7 +67,7 @@
 
 <script setup lang="ts">
     import { router } from '@inertiajs/vue3';
-    import { onBeforeUnmount, ref } from 'vue';
+    import { onBeforeUnmount, onMounted, ref } from 'vue';
     import AdminLayout from '../../layout/AdminLayout.Vue';
     import ProductModal from '../../components/ProductModal.Vue';
 
@@ -91,9 +91,17 @@
         children: Category[];
     };
 
-    defineProps<{
+    type AdminStat = {
+        label: string;
+        count: number;
+        description: string;
+    };
+
+    const props = defineProps<{
         products: Product[];
         categories: Category[];
+        stats: AdminStat[];
+        openRequestsCount: number;
     }>();
 
     const isProductModalOpen = ref(false);
@@ -120,6 +128,12 @@
         selectedProduct.value = null;
         isProductModalOpen.value = true;
     }
+
+    onMounted(() => {
+        if (new URLSearchParams(window.location.search).get('action') === 'create') {
+            createProduct();
+        }
+    });
 
     function editProduct(product: Product): void {
         selectedProduct.value = product;

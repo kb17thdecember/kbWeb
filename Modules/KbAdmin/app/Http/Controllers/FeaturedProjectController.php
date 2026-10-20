@@ -12,11 +12,12 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
+use Modules\KbAdmin\Support\AdminDashboardStats;
 use RuntimeException;
 
 class FeaturedProjectController extends Controller
 {
-    public function index(): Response
+    public function index(AdminDashboardStats $dashboardStats): Response
     {
         $projects = FeaturedProject::query()
             ->orderByDesc('created_at')
@@ -42,6 +43,7 @@ class FeaturedProjectController extends Controller
         return Inertia::render('featured projects/Index', [
             'projects' => $projects,
             'categories' => $categories,
+            ...$dashboardStats->summary(),
         ]);
     }
 

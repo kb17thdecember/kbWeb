@@ -3,35 +3,23 @@
 namespace Modules\KbAdmin\Http\Controllers;
 
 use App\Http\Controllers\Controller;
-use App\Models\Category;
 use App\Models\Contact;
-use App\Models\FeaturedProject;
-use App\Models\Product;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
+use Modules\KbAdmin\Support\AdminDashboardStats;
 
 class ConsultationController extends Controller
 {
-    public function index(): Response
+    public function index(AdminDashboardStats $dashboardStats): Response
     {
-        $openRequestsCount = Contact::query()
-            ->where('status', '!=', 'resolved')
-            ->count();
-
         return Inertia::render('contacts/Index', [
             'contacts' => Contact::query()
                 ->orderByDesc('created_at')
                 ->get(),
-            'openRequestsCount' => $openRequestsCount,
-            'stats' => [
-                ['label' => 'Sản phẩm', 'count' => Product::query()->count(), 'description' => 'Tổng số mặt hàng'],
-                ['label' => 'Dự án tiêu biểu', 'count' => FeaturedProject::query()->count(), 'description' => 'Hồ sơ dự án'],
-                ['label' => 'Danh mục', 'count' => Category::query()->whereNull('parent_id')->count(), 'description' => 'Nhóm chính'],
-                ['label' => 'Yêu cầu cần xử lý', 'count' => $openRequestsCount, 'description' => 'Chưa hoàn tất'],
-            ],
+            ...$dashboardStats->summary(),
         ]);
     }
 

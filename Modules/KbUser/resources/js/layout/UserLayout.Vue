@@ -38,10 +38,10 @@ const focusProductSearch = () => {
     
     <header class="nav-shell">
         <div class="wrap nav">
-            <Link href="/" class="brand" aria-label="NOVA TECH trang chủ">
-                <span class="brandmark">N</span>
+            <Link href="/" class="brand" aria-label="KB TECH trang chủ">
+                <span class="brandmark">Q</span>
                 <span class="brandname">
-                    NOVA TECH
+                    KB TECH
                     <small>ENGINEERING SUPPLY</small>
                 </span>
             </Link>
@@ -100,7 +100,7 @@ const focusProductSearch = () => {
     <footer class="footer">
         <div class="wrap">
           <div class="footer-grid">
-            <div><Link href="/" class="brand"><span class="brandmark">N</span><span class="brandname">NOVA TECH<small>ENGINEERING SUPPLY</small></span></Link>
+            <div><Link href="/" class="brand"><span class="brandmark">Q</span><span class="brandname">KB TECH<small>ENGINEERING SUPPLY</small></span></Link>
               <p class="footer-desc">Đầu mối cung ứng thiết bị và vật tư kỹ thuật cho các công trình dân dụng, thương mại và công nghiệp.</p>
               <div class="socials"><Link href="/contacts" aria-label="Facebook">f</Link><Link href="/contacts" aria-label="LinkedIn">in</Link><Link href="/contacts" aria-label="Zalo">Z</Link>
               </div>
@@ -117,11 +117,11 @@ const focusProductSearch = () => {
             </div>
             <div>
               <h4>THÔNG TIN DOANH NGHIỆP</h4>
-              <div class="footer-links"><span>Hà Nội, Việt Nam (mẫu)</span><span>sales@novatech.vn (mẫu)</span><span>0900 000 000 (mẫu)</span><span>Thứ 2 – Thứ 7 · 08:00–17:30</span>
+              <div class="footer-links"><span>Hà Nội, Việt Nam (mẫu)</span><span>kbnguyen0311@gmail.com (mẫu)</span><span>0900 000 000 (mẫu)</span><span>Thứ 2 – Thứ 7 · 08:00–17:30</span>
               </div>
             </div>
           </div>
-          <div class="footer-bottom"><span>© 2026 NOVA TECH. Thiết kế demo — vui lòng cập nhật thông tin pháp lý trước khi sử dụng.</span><span>Chất lượng trong từng chi tiết · Built with intention.</span>
+          <div class="footer-bottom"><span>© 2026 KB TECH. Thiết kế demo — vui lòng cập nhật thông tin pháp lý trước khi sử dụng.</span><span>Chất lượng trong từng chi tiết · Built with intention.</span>
           </div>
         </div>
     </footer>

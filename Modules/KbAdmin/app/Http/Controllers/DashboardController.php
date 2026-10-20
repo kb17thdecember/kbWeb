@@ -3,17 +3,59 @@
 namespace Modules\KbAdmin\Http\Controllers;
 
 use App\Http\Controllers\Controller;
+use App\Models\Contact;
+use Carbon\CarbonImmutable;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
+use Inertia\Response;
+use Modules\KbAdmin\Support\AdminDashboardStats;
 
 class DashboardController extends Controller
 {
-    /**
-     * Display a listing of the resource.
-     */
-    public function index()
+    public function index(AdminDashboardStats $dashboardStats): Response
     {
-        return Inertia::render('Dashboard');
+        $now = CarbonImmutable::now();
+        $firstDay = $now->startOfDay()->subDays(6);
+        $requestsByDate = Contact::query()
+            ->whereBetween('created_at', [$firstDay, $now])
+            ->selectRaw('DATE(created_at) as request_date, COUNT(*) as request_count')
+            ->groupByRaw('DATE(created_at)')
+            ->pluck('request_count', 'request_date');
+
+        $weekdayLabels = [
+            1 => 'T2',
+            2 => 'T3',
+            3 => 'T4',
+            4 => 'T5',
+            5 => 'T6',
+            6 => 'T7',
+            7 => 'CN',
+        ];
+        $recentRequests = [];
+
+        for ($dayOffset = 0; $dayOffset < 7; $dayOffset++) {
+            $date = $firstDay->addDays($dayOffset);
+            $recentRequests[] = [
+                'label' => $weekdayLabels[$date->dayOfWeekIso],
+                'count' => (int) ($requestsByDate[$date->toDateString()] ?? 0),
+            ];
+        }
+
+        $requestStatusCounts = Contact::query()
+            ->select('status')
+            ->selectRaw('COUNT(*) as aggregate')
+            ->groupBy('status')
+            ->pluck('aggregate', 'status');
+
+        return Inertia::render('Dashboard', [
+            ...$dashboardStats->summary(),
+            'recentRequests' => $recentRequests,
+            'requestStatuses' => [
+                'pending' => (int) ($requestStatusCounts['pending'] ?? 0),
+                'processing' => (int) ($requestStatusCounts['processing'] ?? 0),
+                'resolved' => (int) ($requestStatusCounts['resolved'] ?? 0),
+            ],
+        ]);
     }
 
     /**
