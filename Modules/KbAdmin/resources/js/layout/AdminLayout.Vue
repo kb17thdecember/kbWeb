@@ -23,9 +23,14 @@ const menuItems = [
     { label: 'Danh Mục', icon: '▤', href: '/admin/categories' },
     { label: 'Dự Án Tiêu Biểu', icon: '▣', href: '/admin/case-studies' },
     { label: 'Yêu Cầu Tư Vấn', icon: '☷', href: '/admin/consultations' },
+    { label: 'Báo Cáo Dự Án', icon: '☷', href: '/admin/project-reports' },
 ];
 
 const visibleStats = computed(() => props.stats);
+
+function exportProjectReports(): void {
+    window.location.assign('/admin/project-reports/export');
+}
 </script>
 
 <template>
@@ -54,7 +59,7 @@ const visibleStats = computed(() => props.stats);
           </nav>
         </div>
         <div class="side-note">
-          <b>Khu vực quản trị</b>Chỉnh sửa dữ liệu demo và xuất tệp sao lưu.<button id="exportBtn">Xuất dữ liệu JSON ↗</button><button id="importBtn">Nhập dữ liệu JSON ↑</button><input class="hidden" type="file" id="importFile" accept="application/json,.json">
+          <b>Khu vực quản trị</b>Chỉnh sửa dữ liệu và xuất báo cáo dự án.<button id="exportBtn" type="button" @click="exportProjectReports">Xuất báo cáo Excel ↗</button><button id="importBtn">Nhập dữ liệu JSON ↑</button><input class="hidden" type="file" id="importFile" accept="application/json,.json">
         </div>
       </aside>
       <main class="main">

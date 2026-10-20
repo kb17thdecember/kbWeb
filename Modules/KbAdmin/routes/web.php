@@ -6,6 +6,7 @@ use Modules\KbAdmin\Http\Controllers\ConsultationController;
 use Modules\KbAdmin\Http\Controllers\DashboardController;
 use Modules\KbAdmin\Http\Controllers\FeaturedProjectController;
 use Modules\KbAdmin\Http\Controllers\ProductController;
+use Modules\KbAdmin\Http\Controllers\ProjectReportController;
 use Modules\KbAdmin\Http\Middleware\UseKbAdminRootView;
 
 Route::middleware(UseKbAdminRootView::class)
@@ -25,6 +26,21 @@ Route::middleware(UseKbAdminRootView::class)
 
         Route::get('/consultations', [ConsultationController::class, 'index'])
             ->name('admin.consultations.index');
+
+        Route::get('/project-reports', [ProjectReportController::class, 'index'])
+            ->name('admin.project-reports.index');
+
+        Route::get('/project-reports/export', [ProjectReportController::class, 'export'])
+            ->name('admin.project-reports.export');
+
+        Route::post('/project-reports', [ProjectReportController::class, 'store'])
+            ->name('admin.project-reports.store');
+
+        Route::put('/project-reports/{projectReport}', [ProjectReportController::class, 'update'])
+            ->name('admin.project-reports.update');
+
+        Route::delete('/project-reports/{projectReport}', [ProjectReportController::class, 'destroy'])
+            ->name('admin.project-reports.destroy');
 
         Route::patch('/consultations/{contact}/status', [ConsultationController::class, 'updateStatus'])
             ->name('admin.consultations.update-status');
