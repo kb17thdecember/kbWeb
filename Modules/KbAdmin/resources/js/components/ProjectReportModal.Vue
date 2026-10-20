@@ -25,12 +25,28 @@
                         <input id="projectReportCode" v-model="form.project_code" maxlength="255" required>
                     </div>
                     <div class="field">
-                        <label for="projectReportArea">Khu vực</label>
-                        <input id="projectReportArea" v-model="form.project_area" maxlength="255" required>
+                        <label for="projectReportArea">Khu vực (Tỉnh/Thành phố)</label>
+                        <select id="projectReportArea" v-model="form.project_area" required>
+                            <option value="" disabled>Chọn tỉnh/thành phố</option>
+                            <option
+                                v-if="form.project_area && !provinceOptions.includes(form.project_area)"
+                                :value="form.project_area"
+                            >
+                                {{ form.project_area }} (chọn lại theo đơn vị hành chính mới)
+                            </option>
+                            <option v-for="province in provinceOptions" :key="province" :value="province">
+                                {{ province }}
+                            </option>
+                        </select>
                     </div>
                     <div class="field full">
-                        <label for="projectReportLocation">Địa chỉ</label>
-                        <input id="projectReportLocation" v-model="form.project_location" maxlength="255" required>
+                        <label for="projectReportLocation">Địa chỉ cụ thể (không bắt buộc)</label>
+                        <input
+                            id="projectReportLocation"
+                            v-model="form.project_location"
+                            maxlength="255"
+                            placeholder="Ví dụ: Phường Cầu Giấy, đường ..., số ..."
+                        >
                     </div>
                     <div class="field">
                         <label for="projectReportDeveloper">Đơn vị phát triển</label>
@@ -46,11 +62,17 @@
                     </div>
                     <div class="field">
                         <label for="projectReportProgress">Tiến độ</label>
-                        <input id="projectReportProgress" v-model="form.progress" maxlength="255" required>
+                        <input id="projectReportProgress" v-model="form.progress" maxlength="255">
                     </div>
                     <div class="field">
                         <label for="projectReportEstimate">Giá trị ước tính</label>
-                        <input id="projectReportEstimate" v-model="form.estimate_value" maxlength="255">
+                        <input
+                            id="projectReportEstimate"
+                            v-model="form.estimate_value"
+                            type="number"
+                            min="0"
+                            step="any"
+                        >
                     </div>
                     <div class="field full">
                         <label for="projectReportContact">Contact person</label>
@@ -82,11 +104,11 @@
         project_name: string;
         project_code: string;
         project_area: string;
-        project_location: string;
+        project_location: string | null;
         developer: string | null;
         me_consultant: string | null;
         me_contractor: string | null;
-        progress: string;
+        progress: string | null;
         estimate_value: string | null;
         contact_person: string | null;
         project_update: string;
@@ -97,6 +119,7 @@
     const props = defineProps<{
         open: boolean;
         projectReport: ProjectReport | null;
+        provinceOptions: string[];
     }>();
 
     const emit = defineEmits<{

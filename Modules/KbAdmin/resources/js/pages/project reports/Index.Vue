@@ -49,7 +49,7 @@
                         <td>{{ report.project_code }}</td>
                         <td>
                             <b>{{ report.project_area }}</b>
-                            <small>{{ report.project_location }}</small>
+                            <small>{{ report.project_location || 'Chưa cập nhật địa chỉ' }}</small>
                         </td>
                         <td>{{ report.progress }}</td>
                         <td>{{ report.project_update }}</td>
@@ -79,6 +79,7 @@
         <ProjectReportModal
             v-model:open="isModalOpen"
             :project-report="selectedReport"
+            :province-options="props.provinceOptions"
             @saved="showToast($event === 'created' ? 'Đã thêm dự án thành công.' : 'Đã cập nhật dự án thành công.')"
         />
         <div class="toast" :class="{ show: isToastVisible }" role="status" aria-live="polite">{{ toastMessage }}</div>
@@ -96,11 +97,11 @@
         project_name: string;
         project_code: string;
         project_area: string;
-        project_location: string;
+        project_location: string | null;
         developer: string | null;
         me_consultant: string | null;
         me_contractor: string | null;
-        progress: string;
+        progress: string | null;
         estimate_value: string | null;
         contact_person: string | null;
         project_update: string;
@@ -114,6 +115,7 @@
 
     const props = defineProps<{
         projectReports: ProjectReport[];
+        provinceOptions: string[];
         stats: AdminStat[];
         openRequestsCount: number;
     }>();
@@ -137,11 +139,11 @@
                 report.project_name,
                 report.project_code,
                 report.project_area,
-                report.project_location,
+                report.project_location ?? '',
                 report.developer ?? '',
                 report.me_consultant ?? '',
                 report.me_contractor ?? '',
-                report.progress,
+                report.progress ?? '',
                 report.estimate_value ?? '',
                 report.contact_person ?? '',
                 report.project_update,

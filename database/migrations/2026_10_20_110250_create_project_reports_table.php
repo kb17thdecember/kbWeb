@@ -16,7 +16,7 @@ return new class extends Migration
             $table->string('project_name');
             $table->string('project_code');
             $table->string('project_area');
-            $table->string('project_location');
+            $table->string('project_location')->nullable();
             $table->string('developer')->nullable();
             $table->string('me_consultant')->nullable();
             $table->string('me_contractor')->nullable();
