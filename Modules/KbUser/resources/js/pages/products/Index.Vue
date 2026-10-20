@@ -6,6 +6,7 @@ import UserLayout from '../../layout/UserLayout.Vue';
 type Product = {
     id: number;
     name: string;
+    product_title: string | null;
     description: string;
     price: number;
     image: string[] | null;
@@ -70,7 +71,7 @@ const visibleProducts = computed(() => {
             product.subcategory_id === activeSubcategoryId.value;
         const matchesSearch =
             query === '' ||
-            normalize(`${product.name} ${product.description} ${category} ${subcategory}`)
+            normalize(`${product.product_title ?? ''} ${product.name} ${product.description} ${category} ${subcategory}`)
                 .includes(query);
 
         return matchesCategory && matchesSubcategory && matchesSearch;
@@ -393,8 +394,8 @@ onUnmounted(() => {
                             </div>
                             <div class="product-body">
                                 <div class="product-meta">{{ product.subcategory?.name ?? 'Danh mục sản phẩm' }}</div>
-                                <h3 class="product-name">{{ product.name }}</h3>
-                                <p class="product-desc">{{ product.description }}</p>
+                                <h3 class="product-name">{{ product.product_title || product.name }}</h3>
+                                <p class="product-desc">{{ product.product_title || product.name }}</p>
                                 <div class="product-bottom">
                                     <span class="price">
                                         {{ formatPrice(product.price) }}
@@ -521,8 +522,8 @@ onUnmounted(() => {
                     </div>
                     <div class="modal-copy">
                         <div class="product-meta">{{ selectedProduct.category?.name }} · {{ selectedProduct.subcategory?.name }}</div>
-                        <h2>{{ selectedProduct.name }}</h2>
-                        <p>{{ selectedProduct.description }}</p>
+                        <h2>{{ selectedProduct.product_title || selectedProduct.name }}</h2>
+                        <p class="product-description">{{ selectedProduct.description }}</p>
                         <div class="modal-price">{{ formatPrice(selectedProduct.price) }} <span>/ sản phẩm · giá tham khảo</span></div>
                         <button
                             class="btn btn-primary"

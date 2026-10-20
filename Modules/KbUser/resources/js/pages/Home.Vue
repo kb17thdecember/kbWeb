@@ -6,6 +6,7 @@ import UserLayout from '../layout/UserLayout.Vue';
 type HomeProduct = {
     id: number;
     name: string;
+    product_title: string | null;
     description: string;
     price: number;
     tag: number | null;
@@ -107,7 +108,7 @@ const visibleProducts = computed(() => {
             product.subcategory_id === activeSubcategoryId.value;
         const matchesSearch =
             query === '' ||
-            normalize(`${product.name} ${product.description} ${category} ${subcategory}`)
+            normalize(`${product.product_title ?? ''} ${product.name} ${product.description} ${category} ${subcategory}`)
                 .includes(query);
 
         return matchesFilter && matchesSubcategory && matchesSearch;
@@ -528,16 +529,12 @@ onUnmounted(() => {
                 <div class="orb"></div>
                 <div class="art-tag">Technical supply · Since 2014</div>
                 <div class="tank">
-                  <div class="tank-cap"></div>
-                  <div class="tank-body"></div>
-                  <div class="tank-band">
-                    <div>ARISTON<small>WATER COMFORT</small>
-                    </div>
-                  </div>
-                  <div class="tank-foot"></div>
+                  <img src="../../assets/images/ariston_water_heater.svg" alt="Bình nước nóng Ariston">
                 </div>
                 <div class="coil">
-                  <div class="coil-ring"></div><span class="coil-label">K·FLEX INSULATION</span>
+                  <!-- <div class="coil-ring"></div> -->
+                   <img src="../../assets/images/foam.png" alt="Bảo ôn K-FLEX" class="">
+                  <span class="coil-label">K·FLEX INSULATION</span>
                 </div>
                 <div class="floating-card"><small>ENGINEERED FOR EVERY PROJECT</small><strong>Built to perform.</strong><span>Chất lượng trong từng chi tiết</span>
                   <div class="tinyline"></div>
@@ -693,8 +690,8 @@ onUnmounted(() => {
                 </div>
                 <div class="product-body">
                   <div class="product-meta">{{ product.subcategory?.name ?? 'Danh mục sản phẩm' }}</div>
-                  <h3 class="product-name">{{ product.name }}</h3>
-                  <p class="product-desc">{{ product.description }}</p>
+                  <h3 class="product-name">{{ product.product_title || product.name }}</h3>
+                  <p class="product-desc">{{ product.product_title || product.name }}</p>
                   <div class="product-bottom">
                     <span class="price">
                       {{ formatPrice(product.price) }}
@@ -1100,8 +1097,8 @@ onUnmounted(() => {
           </div>
           <div class="modal-copy">
             <div class="product-meta">{{ selectedProduct.category?.name }} · {{ selectedProduct.subcategory?.name }}</div>
-            <h2>{{ selectedProduct.name }}</h2>
-            <p>{{ selectedProduct.description }}</p>
+            <h2>{{ selectedProduct.product_title || selectedProduct.name }}</h2>
+            <p class="product-description">{{ selectedProduct.description }}</p>
             <div class="modal-price">{{ formatPrice(selectedProduct.price) }} <span>/ sản phẩm · giá tham khảo</span></div>
             <button class="btn btn-primary" type="button" @click="addToCart(selectedProduct); closeProduct(); isCartOpen = true">
               Thêm vào giỏ

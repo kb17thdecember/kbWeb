@@ -13,14 +13,16 @@ test('products can be created with their images', function () {
         'https://example.com/product.jpg',
         'data:image/webp;base64,ZmFrZQ==',
     ];
+    $description = "Mô tả dòng một\nMô tả dòng hai";
 
     $response = $this->post(route('admin.products.store'), [
         'name' => 'Bình nước nóng',
+        'product_title' => 'Bình Ariston cao cấp',
         'category_id' => $parent->id,
         'subcategory_id' => $child->id,
         'tag' => 1,
         'price' => 2190000,
-        'description' => 'Mô tả sản phẩm',
+        'description' => $description,
         'images' => $images,
     ]);
 
@@ -29,6 +31,8 @@ test('products can be created with their images', function () {
     $product = Product::query()->sole();
 
     expect($product->name)->toBe('Bình nước nóng')
+        ->and($product->product_title)->toBe('Bình Ariston cao cấp')
+        ->and($product->description)->toBe($description)
         ->and($product->category_id)->toBe($parent->id)
         ->and($product->subcategory_id)->toBe($child->id)
         ->and($product->quantity)->toBe(0)
@@ -47,6 +51,7 @@ test('products cannot be created with a subcategory from another category', func
         ->from(route('admin.products.index'))
         ->post(route('admin.products.store'), [
             'name' => 'Bình nước nóng',
+            'product_title' => 'Bình Ariston',
             'category_id' => $parent->id,
             'subcategory_id' => $otherChild->id,
             'tag' => 1,
@@ -85,6 +90,7 @@ test('products can be updated with their images', function () {
 
     $response = $this->put(route('admin.products.update', $product), [
         'name' => 'Sản phẩm mới',
+        'product_title' => 'Tiêu đề mới',
         'category_id' => $newParent->id,
         'subcategory_id' => $newChild->id,
         'tag' => 2,
@@ -96,6 +102,7 @@ test('products can be updated with their images', function () {
     $response->assertRedirect(route('admin.products.index'));
 
     expect($product->fresh()->name)->toBe('Sản phẩm mới')
+        ->and($product->fresh()->product_title)->toBe('Tiêu đề mới')
         ->and($product->fresh()->category_id)->toBe($newParent->id)
         ->and($product->fresh()->subcategory_id)->toBe($newChild->id)
         ->and($product->fresh()->quantity)->toBe(3)

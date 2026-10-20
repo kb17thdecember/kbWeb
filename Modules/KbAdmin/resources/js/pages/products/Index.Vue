@@ -29,7 +29,8 @@
                                     <span>T</span>
                                 </div>
                                 <div>
-                                    <b>{{ product.name }}</b>
+                                    <b>{{ product.product_title || product.name }}</b>
+                                    <small>{{ product.name }}</small>
                                     <small>{{ product.tag }}</small>
                                 </div>
                             </div>
@@ -74,6 +75,7 @@
     type Product = {
         id: number;
         name: string;
+        product_title: string | null;
         category_id: number;
         subcategory_id: number | null;
         tag: number | null;

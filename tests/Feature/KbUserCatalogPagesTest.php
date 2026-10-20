@@ -16,6 +16,7 @@ test('the user products page lists products with their categories', function () 
     ]);
     $product = Product::query()->create([
         'name' => 'Ống gió mềm bảo ôn',
+        'product_title' => 'Ống gió cách nhiệt',
         'category_id' => $category->id,
         'subcategory_id' => $subcategory->id,
         'description' => 'Sản phẩm thử nghiệm',
@@ -30,6 +31,7 @@ test('the user products page lists products with their categories', function () 
             ->has('categories', 1)
             ->has('products', 1)
             ->where('products.0.id', $product->id)
+            ->where('products.0.product_title', 'Ống gió cách nhiệt')
             ->where('products.0.category.name', 'HVAC')
             ->where('products.0.subcategory.name', 'Ống gió'),
         );

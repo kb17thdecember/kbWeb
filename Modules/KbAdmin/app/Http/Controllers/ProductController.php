@@ -50,6 +50,7 @@ class ProductController extends Controller
     {
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
+            'product_title' => ['required', 'string', 'max:255'],
             'category_id' => ['required', 'integer', Rule::exists('categories', 'id')->whereNull('parent_id')],
             'subcategory_id' => ['required', 'integer', Rule::exists('categories', 'id')->where('parent_id', $request->input('category_id'))],
             'tag' => ['nullable', 'integer', 'min:0'],
@@ -94,6 +95,7 @@ class ProductController extends Controller
     {
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
+            'product_title' => ['required', 'string', 'max:255'],
             'category_id' => ['required', 'integer', Rule::exists('categories', 'id')->whereNull('parent_id')],
             'subcategory_id' => ['required', 'integer', Rule::exists('categories', 'id')->where('parent_id', $request->input('category_id'))],
             'tag' => ['nullable', 'integer', 'min:0'],

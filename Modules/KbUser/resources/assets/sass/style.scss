@@ -372,10 +372,10 @@ img,svg {
 }
 .tank {
   position: absolute;
-  width: 175px;
+  width: 300px;
   height: 300px;
-  left: 45%;
-  top: 49%;
+  left: 33%;
+  top: 45%;
   transform: translate(-50%,-50%) rotate(-5deg);
   filter: drop-shadow(22px 24px 26px #0008);
 }
@@ -433,10 +433,10 @@ img,svg {
 }
 .coil {
   position: absolute;
-  width: 180px;
+  width: 235px;
   height: 175px;
   right: 7%;
-  top: 25%;
+  top: 18%;
   transform: rotate(12deg);
   filter: drop-shadow(12px 15px 14px #0005);
 }
@@ -462,7 +462,7 @@ img,svg {
 }
 .coil-label {
   position: absolute;
-  bottom: -1px;
+  bottom: -25px;
   right: 0;
   background: #c8f169;
   color: #17271e;
@@ -475,7 +475,7 @@ img,svg {
 }
 .floating-card {
   position: absolute;
-  left: 9%;
+  left: 2%;
   bottom: 16%;
   z-index: 4;
   width: 155px;
@@ -625,6 +625,9 @@ img,svg {
   place-items: center;
   opacity: .92;
   transition: transform .4s;
+}
+.cat-art img {
+  border-radius: 20%;
 }
 .category-card:hover .cat-art {
   transform: scale(1.07) rotate(3deg);
@@ -988,6 +991,7 @@ img,svg {
   min-height: 31px;
   margin: 0 0 17px;
   line-height: 1.6;
+  white-space: pre-line;
 }
 .product-bottom {
   display: flex;
@@ -1825,6 +1829,9 @@ img,svg {
   font-size: 12px;
   line-height: 1.8;
   color: var(--muted);
+}
+.modal-copy .product-description {
+  white-space: pre-line;
 }
 .modal-price {
   font-size: 21px;

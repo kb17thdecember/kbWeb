@@ -35,6 +35,7 @@ class KbUserController extends Controller
             ->get([
                 'id',
                 'name',
+                'product_title',
                 'category_id',
                 'subcategory_id',
                 'description',
@@ -115,6 +116,7 @@ class KbUserController extends Controller
             ->get([
                 'id',
                 'name',
+                'product_title',
                 'category_id',
                 'subcategory_id',
                 'description',

@@ -13,6 +13,10 @@
                     <label>Tên sản phẩm</label>
                     <input v-model="productName" name="name" type="text" maxlength="255" required placeholder="Tên sản phẩm">
                 </div>
+                <div class="field full">
+                    <label>Tiêu đề sản phẩm</label>
+                    <input v-model="productTitle" name="product_title" type="text" maxlength="255" required placeholder="Tiêu đề hiển thị trên website">
+                </div>
                 <div class="field ">
                     <label>Danh mục chính</label>
                     <select v-model="selectedCategoryId" name="category_id" required>
@@ -117,6 +121,7 @@
     type Product = {
         id: number;
         name: string;
+        product_title: string | null;
         category_id: number;
         subcategory_id: number | null;
         tag: number | null;
@@ -191,6 +196,7 @@
     }>();
 
     const productName = ref('');
+    const productTitle = ref('');
     const productTag = ref('1');
     const productPrice = ref('0');
     const productDescription = ref('');
@@ -206,6 +212,7 @@
 
     function resetForm(product: Product | null): void {
         productName.value = product?.name ?? '';
+        productTitle.value = product?.product_title ?? '';
         selectedCategoryId.value = product ? String(product.category_id) : '';
         selectedSubcategory.value = String(
             product?.subcategory_id ?? visibleSubcategories.value[0]?.id ?? '',
@@ -350,6 +357,7 @@
 
         const data = {
             name: productName.value,
+            product_title: productTitle.value,
             category_id: Number(selectedCategoryId.value),
             subcategory_id: Number(selectedSubcategory.value),
             tag: productTag.value === '' ? null : Number(productTag.value),
