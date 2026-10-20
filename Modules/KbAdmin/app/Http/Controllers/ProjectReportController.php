@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\ProjectReport;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\In;
 use Inertia\Inertia;
@@ -42,7 +43,16 @@ class ProjectReportController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
-        ProjectReport::query()->create($request->validate($this->rules()));
+        DB::transaction(function () use ($request): void {
+            $projectReport = ProjectReport::query()->create([
+                ...$request->validate($this->rules()),
+                'project_code' => '',
+            ]);
+
+            $projectReport->update([
+                'project_code' => 'NTK'.$projectReport->id,
+            ]);
+        });
 
         return to_route('admin.project-reports.index');
     }
@@ -68,7 +78,6 @@ class ProjectReportController extends Controller
     {
         return [
             'project_name' => ['required', 'string', 'max:255'],
-            'project_code' => ['required', 'string', 'max:255'],
             'project_area' => ['required', 'string', 'max:255', Rule::in($this->provinceOptions())],
             'project_location' => ['nullable', 'string', 'max:255'],
             'developer' => ['nullable', 'string', 'max:255'],

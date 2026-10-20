@@ -12,17 +12,13 @@
             <div class="dialog-head">
                 <div class="eyebrow">ADMIN / PROJECT REPORT</div>
                 <h2 id="projectReportModalTitle">{{ projectReport ? 'Sửa báo cáo dự án' : 'Thêm báo cáo dự án' }}</h2>
-                <p>Nhập thông tin dự án, tiến độ và đầu mối liên hệ.</p>
+                <p>Mã dự án được tự động tạo theo dạng NTK + ID sau khi lưu.</p>
             </div>
             <form class="form" @submit.prevent="saveReport">
                 <div class="formgrid">
                     <div class="field full">
                         <label for="projectReportName">Tên dự án</label>
                         <input id="projectReportName" v-model="form.project_name" maxlength="255" required>
-                    </div>
-                    <div class="field">
-                        <label for="projectReportCode">Mã dự án</label>
-                        <input id="projectReportCode" v-model="form.project_code" maxlength="255" required>
                     </div>
                     <div class="field">
                         <label for="projectReportArea">Khu vực (Tỉnh/Thành phố)</label>
@@ -114,7 +110,7 @@
         project_update: string;
     };
 
-    type ProjectReportForm = Omit<ProjectReport, 'id'>;
+    type ProjectReportForm = Omit<ProjectReport, 'id' | 'project_code'>;
 
     const props = defineProps<{
         open: boolean;
@@ -129,7 +125,6 @@
 
     const emptyForm = (): ProjectReportForm => ({
         project_name: '',
-        project_code: '',
         project_area: '',
         project_location: '',
         developer: '',
@@ -153,7 +148,6 @@
                 const report = props.projectReport;
                 Object.assign(form, emptyForm(), report ? {
                     project_name: report.project_name,
-                    project_code: report.project_code,
                     project_area: report.project_area,
                     project_location: report.project_location,
                     developer: report.developer ?? '',

@@ -39,17 +39,20 @@ test('project reports can be created and updated', function () {
 
     $report = ProjectReport::query()->sole();
     expect($report->project_status)->toBe('1');
+    expect($report->project_code)->toBe('NTK'.$report->id);
 
     $this->put(
         route('admin.project-reports.update', $report),
         projectReportAttributes([
             'project_name' => 'Trung tâm thương mại mới',
             'progress' => 'Đã hoàn thành',
+            'project_code' => 'OVERRIDE',
         ]),
     )->assertRedirect(route('admin.project-reports.index'));
 
     expect($report->fresh()->project_name)->toBe('Trung tâm thương mại mới')
-        ->and($report->fresh()->progress)->toBe('Đã hoàn thành');
+        ->and($report->fresh()->progress)->toBe('Đã hoàn thành')
+        ->and($report->fresh()->project_code)->toBe('NTK'.$report->id);
 });
 
 test('project reports require the core project details but not progress', function () {
@@ -58,7 +61,6 @@ test('project reports require the core project details but not progress', functi
         ->assertRedirect(route('admin.project-reports.index'))
         ->assertSessionHasErrors([
             'project_name',
-            'project_code',
             'project_area',
             'project_update',
         ]);
