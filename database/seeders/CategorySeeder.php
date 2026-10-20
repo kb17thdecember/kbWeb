@@ -4,6 +4,8 @@ namespace Database\Seeders;
 
 use App\Models\Category;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\Storage;
+use RuntimeException;
 
 class CategorySeeder extends Seeder
 {
@@ -14,25 +16,50 @@ class CategorySeeder extends Seeder
     {
         $categories = [
             'Ariston' => [
-                'Bình nước nóng trực tiếp',
-                'Bình nước nóng gián tiếp',
-                'Bơm nhiệt nước nóng',
-                'Thái dương năng',
+                'image_source' => 'ariston_logo.png',
+                'stored_image' => 'categories/ariston_logo.png',
+                'children' => [
+                    'Bình nước nóng trực tiếp',
+                    'Bình nước nóng gián tiếp',
+                    'Bơm nhiệt nước nóng',
+                    'Thái dương năng',
+                ],
             ],
             'K-FLEX' => [
-                'Cao su lưu hóa NBR',
-                'Polyolefin XLPE',
-                'Phụ kiện bảo ôn',
+                'image_source' => 'kfkex_logo.png',
+                'stored_image' => 'categories/kflex_logo.png',
+                'children' => [
+                    'Cao su lưu hóa NBR',
+                    'Polyolefin XLPE',
+                    'Phụ kiện bảo ôn',
+                ],
             ],
         ];
 
-        foreach ($categories as $parentName => $children) {
-            $parent = Category::query()->firstOrCreate([
-                'name' => $parentName,
-                'parent_id' => null,
-            ]);
+        foreach ($categories as $parentName => $categoryData) {
+            $imagePath = base_path("Modules/KbAdmin/resources/assets/images/{$categoryData['image_source']}");
+            $imageContents = file_get_contents($imagePath);
 
-            foreach ($children as $childName) {
+            if ($imageContents === false) {
+                throw new RuntimeException("Unable to read category image at [{$imagePath}].");
+            }
+
+            $storedImagePath = $categoryData['stored_image'];
+            if (! Storage::disk('public')->put($storedImagePath, $imageContents)) {
+                throw new RuntimeException("Unable to store category image at [{$storedImagePath}].");
+            }
+
+            $parent = Category::query()->updateOrCreate(
+                [
+                    'name' => $parentName,
+                    'parent_id' => null,
+                ],
+                [
+                    'image' => $storedImagePath,
+                ],
+            );
+
+            foreach ($categoryData['children'] as $childName) {
                 Category::query()->firstOrCreate([
                     'name' => $childName,
                     'parent_id' => $parent->id,

@@ -2,9 +2,42 @@
 
 use App\Models\Category;
 use App\Models\Product;
+use Database\Seeders\CategorySeeder;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Testing\AssertableInertia as Assert;
+
+test('the category seeder assigns and stores the parent category logos idempotently', function () {
+    Storage::fake('public');
+
+    $this->seed(CategorySeeder::class);
+    $this->seed(CategorySeeder::class);
+
+    $categories = Category::query()->whereNull('parent_id')->orderBy('name')->get();
+    $logos = [
+        'Ariston' => [
+            'path' => 'categories/ariston_logo.png',
+            'source' => 'ariston_logo.png',
+        ],
+        'K-FLEX' => [
+            'path' => 'categories/kflex_logo.png',
+            'source' => 'kfkex_logo.png',
+        ],
+    ];
+
+    expect($categories)->toHaveCount(2);
+
+    foreach ($logos as $name => $logo) {
+        $category = $categories->firstWhere('name', $name);
+        $imageContents = file_get_contents(base_path("Modules/KbAdmin/resources/assets/images/{$logo['source']}"));
+
+        expect($category)->not->toBeNull()
+            ->and($category->image)->toBe($logo['path']);
+
+        Storage::disk('public')->assertExists($logo['path']);
+        expect(Storage::disk('public')->get($logo['path']))->toBe($imageContents);
+    }
+});
 
 test('the categories index shows parent categories, children, and child product counts', function () {
     $parent = Category::factory()->create([

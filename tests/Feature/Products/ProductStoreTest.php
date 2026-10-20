@@ -2,6 +2,76 @@
 
 use App\Models\Category;
 use App\Models\Product;
+use Database\Seeders\ProductSeeder;
+
+test('the product seeder assigns Ariston products to the correct subcategories idempotently', function () {
+    $ariston = Category::factory()->create([
+        'name' => 'Ariston',
+        'parent_id' => null,
+    ]);
+    $indirectWaterHeater = Category::factory()->create([
+        'name' => 'Bình nước nóng gián tiếp',
+        'parent_id' => $ariston->id,
+    ]);
+
+    foreach (['AR-40 PTP HX', 'AR-80PTP HX'] as $heatPumpName) {
+        Product::query()->create([
+            'name' => $heatPumpName,
+            'category_id' => $ariston->id,
+            'subcategory_id' => $indirectWaterHeater->id,
+            'description' => 'Sản phẩm đã được phân loại sai.',
+            'price' => 0,
+            'quantity' => 0,
+        ]);
+    }
+
+    $this->seed(ProductSeeder::class);
+    $productCount = Product::query()->count();
+    $this->seed(ProductSeeder::class);
+
+    expect(Product::query()->count())->toBe($productCount);
+
+    $products = [
+        'SLIM3 30B VN' => [
+            'title' => 'Dung tích 30L, vừa vặn cho gia đình.',
+            'capacity' => '- Dung tích: 30L',
+            'image' => 'SLIM3_30B_VN.png',
+            'subcategory' => 'Bình nước nóng gián tiếp',
+        ],
+        'SLIM3 20B VN' => [
+            'title' => 'Dung tích 20L · Thiết kế gọn cho gia đình.',
+            'capacity' => '- Dung tích: 20L',
+            'image' => 'SLIM3_20B_VN.png',
+            'subcategory' => 'Bình nước nóng gián tiếp',
+        ],
+    ];
+
+    foreach ($products as $name => $expected) {
+        $product = Product::query()->where('name', $name)->sole();
+        $imagePath = base_path("Modules/KbAdmin/resources/assets/images/{$expected['image']}");
+
+        expect($product->product_title)->toBe($expected['title'])
+            ->and($product->category->name)->toBe('Ariston')
+            ->and($product->subcategory->name)->toBe($expected['subcategory'])
+            ->and($product->description)->toContain($expected['capacity'])
+            ->and($product->description)->toContain('- Nguồn cấp: 1/220/50 (Ph/V/Hz)')
+            ->and($product->quantity)->toBe(0)
+            ->and($product->image)->toBe([
+                'data:image/png;base64,'.base64_encode(file_get_contents($imagePath)),
+            ]);
+    }
+
+    foreach (['AR-40 PTP HX', 'AR-80PTP HX'] as $heatPumpName) {
+        $heatPump = Product::query()->where('name', $heatPumpName)->sole();
+
+        expect($heatPump->category->name)->toBe('Ariston')
+            ->and($heatPump->subcategory->name)->toBe('Bơm nhiệt nước nóng');
+    }
+
+    expect(Product::query()->where('name', 'SLIM3 20B VN')->value('description'))
+        ->toContain('- Thời gian gia nhiệt 25 phút')
+        ->toContain('- Tổn thất nhiệt: 0.65 KWh/24hr');
+});
 
 test('products can be created with their images', function () {
     $parent = Category::factory()->create(['name' => 'Ariston']);
