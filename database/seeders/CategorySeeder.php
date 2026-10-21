@@ -16,7 +16,7 @@ class CategorySeeder extends Seeder
     {
         $categories = [
             'Ariston' => [
-                'image_source' => 'ariston_logo.png',
+                'image_source' => 'ariston.png',
                 'stored_image' => 'categories/ariston_logo.png',
                 'children' => [
                     'Bình nước nóng trực tiếp',
