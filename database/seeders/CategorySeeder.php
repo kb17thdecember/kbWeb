@@ -49,15 +49,11 @@ class CategorySeeder extends Seeder
                 throw new RuntimeException("Unable to store category image at [{$storedImagePath}].");
             }
 
-            $parent = Category::query()->updateOrCreate(
-                [
-                    'name' => $parentName,
-                    'parent_id' => null,
-                ],
-                [
-                    'image' => $storedImagePath,
-                ],
-            );
+            $parent = Category::query()->firstOrCreate([
+                'name' => $parentName,
+                'parent_id' => null,
+            ]);
+            $parent->syncImagePaths([$storedImagePath]);
 
             foreach ($categoryData['children'] as $childName) {
                 Category::query()->firstOrCreate([

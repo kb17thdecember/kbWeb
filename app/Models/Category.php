@@ -2,7 +2,9 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasImages;
 use Database\Factories\CategoryFactory;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -11,15 +13,34 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class Category extends Model
 {
     /** @use HasFactory<CategoryFactory> */
-    use HasFactory;
+    use HasFactory, HasImages;
 
     protected $fillable = [
         'name',
         'parent_id',
         'description',
         'description_2',
-        'image',
     ];
+
+    protected $hidden = ['images'];
+
+    protected $appends = ['image', 'image_url'];
+
+    /**
+     * @return Attribute<string|null, never>
+     */
+    protected function image(): Attribute
+    {
+        return Attribute::get(fn (): ?string => $this->firstImageUrl());
+    }
+
+    /**
+     * @return Attribute<string|null, never>
+     */
+    protected function imageUrl(): Attribute
+    {
+        return Attribute::get(fn (): ?string => $this->firstImageUrl());
+    }
 
     /**
      * Get the parent category.

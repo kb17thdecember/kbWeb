@@ -768,20 +768,16 @@ img,svg {
 }
 .product-photo {
   height: 220px;
+  margin: 10px 10px 0;
+  border-radius: 16px;
   position: relative;
   display: grid;
   place-items: center;
   overflow: hidden;
-  background: linear-gradient(145deg,light-dark(#f6f7f0,#222f29),light-dark(#e8ede2,#17211d));
+  background: radial-gradient(circle at 50% 42%,light-dark(#f3efe6,#2a332e) 0%,light-dark(#ebe6da,#202823) 100%);
 }
 .product-photo:before {
-  content: "";
-  position: absolute;
-  width: 190px;
-  height: 190px;
-  border-radius: 50%;
-  border: 1px solid #859a7929;
-  box-shadow: 0 0 0 20px #859a790b,0 0 0 42px #859a7908;
+  content: none;
 }
 .product-photo svg {
   height: 190px;

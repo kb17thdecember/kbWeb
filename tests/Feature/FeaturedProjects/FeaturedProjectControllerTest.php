@@ -36,8 +36,8 @@ test('the featured projects page lists saved projects', function () {
         'category' => $parent->name,
         'subcategory' => $child->name,
         'type' => '1',
-        'image' => 'https://example.com/office.jpg',
     ]);
+    $project->syncImagePaths(['https://example.com/office.jpg']);
 
     $this->get(route('admin.case-studies.index'))
         ->assertOk()
@@ -76,8 +76,9 @@ test('a featured project can be created with an uploaded image', function () {
     expect($project->name)->toBe('Tổ hợp văn phòng')
         ->and($project->category)->toBe('Văn phòng')
         ->and($project->subcategory)->toBe('MEP')
-        ->and($project->image)->toStartWith('featured-projects/');
-    Storage::disk('public')->assertExists($project->image);
+        ->and($project->images)->toHaveCount(1)
+        ->and($project->image)->toStartWith('/storage/featured-projects/');
+    Storage::disk('public')->assertExists($project->images->first()->path);
 });
 
 test('a featured project can be created with up to three uploaded images', function () {
@@ -104,18 +105,15 @@ test('a featured project can be created with up to three uploaded images', funct
 
     $project = FeaturedProject::query()->sole();
     expect($project->images)->toHaveCount(3)
-        ->and($project->image)->toBe($project->images[0]);
+        ->and($project->image)->toBe($project->images_url[0]);
 
-    foreach ($project->images as $imagePath) {
-        Storage::disk('public')->assertExists($imagePath);
+    foreach ($project->images as $image) {
+        Storage::disk('public')->assertExists($image->path);
     }
 
     $this->get(route('admin.case-studies.index'))
         ->assertInertia(fn (Assert $page) => $page
-            ->where('projects.0.images_url', array_map(
-                fn (string $image): string => Storage::disk('public')->url($image),
-                $project->images,
-            )),
+            ->where('projects.0.images_url', $project->images_url),
         );
 });
 
@@ -167,9 +165,8 @@ test('updating a featured project can replace its image gallery', function () {
         'category' => $parent->name,
         'subcategory' => $child->name,
         'type' => '2',
-        'image' => $oldImages[0],
-        'images' => $oldImages,
     ]);
+    $project->syncImagePaths($oldImages);
 
     $this->post(route('admin.case-studies.update', $project), [
         '_method' => 'put',
@@ -185,15 +182,15 @@ test('updating a featured project can replace its image gallery', function () {
         ],
     ])->assertRedirect(route('admin.case-studies.index'));
 
-    $updatedProject = $project->fresh();
+    $updatedProject = $project->fresh()->load('images');
     expect($updatedProject->images)->toHaveCount(2)
-        ->and($updatedProject->image)->toBe($updatedProject->images[0]);
+        ->and($updatedProject->image)->toBe($updatedProject->images_url[0]);
 
     foreach ($oldImages as $imagePath) {
         Storage::disk('public')->assertMissing($imagePath);
     }
-    foreach ($updatedProject->images as $imagePath) {
-        Storage::disk('public')->assertExists($imagePath);
+    foreach ($updatedProject->images as $image) {
+        Storage::disk('public')->assertExists($image->path);
     }
 });
 
@@ -232,8 +229,8 @@ test('a featured project can be updated without replacing its image', function (
         'category' => 'Văn phòng',
         'subcategory' => 'MEP',
         'type' => '1',
-        'image' => $imagePath,
     ]);
+    $project->syncImagePaths([$imagePath]);
 
     $response = $this->put(route('admin.case-studies.update', $project), [
         'name' => 'Tổ hợp mới',
@@ -249,7 +246,7 @@ test('a featured project can be updated without replacing its image', function (
     expect($project->fresh()->name)->toBe('Tổ hợp mới')
         ->and($project->fresh()->category)->toBe('Khu căn hộ')
         ->and($project->fresh()->subcategory)->toBe('Cấp nước')
-        ->and($project->fresh()->image)->toBe($imagePath);
+        ->and($project->fresh()->load('images')->images->pluck('path')->all())->toBe([$imagePath]);
     Storage::disk('public')->assertExists($imagePath);
 });
 
@@ -263,14 +260,15 @@ test('a featured project can be deleted together with its stored image', functio
         'category' => 'Văn phòng',
         'subcategory' => 'MEP',
         'type' => '3',
-        'image' => $imagePath,
     ]);
+    $project->syncImagePaths([$imagePath]);
 
     $response = $this->delete(route('admin.case-studies.destroy', $project));
 
     $response->assertRedirect(route('admin.case-studies.index'));
     $this->assertDatabaseMissing('featured_projects', ['id' => $project->id]);
     Storage::disk('public')->assertMissing($imagePath);
+    $this->assertDatabaseMissing('images', ['imageable_id' => $project->id]);
 });
 
 test('a featured project cannot select a child category from a different parent', function () {

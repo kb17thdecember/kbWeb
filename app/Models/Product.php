@@ -2,11 +2,15 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasImages;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Product extends Model
 {
+    use HasImages;
+
     public $table = 'products';
 
     protected $fillable = [
@@ -17,7 +21,6 @@ class Product extends Model
         'description',
         'display_order',
         'discount',
-        'image',
         'tag',
         'status',
         'price',
@@ -26,16 +29,18 @@ class Product extends Model
         'updated_at',
     ];
 
+    protected $hidden = ['images'];
+
+    protected $appends = ['image'];
+
     /**
-     * Get the attributes that should be cast.
+     * Danh sách URL ảnh (giữ nguyên tên `image` cho giao diện hiện có).
      *
-     * @return array<string, string>
+     * @return Attribute<list<string>, never>
      */
-    protected function casts(): array
+    protected function image(): Attribute
     {
-        return [
-            'image' => 'array',
-        ];
+        return Attribute::get(fn (): array => $this->imageUrls());
     }
 
     /**

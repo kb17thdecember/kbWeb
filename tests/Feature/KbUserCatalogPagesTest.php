@@ -49,9 +49,8 @@ test('the user featured projects page provides project details and image URLs', 
         'category' => 'Văn phòng',
         'subcategory' => 'HVAC',
         'type' => '2',
-        'image' => 'featured-projects/office.png',
-        'images' => ['featured-projects/office.png', 'featured-projects/office-detail.png'],
     ]);
+    $project->syncImagePaths(['featured-projects/office.png', 'featured-projects/office-detail.png']);
 
     $this->get(route('kbuser.featured-projects'))
         ->assertOk()
@@ -59,10 +58,10 @@ test('the user featured projects page provides project details and image URLs', 
             ->component('featured projects/Index')
             ->has('projects', 1)
             ->where('projects.0.id', $project->id)
-            ->where('projects.0.image_url', Storage::disk('public')->url('featured-projects/office.png'))
+            ->where('projects.0.image_url', '/storage/featured-projects/office.png')
             ->where('projects.0.images_url', [
-                Storage::disk('public')->url('featured-projects/office.png'),
-                Storage::disk('public')->url('featured-projects/office-detail.png'),
+                '/storage/featured-projects/office.png',
+                '/storage/featured-projects/office-detail.png',
             ]),
         );
 });
@@ -71,15 +70,16 @@ test('the home page includes every featured project with an image URL', function
     Storage::fake('public');
 
     foreach (range(1, 4) as $number) {
-        FeaturedProject::query()->create([
+        $project = FeaturedProject::query()->create([
             'name' => "Dự án {$number}",
             'description' => 'Cung ứng vật tư cho công trình',
             'location' => 'Hà Nội',
             'category' => 'Văn phòng',
             'subcategory' => 'HVAC',
             'type' => '2',
-            'image' => "featured-projects/project-{$number}.png",
-        ])->forceFill(['created_at' => now()->addSeconds($number)])->save();
+        ]);
+        $project->syncImagePaths(["featured-projects/project-{$number}.png"]);
+        $project->forceFill(['created_at' => now()->addSeconds($number)])->save();
     }
 
     $this->get(route('kbuser.home'))
@@ -87,7 +87,7 @@ test('the home page includes every featured project with an image URL', function
         ->assertInertia(fn (Assert $page) => $page
             ->component('Home')
             ->has('featuredProjects', 4)
-            ->where('featuredProjects.0.image_url', Storage::disk('public')->url('featured-projects/project-4.png')),
+            ->where('featuredProjects.0.image_url', '/storage/featured-projects/project-4.png'),
         );
 });
 

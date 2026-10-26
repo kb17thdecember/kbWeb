@@ -5,6 +5,8 @@ namespace Database\Seeders;
 use App\Models\Category;
 use App\Models\Product;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use RuntimeException;
 
 class ProductSeeder extends Seeder
@@ -391,6 +393,25 @@ class ProductSeeder extends Seeder
                     '- Bảo vệ quá dòng và quá nhiệt',
                 ],
             ],
+            [
+                'name' => 'KFlex ST',
+                'category' => 'K-FLEX',
+                'subcategory' => 'Cao su lưu hóa NBR',
+                'product_title' => 'Dòng sản phẩm bảo ôn cao cấp phù hợp cho văn phòng khách sạn .',
+                'image' => 'ST.png',
+                'description' => [
+                    '- vật liệu: Cao su lưu hóa NBR',
+                    '-Tỷ trọng: 48-70kg/m3',
+                    '- Phạm vi nhiệt độ: -200°C~116°C',
+                    '-Hệ số dẫn nhiệt: <0.034 W/mK tại 20°C (EN 12667, ISO 8497)',
+                    '-Độ thẩm thấu hơi nước: 0.92 x10^-11 g/Pa.s.m (ASTM E96)',
+                    '-Độ hấp thụ nước theo thể tích: ≤ 0.1 % (ASTM C209)',
+                    '- Chứng chỉ: FM Approved; UL94 V-0, 5VA; BS 476 part 6&7, Class 0; ASTM E84',
+                    '-Chỉ số lan truyền ngọn lửa FSI ≤25 (ASTM E84)',
+                    '-Chỉ số sinh khói SDI ≤30 (ASTM E84)',
+
+                ],
+            ],
         ];
 
         foreach ($products as $productData) {
@@ -401,25 +422,44 @@ class ProductSeeder extends Seeder
                 throw new RuntimeException("Unable to read product image at [{$imagePath}].");
             }
 
-            Product::query()->updateOrCreate(
+            $productCategory = $ariston;
+            $productSubcategory = ($productData['subcategory'] ?? null) === 'Bơm nhiệt nước nóng'
+                ? $heatPumpSubcategory
+                : $subcategory;
+
+            if (isset($productData['category'])) {
+                $productCategory = Category::query()->firstOrCreate([
+                    'name' => $productData['category'],
+                    'parent_id' => null,
+                ]);
+                $productSubcategory = Category::query()->firstOrCreate([
+                    'name' => $productData['subcategory'],
+                    'parent_id' => $productCategory->id,
+                ]);
+            }
+
+            $product = Product::query()->updateOrCreate(
                 [
                     'name' => $productData['name'],
-                    'category_id' => $ariston->id,
+                    'category_id' => $productCategory->id,
                 ],
                 [
                     'product_title' => $productData['product_title'],
-                    'category_id' => $ariston->id,
-                    'subcategory_id' => ($productData['subcategory'] ?? null) === 'Bơm nhiệt nước nóng'
-                        ? $heatPumpSubcategory->id
-                        : $subcategory->id,
+                    'category_id' => $productCategory->id,
+                    'subcategory_id' => $productSubcategory->id,
                     'description' => implode("\n", $productData['description']),
                     'price' => 0,
-                    'image' => [
-                        'data:image/png;base64,'.base64_encode($imageContents),
-                    ],
                     'quantity' => 0,
                 ],
             );
+
+            $storedImagePath = 'products/'.Str::slug($productData['name']).'.png';
+
+            if (! Storage::disk('public')->put($storedImagePath, $imageContents)) {
+                throw new RuntimeException("Unable to store product image at [{$storedImagePath}].");
+            }
+
+            $product->syncImagePaths([$storedImagePath]);
         }
     }
 }

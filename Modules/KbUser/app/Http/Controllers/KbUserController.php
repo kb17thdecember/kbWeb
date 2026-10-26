@@ -11,7 +11,6 @@ use App\Models\Product;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response as InertiaResponse;
@@ -24,13 +23,13 @@ class KbUserController extends Controller
     public function index(): InertiaResponse
     {
         $categories = Category::query()
-            ->with('children:id,name,parent_id')
+            ->with(['images', 'children:id,name,parent_id'])
             ->whereNull('parent_id')
             ->orderBy('name')
-            ->get(['id', 'name', 'description', 'image']);
+            ->get(['id', 'name', 'description']);
 
         $products = Product::query()
-            ->with(['category:id,name', 'subcategory:id,name'])
+            ->with(['category:id,name', 'subcategory:id,name', 'images'])
             ->orderByDesc('id')
             ->get([
                 'id',
@@ -40,10 +39,10 @@ class KbUserController extends Controller
                 'subcategory_id',
                 'description',
                 'price',
-                'image',
             ]);
 
         $featuredProjects = FeaturedProject::query()
+            ->with('images')
             ->latest()
             ->get([
                 'id',
@@ -53,12 +52,7 @@ class KbUserController extends Controller
                 'category',
                 'subcategory',
                 'type',
-                'image',
-                'images',
-            ])
-            ->each(function (FeaturedProject $project): void {
-                $this->appendProjectImageUrls($project);
-            });
+            ]);
 
         return Inertia::render('Home', [
             'categories' => $categories,
@@ -72,29 +66,18 @@ class KbUserController extends Controller
         $categories = Category::query()
             ->whereNull('parent_id')
             ->with([
+                'images',
                 'children' => fn ($query) => $query
+                    ->with('images')
                     ->withCount('products')
                     ->orderBy('name'),
             ])
             ->withCount('children')
             ->orderBy('name')
-            ->get(['id', 'name', 'parent_id', 'description', 'image']);
+            ->get(['id', 'name', 'parent_id', 'description']);
 
         $requestedCategoryId = $request->integer('category');
         $selectedCategory = $categories->firstWhere('id', $requestedCategoryId);
-
-        $categories->each(function (Category $category): void {
-            $category->setAttribute(
-                'image_url',
-                $category->image ? Storage::disk('public')->url($category->image) : null,
-            );
-            $category->children->each(function (Category $child): void {
-                $child->setAttribute(
-                    'image_url',
-                    $child->image ? Storage::disk('public')->url($child->image) : null,
-                );
-            });
-        });
 
         return Inertia::render('categories/Index', [
             'categories' => $categories,
@@ -105,13 +88,13 @@ class KbUserController extends Controller
     public function products(): InertiaResponse
     {
         $categories = Category::query()
-            ->with('children:id,name,parent_id')
+            ->with(['images', 'children:id,name,parent_id'])
             ->whereNull('parent_id')
             ->orderBy('name')
-            ->get(['id', 'name', 'description', 'image']);
+            ->get(['id', 'name', 'description']);
 
         $products = Product::query()
-            ->with(['category:id,name', 'subcategory:id,name'])
+            ->with(['category:id,name', 'subcategory:id,name', 'images'])
             ->orderByDesc('id')
             ->get([
                 'id',
@@ -121,7 +104,6 @@ class KbUserController extends Controller
                 'subcategory_id',
                 'description',
                 'price',
-                'image',
             ]);
 
         return Inertia::render('products/Index', [
@@ -133,6 +115,7 @@ class KbUserController extends Controller
     public function featuredProjects(): InertiaResponse
     {
         $projects = FeaturedProject::query()
+            ->with('images')
             ->latest()
             ->get([
                 'id',
@@ -142,12 +125,7 @@ class KbUserController extends Controller
                 'category',
                 'subcategory',
                 'type',
-                'image',
-                'images',
-            ])
-            ->each(function (FeaturedProject $project): void {
-                $this->appendProjectImageUrls($project);
-            });
+            ]);
 
         return Inertia::render('featured projects/Index', [
             'projects' => $projects,
@@ -210,38 +188,6 @@ class KbUserController extends Controller
         return $request->query('from') === 'home'
             ? to_route('kbuser.home')
             : to_route('kbuser.contacts');
-    }
-
-    private function imageUrl(?string $image): ?string
-    {
-        if ($image === null || $image === '') {
-            return null;
-        }
-
-        if (
-            str_starts_with($image, 'http://')
-            || str_starts_with($image, 'https://')
-            || str_starts_with($image, 'data:image/')
-            || str_starts_with($image, '/')
-        ) {
-            return $image;
-        }
-
-        return '/storage/'.ltrim($image, '/');
-    }
-
-    private function appendProjectImageUrls(FeaturedProject $project): void
-    {
-        $images = $project->images !== [] && $project->images !== null
-            ? $project->images
-            : [$project->image];
-        $imageUrls = array_values(array_filter(array_map(
-            fn (string $image): ?string => $this->imageUrl($image),
-            $images,
-        )));
-
-        $project->setAttribute('images_url', $imageUrls);
-        $project->setAttribute('image_url', $imageUrls[0] ?? null);
     }
 
     /**

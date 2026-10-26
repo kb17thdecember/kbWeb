@@ -35,7 +35,8 @@ test('the category seeder assigns and stores the parent category logos idempoten
         $imageContents = file_get_contents(base_path("Modules/KbAdmin/resources/assets/images/{$logo['source']}"));
 
         expect($category)->not->toBeNull()
-            ->and($category->image)->toBe($logo['path']);
+            ->and($category->images)->toHaveCount(1)
+            ->and($category->images->first()->path)->toBe($logo['path']);
 
         Storage::disk('public')->assertExists($logo['path']);
         expect(Storage::disk('public')->get($logo['path']))->toBe($imageContents);
@@ -59,7 +60,6 @@ test('the categories index shows parent categories, children, and child product 
         'description' => 'Mô tả sản phẩm',
         'price' => 100000,
         'quantity' => 0,
-        'image' => [],
     ]);
 
     $this->get(route('admin.categories.index'))
@@ -93,8 +93,8 @@ test('a parent category can be created from the admin form', function () {
         'description' => 'Thiết bị nước nóng',
         'description_2' => 'Danh mục chính',
     ]);
-    expect($category->image)->toStartWith('categories/');
-    Storage::disk('public')->assertExists($category->image);
+    expect($category->image)->toStartWith('/storage/categories/');
+    Storage::disk('public')->assertExists($category->images->first()->path);
 });
 
 test('a parent category name must be unique among parent categories', function () {
@@ -222,7 +222,6 @@ test('a child category cannot be deleted while it has products', function () {
         'description' => 'Mô tả sản phẩm',
         'price' => 100000,
         'quantity' => 0,
-        'image' => [],
     ]);
 
     $response = $this->from(route('admin.categories.index'))

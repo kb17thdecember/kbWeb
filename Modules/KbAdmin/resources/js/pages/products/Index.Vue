@@ -29,14 +29,14 @@
                                     <span>T</span>
                                 </div>
                                 <div>
-                                    <b>{{ product.product_title || product.name }}</b>
-                                    <small>{{ product.name }}</small>
+                                    <b>{{ product.name }}</b>
+                                    <small>{{ product.product_title }}</small>
                                     <small>{{ product.tag }}</small>
                                 </div>
                             </div>
                         </td>
                         <td>
-                            {{ product.category?.name ?? 'Không xác định' }}
+                            {{ product.category?.name ?? 'Không xác định' }} -
                             <small>{{ product.subcategory?.name ?? 'Chưa có dòng sản phẩm' }}</small>
                         </td>
                         <td>{{ product.price }}</td>

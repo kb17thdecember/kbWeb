@@ -5,15 +5,14 @@ namespace Modules\KbAdmin\Http\Controllers;
 use App\Http\Controllers\Controller;
 use App\Models\Category;
 use App\Models\Product;
+use App\Support\ImageStorage;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
 use Modules\KbAdmin\Support\AdminDashboardStats;
-use RuntimeException;
 
 class CategoryController extends Controller
 {
@@ -22,20 +21,15 @@ class CategoryController extends Controller
         $categories = Category::query()
             ->whereNull('parent_id')
             ->with([
+                'images',
                 'children' => fn ($query) => $query
+                    ->with('images')
                     ->withCount('products')
                     ->orderBy('name'),
             ])
             ->withCount('children')
             ->orderBy('name')
             ->get();
-
-        $categories->each(function (Category $category): void {
-            $category->setAttribute('image_url', $this->imageUrl($category->image));
-            $category->children->each(function (Category $child): void {
-                $child->setAttribute('image_url', $this->imageUrl($child->image));
-            });
-        });
 
         return Inertia::render('categories/Index', [
             'categories' => $categories,
@@ -71,14 +65,17 @@ class CategoryController extends Controller
             'image' => ['nullable', 'image', 'max:5120'],
         ]);
 
-        if (($validated['image'] ?? null) instanceof UploadedFile) {
-            $validated['image'] = $this->storeImage($validated['image']);
-        }
+        $uploadedImage = $validated['image'] ?? null;
+        unset($validated['image']);
 
-        Category::create([
+        $category = Category::create([
             ...$validated,
             'parent_id' => $validated['parent_id'] ?? null,
         ]);
+
+        if ($uploadedImage instanceof UploadedFile) {
+            $category->syncImagePaths([ImageStorage::storeUpload($uploadedImage, 'categories')]);
+        }
 
         return to_route('admin.categories.index');
     }
@@ -100,24 +97,16 @@ class CategoryController extends Controller
             'remove_image' => ['sometimes', 'boolean'],
         ]);
 
-        $oldImage = $category->image;
         $imageUpload = $validated['image'] ?? null;
-        $uploadedImage = $imageUpload instanceof UploadedFile;
         $removeImage = (bool) ($validated['remove_image'] ?? false);
-        unset($validated['remove_image']);
-
-        if ($uploadedImage) {
-            $validated['image'] = $this->storeImage($imageUpload);
-        } elseif ($removeImage) {
-            $validated['image'] = null;
-        } else {
-            unset($validated['image']);
-        }
+        unset($validated['remove_image'], $validated['image']);
 
         $category->update($validated);
 
-        if (($uploadedImage || $removeImage) && $oldImage !== $category->image) {
-            $this->deleteStoredImage($oldImage);
+        if ($imageUpload instanceof UploadedFile) {
+            $category->syncImagePaths([ImageStorage::storeUpload($imageUpload, 'categories')]);
+        } elseif ($removeImage) {
+            $category->syncImagePaths([]);
         }
 
         return to_route('admin.categories.index');
@@ -138,49 +127,8 @@ class CategoryController extends Controller
             ]);
         }
 
-        $image = $category->image;
         $category->delete();
-        $this->deleteStoredImage($image);
 
         return to_route('admin.categories.index');
-    }
-
-    private function storeImage(UploadedFile $image): string
-    {
-        $imagePath = $image->store('categories', 'public');
-        if ($imagePath === false) {
-            throw new RuntimeException('Unable to store the category image.');
-        }
-
-        return $imagePath;
-    }
-
-    private function deleteStoredImage(?string $image): void
-    {
-        if ($image === null || ! str_starts_with($image, 'categories/')) {
-            return;
-        }
-
-        $disk = Storage::disk('public');
-        if ($disk->exists($image) && ! $disk->delete($image)) {
-            throw new RuntimeException('Unable to delete the category image.');
-        }
-    }
-
-    private function imageUrl(?string $image): ?string
-    {
-        if ($image === null || $image === '') {
-            return null;
-        }
-
-        if (
-            str_starts_with($image, 'http://')
-            || str_starts_with($image, 'https://')
-            || str_starts_with($image, 'data:image/')
-        ) {
-            return $image;
-        }
-
-        return '/storage/'.ltrim($image, '/');
     }
 }

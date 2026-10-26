@@ -32,8 +32,6 @@ test('admin dashboard displays database statistics, recent requests, and request
         'category' => 'Văn phòng',
         'subcategory' => 'HVAC',
         'type' => '2',
-        'image' => 'project.jpg',
-        'images' => ['project.jpg'],
     ]);
 
     Contact::query()->create([

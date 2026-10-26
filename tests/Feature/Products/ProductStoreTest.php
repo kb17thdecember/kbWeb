@@ -4,8 +4,12 @@ use App\Models\Category;
 use App\Models\Product;
 use App\Models\User;
 use Database\Seeders\ProductSeeder;
+use Illuminate\Support\Facades\Storage;
 
-beforeEach(fn () => $this->actingAs(User::factory()->admin()->create()));
+beforeEach(function () {
+    Storage::fake('public');
+    $this->actingAs(User::factory()->admin()->create());
+});
 
 test('the product seeder assigns Ariston products to the correct subcategories idempotently', function () {
     $ariston = Category::factory()->create([
@@ -51,7 +55,6 @@ test('the product seeder assigns Ariston products to the correct subcategories i
 
     foreach ($products as $name => $expected) {
         $product = Product::query()->where('name', $name)->sole();
-        $imagePath = base_path("Modules/KbAdmin/resources/assets/images/{$expected['image']}");
 
         expect($product->product_title)->toBe($expected['title'])
             ->and($product->category->name)->toBe('Ariston')
@@ -59,9 +62,8 @@ test('the product seeder assigns Ariston products to the correct subcategories i
             ->and($product->description)->toContain($expected['capacity'])
             ->and($product->description)->toContain('- Nguồn cấp: 1/220/50 (Ph/V/Hz)')
             ->and($product->quantity)->toBe(0)
-            ->and($product->image)->toBe([
-                'data:image/png;base64,'.base64_encode(file_get_contents($imagePath)),
-            ]);
+            ->and($product->images)->toHaveCount(1);
+        Storage::disk('public')->assertExists($product->images->first()->path);
     }
 
     foreach (['AR-40 PTP HX', 'AR-80PTP HX'] as $heatPumpName) {
@@ -109,7 +111,10 @@ test('products can be created with their images', function () {
         ->and($product->category_id)->toBe($parent->id)
         ->and($product->subcategory_id)->toBe($child->id)
         ->and($product->quantity)->toBe(0)
-        ->and($product->image)->toBe($images);
+        ->and($product->load('images')->image)->toHaveCount(2)
+        ->and($product->image[0])->toBe('https://example.com/product.jpg')
+        ->and($product->image[1])->toStartWith('/storage/products/');
+    Storage::disk('public')->assertExists($product->images[1]->path);
 });
 
 test('products cannot be created with a subcategory from another category', function () {
@@ -157,8 +162,8 @@ test('products can be updated with their images', function () {
         'description' => 'Mô tả cũ',
         'price' => 100000,
         'quantity' => 3,
-        'image' => ['https://example.com/old.jpg'],
     ]);
+    $product->syncImagePaths(['https://example.com/old.jpg']);
     $images = ['https://example.com/new.jpg'];
 
     $response = $this->put(route('admin.products.update', $product), [
@@ -179,7 +184,7 @@ test('products can be updated with their images', function () {
         ->and($product->fresh()->category_id)->toBe($newParent->id)
         ->and($product->fresh()->subcategory_id)->toBe($newChild->id)
         ->and($product->fresh()->quantity)->toBe(3)
-        ->and($product->fresh()->image)->toBe($images);
+        ->and($product->fresh()->load('images')->image)->toBe($images);
 });
 
 test('products can be deleted', function () {
@@ -192,7 +197,6 @@ test('products can be deleted', function () {
         'description' => 'Mô tả sản phẩm',
         'price' => 100000,
         'quantity' => 0,
-        'image' => [],
     ]);
 
     $response = $this->delete(route('admin.products.destroy', $product));
@@ -214,11 +218,30 @@ test('categories have children and child categories have products', function () 
         'description' => 'Mô tả',
         'price' => 100000,
         'quantity' => 0,
-        'image' => [],
     ]);
 
     expect($parent->children()->first()->is($child))->toBeTrue()
         ->and($child->products()->first()->is($product))->toBeTrue()
         ->and($product->category()->first()->is($parent))->toBeTrue()
         ->and($product->subcategory()->first()->is($child))->toBeTrue();
+});
+
+test('deleting a product removes its image rows and stored files', function () {
+    $parent = Category::factory()->create();
+    $child = Category::factory()->create(['parent_id' => $parent->id]);
+    Storage::disk('public')->put('products/a.png', 'x');
+    $product = Product::create([
+        'name' => 'Sản phẩm',
+        'category_id' => $parent->id,
+        'subcategory_id' => $child->id,
+        'description' => 'Mô tả',
+        'price' => 1,
+        'quantity' => 0,
+    ]);
+    $product->syncImagePaths(['products/a.png']);
+
+    $this->delete(route('admin.products.destroy', $product));
+
+    $this->assertDatabaseCount('images', 0);
+    Storage::disk('public')->assertMissing('products/a.png');
 });

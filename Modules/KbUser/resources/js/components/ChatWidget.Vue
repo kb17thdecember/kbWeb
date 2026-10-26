@@ -23,6 +23,25 @@ const isSending = ref(false);
 const unreadCount = ref(0);
 const listElement = ref<HTMLElement | null>(null);
 let lastId = 0;
+
+const SEEN_KEY = 'kb_chat_seen_id';
+let seenId = 0;
+
+try {
+    seenId = Number(localStorage.getItem(SEEN_KEY)) || 0;
+} catch {
+    // Trình duyệt chặn localStorage thì coi như chưa đọc gì.
+}
+
+const markSeen = (): void => {
+    seenId = Math.max(seenId, lastId);
+
+    try {
+        localStorage.setItem(SEEN_KEY, String(seenId));
+    } catch {
+        // Bỏ qua nếu không lưu được.
+    }
+};
 let pollTimer: ReturnType<typeof setTimeout> | undefined;
 let isPolling = false;
 let tempId = 0;
@@ -79,9 +98,10 @@ const appendMessages = (incoming: ChatMessage[]): void => {
     lastId = Math.max(lastId, ...fresh.map((message) => message.id));
 
     if (isOpen.value) {
+        markSeen();
         void scrollToBottom();
     } else {
-        unreadCount.value += fresh.filter((message) => message.sender === 'admin').length;
+        unreadCount.value += fresh.filter((message) => message.sender === 'admin' && message.id > seenId).length;
     }
 };
 
@@ -204,6 +224,7 @@ const toggle = (): void => {
 watch(isOpen, (open) => {
     if (open) {
         unreadCount.value = 0;
+        markSeen();
         void scrollToBottom();
     }
 
