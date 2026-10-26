@@ -44,7 +44,7 @@ const categoryProductsUrl = (categoryId: number, subcategoryId?: number): string
 </script>
 
 <template>
-    <Head :title="`${selectedCategory?.name ?? 'Danh mục sản phẩm'} | NOVA TECH`" />
+    <Head :title="`${selectedCategory?.name ?? 'Danh mục sản phẩm'} | KB TECH`" />
 
     <UserLayout :cart-count="0" active-page="categories">
         <main>
@@ -53,7 +53,7 @@ const categoryProductsUrl = (categoryId: number, subcategoryId?: number): string
                     <div>
                         <div class="eyebrow">
                             <span class="dot"></span>
-                            <span id="pageKicker">NOVA TECH / CATEGORIES</span>
+                            <span id="pageKicker">KB TECH / CATEGORIES</span>
                         </div>
                         <h1 id="pageTitle">
                             {{ selectedCategory ? `Danh mục ${selectedCategory.name}` : 'Danh mục sản phẩm' }}

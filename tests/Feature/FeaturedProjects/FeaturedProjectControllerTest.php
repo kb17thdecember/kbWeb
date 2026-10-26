@@ -2,9 +2,12 @@
 
 use App\Models\Category;
 use App\Models\FeaturedProject;
+use App\Models\User;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Testing\AssertableInertia as Assert;
+
+beforeEach(fn () => $this->actingAs(User::factory()->admin()->create()));
 
 function fakeFeaturedProjectImage(string $name): UploadedFile
 {

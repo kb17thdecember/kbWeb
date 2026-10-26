@@ -1,7 +1,7 @@
 
 <script setup lang="ts">
-import { computed } from 'vue';
-import { Link, usePage } from '@inertiajs/vue3';
+import { computed, ref } from 'vue';
+import { Link, router, usePage } from '@inertiajs/vue3';
 
 const page = usePage();
 const currentUrl = computed(() => page.url.split('?')[0]);
@@ -31,6 +31,34 @@ const visibleStats = computed(() => props.stats);
 function exportProjectReports(): void {
     window.location.assign('/admin/project-reports/export');
 }
+
+function logout(): void {
+    router.post('/admin/logout');
+}
+
+const importFileInput = ref<HTMLInputElement | null>(null);
+const isImporting = ref(false);
+
+function importProjectReports(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+
+    if (!file) {
+        return;
+    }
+
+    isImporting.value = true;
+    router.post('/admin/project-reports/import', { file }, {
+        forceFormData: true,
+        preserveScroll: true,
+        onSuccess: () => window.alert('Nhập dữ liệu Excel thành công.'),
+        onError: (errors) => window.alert(Object.values(errors).join('\n')),
+        onFinish: () => {
+            isImporting.value = false;
+            input.value = '';
+        },
+    });
+}
 </script>
 
 <template>
@@ -59,7 +87,7 @@ function exportProjectReports(): void {
           </nav>
         </div>
         <div class="side-note">
-          <b>Khu vực quản trị</b>Chỉnh sửa dữ liệu và xuất báo cáo dự án.<button id="exportBtn" type="button" @click="exportProjectReports">Xuất báo cáo Excel ↗</button><button id="importBtn">Nhập dữ liệu JSON ↑</button><input class="hidden" type="file" id="importFile" accept="application/json,.json">
+          <b>Khu vực quản trị</b>Chỉnh sửa dữ liệu và xuất báo cáo dự án.<button id="exportBtn" type="button" @click="exportProjectReports">Xuất báo cáo Excel ↗</button><button id="importBtn" type="button" :disabled="isImporting" @click="importFileInput?.click()">{{ isImporting ? 'Đang nhập...' : 'Nhập dữ liệu Excel ↑' }}</button><input ref="importFileInput" class="hidden" type="file" id="importFile" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" @change="importProjectReports">
         </div>
       </aside>
       <main class="main">
@@ -75,6 +103,7 @@ function exportProjectReports(): void {
             <div>
               <b>Administrator</b><small>Quản trị viên</small>
             </div>
+            <button class="btn" type="button" @click="logout">Đăng xuất</button>
           </div>
         </header>
         <div class="content">

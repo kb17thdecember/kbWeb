@@ -37,6 +37,10 @@
                     <td style="padding:10px;border-bottom:1px solid #e5eaf2">{{ $contact->project_name ?: 'Chưa cung cấp' }}</td>
                 </tr>
                 <tr>
+                    <th style="padding:10px;border-bottom:1px solid #e5eaf2;text-align:left;vertical-align:top">Sản phẩm yêu cầu báo giá</th>
+                    <td style="padding:10px;border-bottom:1px solid #e5eaf2;white-space:pre-wrap">{{ $contact->product ?: 'Chưa cung cấp' }}</td>
+                </tr>
+                <tr>
                     <th style="padding:10px;text-align:left;vertical-align:top">Mô tả nhu cầu</th>
                     <td style="padding:10px;white-space:pre-wrap">{{ $contact->message }}</td>
                 </tr>

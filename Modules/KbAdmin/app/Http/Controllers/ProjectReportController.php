@@ -7,12 +7,17 @@ use App\Models\ProjectReport;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\In;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 use Modules\KbAdmin\Support\AdminDashboardStats;
 use Modules\KbAdmin\Support\ProjectReportExcelExporter;
+use Modules\KbAdmin\Support\ProjectReportExcelImporter;
+use RuntimeException;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class ProjectReportController extends Controller
@@ -39,6 +44,69 @@ class ProjectReportController extends Controller
                 'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
             ])
             ->deleteFileAfterSend(true);
+    }
+
+    public function import(Request $request, ProjectReportExcelImporter $importer): RedirectResponse
+    {
+        $request->validate([
+            'file' => ['required', 'file', 'mimes:xlsx', 'max:5120'],
+        ]);
+
+        try {
+            $records = $importer->read($request->file('file')->getRealPath());
+        } catch (RuntimeException $exception) {
+            throw ValidationException::withMessages(['file' => $exception->getMessage()]);
+        }
+
+        if ($records === []) {
+            throw ValidationException::withMessages(['file' => 'File Excel không có dòng dữ liệu nào.']);
+        }
+
+        $errors = [];
+        $validated = [];
+        foreach ($records as $rowNumber => $record) {
+            $record['project_area'] = $this->matchProvince($record['project_area']) ?? $record['project_area'];
+            $record['project_update'] ??= '';
+
+            $validator = Validator::make($record, [
+                ...$this->rules(),
+                'project_update' => ['present', 'string', 'max:255'],
+            ]);
+
+            if ($validator->fails()) {
+                $errors[] = "Dòng {$rowNumber}: ".implode(' ', $validator->errors()->all());
+
+                continue;
+            }
+
+            $validated[$rowNumber] = [...$validator->validated(), 'project_code' => $record['project_code']];
+        }
+
+        if ($errors !== []) {
+            throw ValidationException::withMessages(['file' => array_slice($errors, 0, 10)]);
+        }
+
+        DB::transaction(function () use ($validated): void {
+            foreach ($validated as $data) {
+                $projectCode = $data['project_code'];
+                unset($data['project_code']);
+
+                $projectReport = $projectCode !== null
+                    ? ProjectReport::query()->where('project_code', $projectCode)->first()
+                    : null;
+
+                if ($projectReport !== null) {
+                    $projectReport->update($data);
+
+                    continue;
+                }
+
+                $projectReport = ProjectReport::query()->create([...$data, 'project_code' => '']);
+                $projectReport->update(['project_code' => 'NTK'.$projectReport->id]);
+            }
+        });
+
+        return to_route('admin.project-reports.index');
     }
 
     public function store(Request $request): RedirectResponse
@@ -86,8 +154,33 @@ class ProjectReportController extends Controller
             'progress' => ['nullable', 'string', 'max:255'],
             'estimate_value' => ['nullable', 'numeric', 'min:0'],
             'contact_person' => ['nullable', 'string', 'max:255'],
+            'participating_products' => ['nullable', 'string', 'max:255'],
+            'project_status' => ['sometimes', Rule::in(['1', '2', '3'])],
             'project_update' => ['required', 'string', 'max:255'],
         ];
+    }
+
+    private function matchProvince(?string $value): ?string
+    {
+        if ($value === null) {
+            return null;
+        }
+
+        $normalize = fn (string $text): string => preg_replace(
+            '/^(tinh|thanh pho|tp\.?|t\.p\.?)\s+/',
+            '',
+            preg_replace('/\s+/', ' ', trim(Str::lower(Str::ascii($text)))) ?? '',
+        ) ?? '';
+
+        $needle = $normalize($value);
+
+        foreach ($this->provinceOptions() as $province) {
+            if ($normalize($province) === $needle) {
+                return $province;
+            }
+        }
+
+        return null;
     }
 
     /**

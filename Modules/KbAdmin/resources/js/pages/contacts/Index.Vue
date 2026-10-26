@@ -167,6 +167,10 @@
                         <small>Dự án cần báo giá</small>
                         <div>{{ selectedContact.project_name || 'Chưa cung cấp' }}</div>
                     </div>
+                    <div class="request-detail-item full">
+                        <small>Sản phẩm yêu cầu báo giá</small>
+                        <div style="white-space: pre-line">{{ selectedContact.product || 'Chưa cung cấp' }}</div>
+                    </div>
                     <div class="request-detail-item">
                         <small>Loại yêu cầu</small>
                         <div>Yêu cầu tư vấn</div>
@@ -212,7 +216,7 @@
         status: string;
         category_id: string | null;
         project_name: string | null;
-        created_at: string;
+        product: string | null;
     };
 
     type ContactStatus = 'pending' | 'processing' | 'resolved';

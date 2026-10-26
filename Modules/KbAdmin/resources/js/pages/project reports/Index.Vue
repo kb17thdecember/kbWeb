@@ -30,6 +30,7 @@
                         <th>Mã dự án</th>
                         <th>Khu vực / Địa chỉ</th>
                         <th>Tiến độ</th>
+                        <th>Tiến độ làm việc</th>
                         <th>Cập nhật gần nhất</th>
                         <th>Thao tác</th>
                     </tr>
@@ -52,6 +53,7 @@
                             <small>{{ report.project_location || 'Chưa cập nhật địa chỉ' }}</small>
                         </td>
                         <td>{{ report.progress }}</td>
+                        <td>{{ { '1': 'Đang triển khai', '2': 'Dự án đang nóng', '3': 'Dự án cần hỗ trợ' }[report.project_status] ?? 'Đang triển khai' }}</td>
                         <td>{{ report.project_update }}</td>
                         <td>
                             <div class="row-actions">
@@ -111,6 +113,8 @@
         progress: string | null;
         estimate_value: string | null;
         contact_person: string | null;
+        participating_products: string | null;
+        project_status: string;
         project_update: string;
     };
 
@@ -153,6 +157,7 @@
                 report.progress ?? '',
                 report.estimate_value ?? '',
                 report.contact_person ?? '',
+                report.participating_products ?? '',
                 report.project_update,
             ].some((value) => value.toLocaleLowerCase().includes(query)),
         );

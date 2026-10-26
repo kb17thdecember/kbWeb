@@ -14,5 +14,6 @@ class Contact extends Model
         'status',
         'category_id',
         'project_name',
+        'product',
     ];
 }

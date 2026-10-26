@@ -74,6 +74,18 @@
                         <label for="projectReportContact">Contact person</label>
                         <input id="projectReportContact" v-model="form.contact_person" maxlength="255">
                     </div>
+                    <div class="field">
+                        <label for="projectReportStatus">Tiến độ làm việc</label>
+                        <select id="projectReportStatus" v-model="form.project_status">
+                            <option value="1">Đang triển khai</option>
+                            <option value="2">Dự án đang nóng</option>
+                            <option value="3">Dự án cần hỗ trợ</option>
+                        </select>
+                    </div>
+                    <div class="field">
+                        <label for="projectReportProducts">Sản phẩm tham gia</label>
+                        <input id="projectReportProducts" v-model="form.participating_products" maxlength="255">
+                    </div>
                     <div class="field full">
                         <label for="projectReportUpdate">Cập nhật dự án</label>
                         <textarea id="projectReportUpdate" v-model="form.project_update" maxlength="255" required></textarea>
@@ -107,6 +119,8 @@
         progress: string | null;
         estimate_value: string | null;
         contact_person: string | null;
+        participating_products: string | null;
+        project_status: string;
         project_update: string;
     };
 
@@ -133,6 +147,8 @@
         progress: '',
         estimate_value: '',
         contact_person: '',
+        participating_products: '',
+        project_status: '1',
         project_update: '',
     });
     const form = reactive<ProjectReportForm>(emptyForm());
@@ -156,6 +172,8 @@
                     progress: report.progress,
                     estimate_value: report.estimate_value ?? '',
                     contact_person: report.contact_person ?? '',
+                    participating_products: report.participating_products ?? '',
+                    project_status: report.project_status ?? '1',
                     project_update: report.project_update,
                 } : {});
                 toastMessage.value = '';

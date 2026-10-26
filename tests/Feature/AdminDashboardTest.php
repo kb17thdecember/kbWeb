@@ -4,8 +4,11 @@ use App\Models\Category;
 use App\Models\Contact;
 use App\Models\FeaturedProject;
 use App\Models\Product;
+use App\Models\User;
 use Carbon\CarbonImmutable;
 use Inertia\Testing\AssertableInertia as Assert;
+
+beforeEach(fn () => $this->actingAs(User::factory()->admin()->create()));
 
 test('admin dashboard displays database statistics, recent requests, and request statuses', function () {
     $this->travelTo(CarbonImmutable::parse('2026-10-20 10:00:00'));

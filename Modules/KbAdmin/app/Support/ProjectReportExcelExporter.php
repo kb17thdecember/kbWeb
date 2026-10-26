@@ -105,22 +105,29 @@ class ProjectReportExcelExporter
         return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
             .'<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
             .'<numFmts count="1"><numFmt numFmtId="164" formatCode="#,##0.##"/></numFmts>'
-            .'<fonts count="2">'
+            .'<fonts count="3">'
             .'<font><sz val="14"/><name val="Times New Roman"/><family val="1"/></font>'
             .'<font><b/><sz val="14"/><name val="Times New Roman"/><family val="1"/></font>'
+            .'<font><sz val="14"/><color rgb="FFFF0000"/><name val="Times New Roman"/><family val="1"/></font>'
             .'</fonts>'
-            .'<fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills>'
+            .'<fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FFFF0000"/><bgColor indexed="64"/></patternFill></fill></fills>'
             .'<borders count="2">'
             .'<border><left/><right/><top/><bottom/><diagonal/></border>'
             .'<border><left style="thin"><color rgb="FF000000"/></left><right style="thin"><color rgb="FF000000"/></right><top style="thin"><color rgb="FF000000"/></top><bottom style="thin"><color rgb="FF000000"/></bottom><diagonal/></border>'
             .'</borders>'
             .'<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>'
-            .'<cellXfs count="5">'
+            .'<cellXfs count="11">'
             .'<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>'
             .'<xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyFont="1" applyAlignment="1"><alignment horizontal="left" vertical="center" wrapText="1"/></xf>'
             .'<xf numFmtId="0" fontId="1" fillId="0" borderId="1" xfId="0" applyFont="1" applyAlignment="1"><alignment horizontal="left" vertical="center" wrapText="1"/></xf>'
             .'<xf numFmtId="164" fontId="0" fillId="0" borderId="1" xfId="0" applyFont="1" applyNumberFormat="1" applyAlignment="1"><alignment horizontal="left" vertical="center" wrapText="1"/></xf>'
             .'<xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyFont="1" applyAlignment="1"><alignment horizontal="left" vertical="center" wrapText="1"/></xf>'
+            .'<xf numFmtId="0" fontId="2" fillId="0" borderId="1" xfId="0" applyFont="1" applyAlignment="1"><alignment horizontal="left" vertical="center" wrapText="1"/></xf>'
+            .'<xf numFmtId="164" fontId="2" fillId="0" borderId="1" xfId="0" applyFont="1" applyNumberFormat="1" applyAlignment="1"><alignment horizontal="left" vertical="center" wrapText="1"/></xf>'
+            .'<xf numFmtId="0" fontId="2" fillId="0" borderId="1" xfId="0" applyFont="1" applyAlignment="1"><alignment horizontal="left" vertical="center" wrapText="1"/></xf>'
+            .'<xf numFmtId="0" fontId="0" fillId="2" borderId="1" xfId="0" applyFont="1" applyFill="1" applyAlignment="1"><alignment horizontal="left" vertical="center" wrapText="1"/></xf>'
+            .'<xf numFmtId="164" fontId="0" fillId="2" borderId="1" xfId="0" applyFont="1" applyFill="1" applyNumberFormat="1" applyAlignment="1"><alignment horizontal="left" vertical="center" wrapText="1"/></xf>'
+            .'<xf numFmtId="0" fontId="0" fillId="2" borderId="1" xfId="0" applyFont="1" applyFill="1" applyAlignment="1"><alignment horizontal="left" vertical="center" wrapText="1"/></xf>'
             .'</cellXfs>'
             .'<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>'
             .'</styleSheet>';
@@ -143,16 +150,25 @@ class ProjectReportExcelExporter
             'Tiến độ' => 'progress',
             'Giá trị ước tính' => 'estimate_value',
             'Contact person' => 'contact_person',
+            'Sản phẩm tham gia' => 'participating_products',
             'Cập nhật dự án' => 'project_update',
         ];
         $rows = [array_keys($columns)];
+        $statuses = [null];
 
         foreach ($reports as $report) {
+            $statuses[] = (string) $report->project_status;
             $rows[] = array_values(array_map(
                 fn (string $field): string|int|float|null => $report->{$field},
                 $columns,
             ));
         }
+
+        // Base style => style used for "needs support" (red text) and "hot" (red fill) rows.
+        $statusStyles = [
+            '3' => [1 => 5, 3 => 6, 4 => 7],
+            '2' => [1 => 8, 3 => 9, 4 => 10],
+        ];
 
         $columnWidths = $this->columnWidths($rows);
         $columnDefinitions = '';
@@ -175,6 +191,10 @@ class ProjectReportExcelExporter
                     $styleId = 3;
                 }
 
+                if ($rowIndex > 0) {
+                    $styleId = $statusStyles[$statuses[$rowIndex]][$styleId] ?? $styleId;
+                }
+
                 $rowHeight = max(
                     $rowHeight,
                     $this->rowHeight((string) ($value ?? ''), $columnWidths[$columnIndex]),
@@ -195,11 +215,45 @@ class ProjectReportExcelExporter
             $sheetRows .= '<row r="'.($rowIndex + 1).'" ht="'.$rowHeight.'" customHeight="1">'.$cells.'</row>';
         }
 
+        [$legendRows, $legendMerges] = $this->legend(count($rows) + 2);
+        $sheetRows .= $legendRows;
+
         return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
             .'<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
             .'<cols>'.$columnDefinitions.'</cols>'
             .'<sheetData>'.$sheetRows.'</sheetData>'
+            .'<mergeCells count="'.count($legendMerges).'">'.implode('', $legendMerges).'</mergeCells>'
             .'</worksheet>';
+    }
+
+    /**
+     * @return array{0: string, 1: array<int, string>}
+     */
+    private function legend(int $startRow): array
+    {
+        $entries = [
+            [2, 'Chú thích', null],
+            [1, 'Mẫu', 'Đang triển khai: hiển thị bình thường.'],
+            [8, 'Mẫu', 'Dự án đang nóng: nền đỏ, chữ đen.'],
+            [5, 'Mẫu', 'Dự án cần hỗ trợ thông tin: chữ màu đỏ.'],
+        ];
+        $rows = '';
+        $merges = [];
+
+        foreach ($entries as $offset => [$styleId, $sample, $description]) {
+            $row = $startRow + $offset;
+            $rows .= '<row r="'.$row.'" ht="22" customHeight="1">'
+                .'<c r="A'.$row.'" s="'.$styleId.'" t="inlineStr"><is><t xml:space="preserve">'.$this->escapeXml($sample).'</t></is></c>';
+
+            if ($description !== null) {
+                $rows .= '<c r="B'.$row.'" t="inlineStr"><is><t xml:space="preserve">'.$this->escapeXml($description).'</t></is></c>';
+                $merges[] = '<mergeCell ref="B'.$row.':F'.$row.'"/>';
+            }
+
+            $rows .= '</row>';
+        }
+
+        return [$rows, $merges];
     }
 
     /**

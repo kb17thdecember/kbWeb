@@ -1,15 +1,34 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
+use Modules\KbAdmin\Http\Controllers\AdminAuthController;
 use Modules\KbAdmin\Http\Controllers\CategoryController;
 use Modules\KbAdmin\Http\Controllers\ConsultationController;
 use Modules\KbAdmin\Http\Controllers\DashboardController;
 use Modules\KbAdmin\Http\Controllers\FeaturedProjectController;
 use Modules\KbAdmin\Http\Controllers\ProductController;
 use Modules\KbAdmin\Http\Controllers\ProjectReportController;
+use Modules\KbAdmin\Http\Middleware\EnsureAdminAuthenticated;
 use Modules\KbAdmin\Http\Middleware\UseKbAdminRootView;
 
 Route::middleware(UseKbAdminRootView::class)
+    ->prefix('admin')
+    ->group(function () {
+        Route::get('/login', [AdminAuthController::class, 'showLogin'])
+            ->name('admin.login');
+        Route::post('/login', [AdminAuthController::class, 'login'])
+            ->name('admin.login.store');
+        Route::get('/login/otp', [AdminAuthController::class, 'showOtp'])
+            ->name('admin.login.otp');
+        Route::post('/login/otp', [AdminAuthController::class, 'verifyOtp'])
+            ->name('admin.login.otp.verify');
+        Route::post('/login/otp/resend', [AdminAuthController::class, 'resendOtp'])
+            ->name('admin.login.otp.resend');
+        Route::post('/logout', [AdminAuthController::class, 'logout'])
+            ->name('admin.logout');
+    });
+
+Route::middleware([UseKbAdminRootView::class, EnsureAdminAuthenticated::class])
     ->prefix('admin')
     ->group(function () {
         Route::get('/dashboard', [DashboardController::class, 'index'])
@@ -32,6 +51,9 @@ Route::middleware(UseKbAdminRootView::class)
 
         Route::get('/project-reports/export', [ProjectReportController::class, 'export'])
             ->name('admin.project-reports.export');
+
+        Route::post('/project-reports/import', [ProjectReportController::class, 'import'])
+            ->name('admin.project-reports.import');
 
         Route::post('/project-reports', [ProjectReportController::class, 'store'])
             ->name('admin.project-reports.store');

@@ -2,6 +2,7 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
@@ -21,6 +22,8 @@ return new class extends Migration
      */
     public function down(): void
     {
+        DB::table('project_reports')->whereNull('project_location')->update(['project_location' => '']);
+
         Schema::table('project_reports', function (Blueprint $table) {
             $table->string('project_location')->nullable(false)->change();
         });

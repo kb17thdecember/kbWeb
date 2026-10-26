@@ -17,6 +17,7 @@ class ProjectReport extends Model
         'progress',
         'estimate_value',
         'contact_person',
+        'participating_products',
         'project_update',
         'project_status',
     ];

@@ -4,14 +4,14 @@ import UserLayout from '../../layout/UserLayout.Vue';
 </script>
 
 <template>
-    <Head title="Về chúng tôi | NOVA TECH" />
+    <Head title="Về chúng tôi | KB TECH" />
 
     <UserLayout :cart-count="0" active-page="about">
         <main>
             <section class="page-intro" aria-live="polite">
                 <div class="wrap page-intro-inner">
                     <div>
-                        <div class="eyebrow"><span class="dot"></span> NOVA TECH / ABOUT</div>
+                        <div class="eyebrow"><span class="dot"></span> KB TECH / ABOUT</div>
                         <h1>Về chúng tôi</h1>
                         <p>
                             Định hướng cung ứng rõ ràng, tư vấn kỹ thuật phù hợp và đồng hành cùng

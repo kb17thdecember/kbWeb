@@ -2,7 +2,10 @@
 
 use App\Models\Category;
 use App\Models\Product;
+use App\Models\User;
 use Database\Seeders\ProductSeeder;
+
+beforeEach(fn () => $this->actingAs(User::factory()->admin()->create()));
 
 test('the product seeder assigns Ariston products to the correct subcategories idempotently', function () {
     $ariston = Category::factory()->create([

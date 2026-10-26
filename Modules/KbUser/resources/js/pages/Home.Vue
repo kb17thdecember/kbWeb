@@ -66,6 +66,11 @@ const isToastVisible = ref(false);
 const contactSuccessMessage = ref('');
 let toastTimer: ReturnType<typeof setTimeout> | undefined;
 let revealObserver: IntersectionObserver | undefined;
+const checkoutForm = useForm({
+    name: '',
+    phone: '',
+    email: '',
+});
 const contactForm = useForm({
     name: '',
     phone: '',
@@ -408,9 +413,25 @@ const openCheckout = (): void => {
 };
 
 const submitCheckout = (): void => {
-    checkoutMessage.value =
-        'Đây là yêu cầu báo giá mô phỏng trên giao diện; chưa có đơn hàng hoặc thông tin nào được gửi đi.';
-    notify('Đã hoàn tất mô phỏng yêu cầu báo giá.');
+    checkoutMessage.value = '';
+    checkoutForm
+        .transform((data) => ({
+            ...data,
+            items: cartItems.value.map((item) => ({
+                id: item.product.id,
+                quantity: item.quantity,
+            })),
+        }))
+        .post('/contacts?from=home', {
+            preserveScroll: true,
+            onSuccess: () => {
+                checkoutForm.reset();
+                cart.value = {};
+                persistCart();
+                isCheckoutOpen.value = false;
+                notify('Yêu cầu báo giá đã được gửi. Chúng tôi sẽ liên hệ với bạn sớm.');
+            },
+        });
 };
 
 const submitContactForm = (): void => {
@@ -505,7 +526,7 @@ onUnmounted(() => {
 
 <template>
     <UserLayout :cart-count="cartCount" active-page="home" @open-cart="isCartOpen = true">
-        <Head title="Trang chủ | NOVA TECH" />
+        <Head title="Trang chủ | KB TECH" />
         <main>
         <section id="home" class="hero">
           <div class="wrap">
@@ -927,15 +948,15 @@ onUnmounted(() => {
             <div class="contact-card reveal">
               <div class="contact-copy">
                 <div class="eyebrow"><span class="dot"></span> Bắt đầu một cuộc trao đổi</div>
-                <h2>Công trình của bạn.<br><span style="font-family:Georgia,serif;font-weight:400;font-style:italic">Giải pháp của chúng tôi.</span>
+                <h2>Công trình của bạn.<br><span style="font-weight:400;font-style:italic">Giải pháp của chúng tôi.</span>
                 </h2>
                 <p>Gửi yêu cầu về mặt hàng, số lượng hoặc bản vẽ. Đội ngũ tư vấn sẽ có cơ sở để hỗ trợ bạn tốt hơn.</p>
                 <div class="contact-details">
-                  <div><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M4 5h16v14H4z"/><path d="m4 7 8 6 8-6"/></svg> sales@novatech.vn <small style="font-weight:500">(thông tin mẫu)</small>
+                  <div><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M4 5h16v14H4z"/><path d="m4 7 8 6 8-6"/></svg> kbnguyen0311@gmail.com
                   </div>
-                  <div><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M7 3h10v18H7zM10 6h4M10 18h4"/></svg> 0900 000 000 <small style="font-weight:500">(thông tin mẫu)</small>
+                  <div><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M7 3h10v18H7zM10 6h4M10 18h4"/></svg> 0979.807.234
                   </div>
-                  <div><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M20 10c0 5-8 11-8 11S4 15 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="2.5"/></svg> Hà Nội, Việt Nam <small style="font-weight:500">(địa chỉ mẫu)</small>
+                  <div><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M20 10c0 5-8 11-8 11S4 15 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="2.5"/></svg> Hà Nội, Việt Nam
                   </div>
                 </div>
               </div>
@@ -1119,19 +1140,24 @@ onUnmounted(() => {
           </div>
           <div class="field">
             <label for="checkoutName">HỌ VÀ TÊN *</label>
-            <input id="checkoutName" name="name" required autocomplete="name" placeholder="Tên của bạn">
+            <input id="checkoutName" v-model="checkoutForm.name" name="name" required autocomplete="name" placeholder="Tên của bạn">
+            <span v-if="checkoutForm.errors.name" class="field-error">{{ checkoutForm.errors.name }}</span>
           </div>
           <div class="field">
             <label for="checkoutPhone">SỐ ĐIỆN THOẠI *</label>
-            <input id="checkoutPhone" name="phone" required autocomplete="tel" inputmode="tel" placeholder="09xx xxx xxx">
+            <input id="checkoutPhone" v-model="checkoutForm.phone" name="phone" required autocomplete="tel" inputmode="tel" placeholder="09xx xxx xxx">
+            <span v-if="checkoutForm.errors.phone" class="field-error">{{ checkoutForm.errors.phone }}</span>
           </div>
           <div class="field">
-            <label for="checkoutEmail">EMAIL</label>
-            <input id="checkoutEmail" name="email" type="email" autocomplete="email" placeholder="ban@congty.vn">
+            <label for="checkoutEmail">EMAIL *</label>
+            <input id="checkoutEmail" v-model="checkoutForm.email" name="email" type="email" required autocomplete="email" placeholder="ban@congty.vn">
+            <span v-if="checkoutForm.errors.email" class="field-error">{{ checkoutForm.errors.email }}</span>
+            <span v-if="(checkoutForm.errors as Record<string, string>).items" class="field-error">{{ (checkoutForm.errors as Record<string, string>).items }}</span>
           </div>
-          <button class="btn btn-primary" type="submit">Gửi yêu cầu báo giá</button>
+          <button class="btn btn-primary" type="submit" :disabled="checkoutForm.processing">
+            {{ checkoutForm.processing ? 'Đang gửi...' : 'Gửi yêu cầu báo giá' }}
+          </button>
           <p v-if="checkoutMessage" class="form-message show" role="status">{{ checkoutMessage }}</p>
-          <p class="modal-disclaimer">Biểu mẫu hiện đang ở chế độ giao diện thử nghiệm; chưa gửi thông tin đến máy chủ.</p>
         </form>
       </section>
     </div>

@@ -161,7 +161,9 @@ class KbUserController extends Controller
 
     public function contacts(): InertiaResponse
     {
-        return Inertia::render('contacts/Index');
+        return Inertia::render('contacts/Index', [
+            'products' => Product::query()->orderBy('name')->get(['id', 'name']),
+        ]);
     }
 
     public function storeContact(Request $request): RedirectResponse
@@ -182,8 +184,25 @@ class KbUserController extends Controller
                 ]),
             ],
             'project_name' => ['nullable', 'string', 'max:255'],
-            'message' => ['required', 'string', 'max:5000'],
+            'message' => ['required_without:items', 'nullable', 'string', 'max:5000'],
+            'items' => ['nullable', 'array', 'max:50'],
+            'items.*.id' => ['required', 'integer', 'distinct', 'exists:products,id'],
+            'items.*.quantity' => ['required', 'integer', 'min:1', 'max:9999'],
         ]);
+
+        $items = $validated['items'] ?? [];
+        unset($validated['items']);
+
+        if ($items !== []) {
+            $products = Product::query()
+                ->whereIn('id', array_column($items, 'id'))
+                ->pluck('name', 'id');
+
+            $validated['product'] = collect($items)
+                ->map(fn (array $item): string => "{$products[$item['id']]} × {$item['quantity']}")
+                ->implode("\n");
+            $validated['message'] ??= 'Yêu cầu báo giá cho các sản phẩm trong giỏ hàng.';
+        }
 
         $contact = Contact::query()->create($validated);
         Mail::to(config('mail.to.address'))->send(new ContactInquiryReceived($contact));

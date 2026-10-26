@@ -117,7 +117,7 @@ const focusProductSearch = () => {
             </div>
             <div>
               <h4>THÔNG TIN DOANH NGHIỆP</h4>
-              <div class="footer-links"><span>Hà Nội, Việt Nam (mẫu)</span><span>kbnguyen0311@gmail.com (mẫu)</span><span>0900 000 000 (mẫu)</span><span>Thứ 2 – Thứ 7 · 08:00–17:30</span>
+              <div class="footer-links"><span>Hà Nội, Việt Nam</span><span>kbnguyen0311@gmail.com</span><span>0979.807.234</span><span>Thứ 2 – Thứ 7 · 08:00–17:30</span>
               </div>
             </div>
           </div>

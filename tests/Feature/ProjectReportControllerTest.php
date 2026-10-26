@@ -1,7 +1,11 @@
 <?php
 
 use App\Models\ProjectReport;
+use App\Models\User;
+use Illuminate\Http\UploadedFile;
 use Inertia\Testing\AssertableInertia as Assert;
+
+beforeEach(fn () => $this->actingAs(User::factory()->admin()->create()));
 
 function projectReportAttributes(array $overrides = []): array
 {
@@ -169,4 +173,102 @@ test('project reports export to an Excel workbook with the requested columns', f
         ->toContain('style="thin"');
     expect(simplexml_load_string($worksheet))->toBeInstanceOf(SimpleXMLElement::class);
     expect(simplexml_load_string($styles))->toBeInstanceOf(SimpleXMLElement::class);
+});
+
+test('project reports can be imported from an exported Excel workbook', function () {
+    $existing = ProjectReport::query()->create(projectReportAttributes(['project_code' => 'NTK-EXIST']));
+    $response = $this->get(route('admin.project-reports.export'));
+    $filePath = $response->baseResponse->getFile()->getPathname();
+    $contents = file_get_contents($filePath);
+    unlink($filePath);
+
+    $existing->update(['project_name' => 'Tên đã thay đổi']);
+    ProjectReport::query()->create(projectReportAttributes(['project_code' => 'NTK-OTHER']))->delete();
+
+    $workbook = tempnam(sys_get_temp_dir(), 'import-').'.xlsx';
+    file_put_contents($workbook, $contents);
+    $upload = new UploadedFile($workbook, 'reports.xlsx', null, null, true);
+
+    $this->post(route('admin.project-reports.import'), ['file' => $upload])
+        ->assertRedirect(route('admin.project-reports.index'));
+
+    expect(ProjectReport::query()->count())->toBe(1);
+    expect($existing->fresh()->project_name)->toBe('Trung tâm thương mại ABC');
+    expect($existing->fresh()->project_area)->toBe('Hà Nội');
+
+    ProjectReport::query()->whereKey($existing->id)->delete();
+    $this->post(route('admin.project-reports.import'), ['file' => $upload])->assertRedirect();
+    expect(ProjectReport::query()->sole()->project_code)->toBe('NTK'.ProjectReport::query()->sole()->id);
+});
+
+test('project report import rejects invalid files and rows', function () {
+    $this->post(route('admin.project-reports.import'), [
+        'file' => UploadedFile::fake()->createWithContent('bad.xlsx', 'not a zip'),
+    ])->assertSessionHasErrors('file');
+
+    expect(ProjectReport::query()->count())->toBe(0);
+});
+
+test('project reports store a work status and participating products', function () {
+    $this->post(route('admin.project-reports.store'), projectReportAttributes([
+        'project_status' => '2',
+        'participating_products' => 'Ariston, K-FLEX',
+    ]))->assertRedirect(route('admin.project-reports.index'));
+
+    $report = ProjectReport::query()->sole();
+    expect($report->project_status)->toBe('2');
+    expect($report->participating_products)->toBe('Ariston, K-FLEX');
+
+    $this->post(route('admin.project-reports.store'), projectReportAttributes(['project_status' => '9']))
+        ->assertSessionHasErrors('project_status');
+});
+
+test('the Excel export colours rows by work status and adds a legend without a status column', function () {
+    ProjectReport::query()->create(projectReportAttributes(['project_name' => 'Dự án bình thường']));
+    ProjectReport::query()->create(projectReportAttributes(['project_name' => 'Dự án nóng', 'project_status' => '2']));
+    ProjectReport::query()->create(projectReportAttributes([
+        'project_name' => 'Dự án cần hỗ trợ',
+        'project_status' => '3',
+        'participating_products' => 'Ariston',
+    ]));
+
+    $response = $this->get(route('admin.project-reports.export'));
+    $filePath = $response->baseResponse->getFile()->getPathname();
+    $workbook = new ZipArchive;
+    $workbook->open($filePath);
+    $worksheet = $workbook->getFromName('xl/worksheets/sheet1.xml');
+    $styles = $workbook->getFromName('xl/styles.xml');
+    $workbook->close();
+    unlink($filePath);
+
+    expect($worksheet)
+        ->toContain('Sản phẩm tham gia')
+        ->toContain('Ariston')
+        ->toContain('s="8"')
+        ->toContain('s="5"')
+        ->toContain('Chú thích')
+        ->toContain('Dự án đang nóng: nền đỏ, chữ đen.')
+        ->toContain('Dự án cần hỗ trợ thông tin: chữ màu đỏ.')
+        ->not->toContain('Tiến độ làm việc');
+    expect($styles)->toContain('FFFF0000');
+});
+
+test('project reports can still be imported from a file without the participating products column', function () {
+    $report = ProjectReport::query()->create(projectReportAttributes([
+        'project_code' => 'NTK-OLD',
+        'participating_products' => 'Giữ nguyên',
+    ]));
+
+    $response = $this->get(route('admin.project-reports.export'));
+    $filePath = $response->baseResponse->getFile()->getPathname();
+    $zip = new ZipArchive;
+    $zip->open($filePath);
+    $sheet = str_replace('Sản phẩm tham gia', 'Cột khác', $zip->getFromName('xl/worksheets/sheet1.xml'));
+    $zip->addFromString('xl/worksheets/sheet1.xml', $sheet);
+    $zip->close();
+
+    $upload = new UploadedFile($filePath, 'old.xlsx', null, null, true);
+    $this->post(route('admin.project-reports.import'), ['file' => $upload])->assertSessionHasNoErrors();
+
+    expect($report->fresh()->participating_products)->toBe('Giữ nguyên');
 });

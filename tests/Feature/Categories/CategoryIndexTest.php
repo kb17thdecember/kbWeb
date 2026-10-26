@@ -2,10 +2,13 @@
 
 use App\Models\Category;
 use App\Models\Product;
+use App\Models\User;
 use Database\Seeders\CategorySeeder;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Testing\AssertableInertia as Assert;
+
+beforeEach(fn () => $this->actingAs(User::factory()->admin()->create()));
 
 test('the category seeder assigns and stores the parent category logos idempotently', function () {
     Storage::fake('public');

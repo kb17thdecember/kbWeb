@@ -1,7 +1,10 @@
 <?php
 
 use App\Models\Contact;
+use App\Models\User;
 use Inertia\Testing\AssertableInertia as Assert;
+
+beforeEach(fn () => $this->actingAs(User::factory()->admin()->create()));
 
 test('admin consultations page lists quote requests newest first', function () {
     $olderContact = Contact::query()->create([
