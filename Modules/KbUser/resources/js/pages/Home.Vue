@@ -967,6 +967,7 @@ onUnmounted(() => {
                     <input
                       id="fullName"
                       v-model="contactForm.name"
+                      maxlength="255"
                       autocomplete="name"
                       placeholder="Tên của bạn"
                       required
@@ -979,6 +980,9 @@ onUnmounted(() => {
                     <input
                       id="phone"
                       v-model="contactForm.phone"
+                      maxlength="30"
+                      pattern="[0-9+\s().\-]{8,30}"
+                      title="Số điện thoại gồm 8-30 ký tự: số, dấu +, khoảng trắng, ngoặc, chấm hoặc gạch ngang"
                       type="tel"
                       autocomplete="tel"
                       placeholder="09xx xxx xxx"
@@ -994,6 +998,7 @@ onUnmounted(() => {
                   <input
                     id="email"
                     v-model="contactForm.email"
+                    maxlength="255"
                     type="email"
                     autocomplete="email"
                     placeholder="ban@congty.vn"
@@ -1140,17 +1145,17 @@ onUnmounted(() => {
           </div>
           <div class="field">
             <label for="checkoutName">HỌ VÀ TÊN *</label>
-            <input id="checkoutName" v-model="checkoutForm.name" name="name" required autocomplete="name" placeholder="Tên của bạn">
+            <input id="checkoutName" v-model="checkoutForm.name" name="name" maxlength="255" required autocomplete="name" placeholder="Tên của bạn">
             <span v-if="checkoutForm.errors.name" class="field-error">{{ checkoutForm.errors.name }}</span>
           </div>
           <div class="field">
             <label for="checkoutPhone">SỐ ĐIỆN THOẠI *</label>
-            <input id="checkoutPhone" v-model="checkoutForm.phone" name="phone" required autocomplete="tel" inputmode="tel" placeholder="09xx xxx xxx">
+            <input id="checkoutPhone" v-model="checkoutForm.phone" name="phone" maxlength="30" pattern="[0-9+\s().\-]{8,30}" title="Số điện thoại gồm 8-30 ký tự: số, dấu +, khoảng trắng, ngoặc, chấm hoặc gạch ngang" required autocomplete="tel" inputmode="tel" placeholder="09xx xxx xxx">
             <span v-if="checkoutForm.errors.phone" class="field-error">{{ checkoutForm.errors.phone }}</span>
           </div>
           <div class="field">
             <label for="checkoutEmail">EMAIL *</label>
-            <input id="checkoutEmail" v-model="checkoutForm.email" name="email" type="email" required autocomplete="email" placeholder="ban@congty.vn">
+            <input id="checkoutEmail" v-model="checkoutForm.email" name="email" type="email" maxlength="255" required autocomplete="email" placeholder="ban@congty.vn">
             <span v-if="checkoutForm.errors.email" class="field-error">{{ checkoutForm.errors.email }}</span>
             <span v-if="(checkoutForm.errors as Record<string, string>).items" class="field-error">{{ (checkoutForm.errors as Record<string, string>).items }}</span>
           </div>

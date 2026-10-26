@@ -149,6 +149,7 @@ onUnmounted(() => {
                                     <input
                                         id="fullName"
                                         v-model="form.name"
+                                        maxlength="255"
                                         autocomplete="name"
                                         placeholder="Tên của bạn"
                                         :aria-invalid="Boolean(form.errors.name)"
@@ -161,6 +162,9 @@ onUnmounted(() => {
                                     <input
                                         id="phone"
                                         v-model="form.phone"
+                                        maxlength="30"
+                                        pattern="[0-9+\s().\-]{8,30}"
+                                        title="Số điện thoại gồm 8-30 ký tự: số, dấu +, khoảng trắng, ngoặc, chấm hoặc gạch ngang"
                                         type="tel"
                                         autocomplete="tel"
                                         inputmode="tel"
@@ -176,6 +180,7 @@ onUnmounted(() => {
                                 <input
                                     id="email"
                                     v-model="form.email"
+                                    maxlength="255"
                                     type="email"
                                     autocomplete="email"
                                     placeholder="ban@congty.vn"

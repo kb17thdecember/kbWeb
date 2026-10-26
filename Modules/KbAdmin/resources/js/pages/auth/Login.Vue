@@ -27,7 +27,7 @@ const submit = (): void => {
 
             <div class="field">
                 <label for="adminEmail">Email</label>
-                <input id="adminEmail" v-model="form.email" type="email" autocomplete="username" required autofocus>
+                <input id="adminEmail" v-model="form.email" type="email" maxlength="255" autocomplete="username" required autofocus>
                 <span v-if="form.errors.email" class="auth-error">{{ form.errors.email }}</span>
             </div>
             <div class="field">

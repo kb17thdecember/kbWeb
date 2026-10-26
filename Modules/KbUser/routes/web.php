@@ -11,7 +11,7 @@ Route::middleware(UseKbUserRootView::class)->group(function () {
     Route::get('/featured-projects', [KbUserController::class, 'featuredProjects'])->name('kbuser.featured-projects');
     Route::get('/about-us', [KbUserController::class, 'about'])->name('kbuser.about');
     Route::get('/contacts', [KbUserController::class, 'contacts'])->name('kbuser.contacts');
-    Route::post('/contacts', [KbUserController::class, 'storeContact'])->name('kbuser.contacts.store');
+    Route::post('/contacts', [KbUserController::class, 'storeContact'])->middleware('throttle:6,1')->name('kbuser.contacts.store');
     Route::get('/kbusers', [KbUserController::class, 'index'])->name('kbuser.index');
 });
 

@@ -67,7 +67,7 @@ class CategoryController extends Controller
                 Rule::exists('categories', 'id')->whereNull('parent_id'),
             ],
             'description' => ['nullable', 'string', 'max:255'],
-            'description_2' => ['nullable', 'string'],
+            'description_2' => ['nullable', 'string', 'max:65535'],
             'image' => ['nullable', 'image', 'max:5120'],
         ]);
 
@@ -95,7 +95,7 @@ class CategoryController extends Controller
                     ->where('parent_id', $category->parent_id),
             ],
             'description' => ['nullable', 'string', 'max:255'],
-            'description_2' => ['nullable', 'string'],
+            'description_2' => ['nullable', 'string', 'max:65535'],
             'image' => ['nullable', 'image', 'max:5120'],
             'remove_image' => ['sometimes', 'boolean'],
         ]);

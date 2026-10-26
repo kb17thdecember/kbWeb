@@ -44,6 +44,7 @@
                             id="categoryDescription2"
                             v-model="description2"
                             name="description_2"
+                            maxlength="65535"
                             placeholder="Thông tin bổ sung (không bắt buộc)"
                         ></textarea>
                     </div>

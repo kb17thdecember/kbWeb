@@ -44,15 +44,15 @@
                 </div>
                 <div class="field ">
                     <label>Loại hàng hóa</label>
-                    <input v-model="productTag" name="tag" type="number" min="0" step="1" placeholder="">
+                    <input v-model="productTag" name="tag" type="number" min="0" max="2147483647" step="1" placeholder="">
                 </div>
                 <div class="field ">
                     <label>Giá tham khảo (VND)</label>
-                    <input v-model="productPrice" name="price" type="number" min="0" step="1" required>
+                    <input v-model="productPrice" name="price" type="number" min="0" max="2147483647" step="1" required>
                 </div>
                 <div class="field full">
                     <label>Mô tả chi tiết</label>
-                    <textarea v-model="productDescription" name="description" required placeholder="Mô tả sản phẩm"></textarea>
+                    <textarea v-model="productDescription" name="description" maxlength="65535" required placeholder="Mô tả sản phẩm"></textarea>
                 </div>
                 <div class="field full image-field">
                     <label>THƯ VIỆN ẢNH — CHỌN NHIỀU ẢNH</label>
