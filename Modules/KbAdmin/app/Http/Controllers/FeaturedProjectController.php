@@ -198,6 +198,6 @@ class FeaturedProjectController extends Controller
             return $image;
         }
 
-        return Storage::disk('public')->url($image);
+        return '/storage/'.ltrim($image, '/');
     }
 }

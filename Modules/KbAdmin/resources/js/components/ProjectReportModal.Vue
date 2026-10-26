@@ -8,7 +8,7 @@
         @click.self="closeModal"
     >
         <div class="dialog">
-            <button class="close" type="button" aria-label="Đóng" :disabled="isSubmitting" @click="closeModal">×</button>
+            <button class="close" type="button" aria-label="Đóng" :disabled="isSubmitting" @click="closeModal"><FontAwesomeIcon :icon="['fas', 'xmark']" /></button>
             <div class="dialog-head">
                 <div class="eyebrow">ADMIN / PROJECT REPORT</div>
                 <h2 id="projectReportModalTitle">{{ projectReport ? 'Sửa báo cáo dự án' : 'Thêm báo cáo dự án' }}</h2>
@@ -94,7 +94,7 @@
                 <div class="formfoot">
                     <button type="button" class="btn" :disabled="isSubmitting" @click="closeModal">Hủy</button>
                     <button type="submit" class="btn primary" :disabled="isSubmitting">
-                        {{ isSubmitting ? 'Đang lưu...' : projectReport ? 'Cập nhật dự án ↗' : 'Lưu dự án ↗' }}
+                        {{ isSubmitting ? 'Đang lưu...' : projectReport ? 'Cập nhật dự án' : 'Lưu dự án' }} <FontAwesomeIcon :icon="['fas', 'arrow-right']" class="icon-ne" />
                     </button>
                 </div>
             </form>

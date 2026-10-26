@@ -227,7 +227,7 @@ class KbUserController extends Controller
             return $image;
         }
 
-        return Storage::disk('public')->url($image);
+        return '/storage/'.ltrim($image, '/');
     }
 
     private function appendProjectImageUrls(FeaturedProject $project): void

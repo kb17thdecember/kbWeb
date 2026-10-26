@@ -293,7 +293,7 @@ onUnmounted(() => {
                         <h1>Danh mục sản phẩm</h1>
                         <p>Thiết bị và vật tư kỹ thuật phù hợp cho từng hạng mục công trình.</p>
                     </div>
-                    <Link class="page-home-link" href="/">← Về trang chủ</Link>
+                    <Link class="page-home-link" href="/"><FontAwesomeIcon :icon="['fas', 'arrow-left']" /> Về trang chủ</Link>
                 </div>
             </section>
 
@@ -434,7 +434,7 @@ onUnmounted(() => {
                             aria-label="Trang trước"
                             :disabled="currentPage === 1"
                             @click="goToPage(currentPage - 1)"
-                        >←</button>
+                        ><FontAwesomeIcon :icon="['fas', 'arrow-left']" /></button>
                         <button
                             v-for="page in pageCount"
                             :key="page"
@@ -453,7 +453,7 @@ onUnmounted(() => {
                             aria-label="Trang sau"
                             :disabled="currentPage === pageCount"
                             @click="goToPage(currentPage + 1)"
-                        >→</button>
+                        ><FontAwesomeIcon :icon="['fas', 'arrow-right']" /></button>
                     </nav>
 
                     <p class="note">
@@ -468,7 +468,7 @@ onUnmounted(() => {
         <aside class="drawer" :class="{ open: isCartOpen }" :aria-hidden="!isCartOpen">
             <div class="drawer-head">
                 <h2>Giỏ hàng <span>({{ cartCount }})</span></h2>
-                <button class="close-btn" type="button" aria-label="Đóng giỏ hàng" @click="isCartOpen = false">×</button>
+                <button class="close-btn" type="button" aria-label="Đóng giỏ hàng" @click="isCartOpen = false"><FontAwesomeIcon :icon="['fas', 'xmark']" /></button>
             </div>
             <div class="cart-items">
                 <div v-if="cartItems.length === 0" class="cart-empty">
@@ -497,7 +497,7 @@ onUnmounted(() => {
                 <div class="summary-line"><span>Tạm tính ({{ cartCount }} sản phẩm)</span><strong>{{ formatPrice(cartTotal) }}</strong></div>
                 <div class="summary-line"><span>Vận chuyển</span><span>Báo sau</span></div>
                 <div class="summary-line total"><span>Tổng tham khảo</span><span>{{ formatPrice(cartTotal) }}</span></div>
-                <Link class="btn btn-primary" href="/contacts" @click="isCartOpen = false">Yêu cầu báo giá ↗</Link>
+                <Link class="btn btn-primary" href="/contacts" @click="isCartOpen = false">Yêu cầu báo giá <FontAwesomeIcon :icon="['fas', 'arrow-right']" class="icon-ne" /></Link>
                 <div class="cart-hint">Giá tham khảo sẽ được xác nhận theo yêu cầu thực tế.</div>
             </div>
         </aside>
@@ -509,15 +509,15 @@ onUnmounted(() => {
             @click.self="selectedProduct = null"
         >
             <section class="modal" role="dialog" aria-modal="true" :aria-label="`Thông tin ${selectedProduct.name}`">
-                <button class="close-btn modal-close" type="button" aria-label="Đóng" @click="selectedProduct = null">×</button>
+                <button class="close-btn modal-close" type="button" aria-label="Đóng" @click="selectedProduct = null"><FontAwesomeIcon :icon="['fas', 'xmark']" /></button>
                 <div class="quick-modal">
                     <div class="modal-art">
                         <img v-if="selectedImage" :src="selectedImage" :alt="selectedProduct.name">
                         <div v-else class="modal-image-placeholder">{{ selectedProduct.category?.name ?? 'NOVA TECH' }}</div>
                         <div v-if="selectedImages.length > 1" class="product-gallery-controls">
-                            <button type="button" aria-label="Ảnh trước" @click="stepImage(-1)">←</button>
+                            <button type="button" aria-label="Ảnh trước" @click="stepImage(-1)"><FontAwesomeIcon :icon="['fas', 'arrow-left']" /></button>
                             <span>{{ selectedImageIndex + 1 }} / {{ selectedImages.length }}</span>
-                            <button type="button" aria-label="Ảnh tiếp theo" @click="stepImage(1)">→</button>
+                            <button type="button" aria-label="Ảnh tiếp theo" @click="stepImage(1)"><FontAwesomeIcon :icon="['fas', 'arrow-right']" /></button>
                         </div>
                     </div>
                     <div class="modal-copy">

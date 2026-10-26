@@ -1,7 +1,7 @@
 <template>
     <div class="modal" :class="{ open }" role="dialog" aria-modal="true" aria-labelledby="modalTitle" @click.self="closeModal">
       <div class="dialog">
-        <button class="close" type="button" aria-label="Đóng" :disabled="isSubmitting" @click="closeModal">×</button>
+        <button class="close" type="button" aria-label="Đóng" :disabled="isSubmitting" @click="closeModal"><FontAwesomeIcon :icon="['fas', 'xmark']" /></button>
         <div class="dialog-head">
           <div class="eyebrow" id="modalEyebrow">ADMIN / EDITOR</div>
           <h2 id="modalTitle">{{ product ? 'Sửa sản phẩm' : 'Thêm sản phẩm' }}</h2>
@@ -83,7 +83,7 @@
                                     class="image-remove"
                                     :aria-label="`Xóa ${image.label}`"
                                     @click="removeImage(image.kind, image.index)"
-                                >×</button>
+                                ><FontAwesomeIcon :icon="['fas', 'xmark']" /></button>
                                 <small>{{ image.label }}</small>
                             </div>
                         </div>
@@ -98,7 +98,7 @@
             <div class="formfoot">
                 <button type="button" class="btn" id="cancelModal" :disabled="isSubmitting" @click="closeModal">Hủy</button>
                 <button type="submit" class="btn primary" :disabled="isSubmitting || isProcessingImages">
-                    {{ isSubmitting ? 'Đang lưu...' : product ? 'Cập nhật sản phẩm ↗' : 'Lưu sản phẩm ↗' }}
+                    {{ isSubmitting ? 'Đang lưu...' : product ? 'Cập nhật sản phẩm' : 'Lưu sản phẩm' }} <FontAwesomeIcon :icon="['fas', 'arrow-right']" class="icon-ne" />
                 </button>
             </div>
         </form>

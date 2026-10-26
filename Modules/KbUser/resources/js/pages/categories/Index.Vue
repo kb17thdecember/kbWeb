@@ -69,8 +69,8 @@ const categoryProductsUrl = (categoryId: number, subcategoryId?: number): string
                         v-if="selectedCategory"
                         class="page-home-link"
                         href="/categories"
-                    >← Tất cả danh mục</Link>
-                    <Link v-else class="page-home-link" href="/">← Về trang chủ</Link>
+                    ><FontAwesomeIcon :icon="['fas', 'arrow-left']" /> Tất cả danh mục</Link>
+                    <Link v-else class="page-home-link" href="/"><FontAwesomeIcon :icon="['fas', 'arrow-left']" /> Về trang chủ</Link>
                 </div>
             </section>
 
@@ -117,7 +117,7 @@ const categoryProductsUrl = (categoryId: number, subcategoryId?: number): string
                             <strong class="cat-title">{{ category.name }}</strong>
                             <span class="cat-bottom">
                                 <span>Chọn dòng sản phẩm</span>
-                                <span class="circle-arrow" aria-hidden="true">↗</span>
+                                <span class="circle-arrow" aria-hidden="true"><FontAwesomeIcon :icon="['fas', 'arrow-right']" class="icon-ne" /></span>
                             </span>
                         </Link>
                     </div>
@@ -147,7 +147,7 @@ const categoryProductsUrl = (categoryId: number, subcategoryId?: number): string
                                     }}
                                 </p>
                             </div>
-                            <Link class="text-back" href="/categories">← Tất cả danh mục</Link>
+                            <Link class="text-back" href="/categories"><FontAwesomeIcon :icon="['fas', 'arrow-left']" /> Tất cả danh mục</Link>
                         </div>
 
                         <div v-if="selectedCategory.children.length > 0" class="subcategory-grid">
@@ -177,7 +177,7 @@ const categoryProductsUrl = (categoryId: number, subcategoryId?: number): string
                                 </p>
                                 <span class="subcat-card-foot">
                                     <span>{{ subcategory.products_count }} sản phẩm</span>
-                                    <b aria-hidden="true">↗</b>
+                                    <b aria-hidden="true"><FontAwesomeIcon :icon="['fas', 'arrow-right']" class="icon-ne" /></b>
                                 </span>
                             </Link>
                         </div>

@@ -18,7 +18,7 @@ import UserLayout from '../../layout/UserLayout.Vue';
                             tiến độ dự án.
                         </p>
                     </div>
-                    <Link class="page-home-link" href="/">← Về trang chủ</Link>
+                    <Link class="page-home-link" href="/"><FontAwesomeIcon :icon="['fas', 'arrow-left']" /> Về trang chủ</Link>
                 </div>
             </section>
 
@@ -86,12 +86,12 @@ import UserLayout from '../../layout/UserLayout.Vue';
                             hợp và quy trình làm việc chuyên nghiệp.
                         </p>
                         <ul class="check-list">
-                            <li><span class="check">✓</span> Hỗ trợ tra cứu thông số và lựa chọn sản phẩm</li>
-                            <li><span class="check">✓</span> Tổng hợp nhu cầu đa danh mục trong một đầu mối</li>
-                            <li><span class="check">✓</span> Đồng hành báo giá, tiến độ và hồ sơ vật tư</li>
-                            <li><span class="check">✓</span> Ưu tiên giải pháp bền vững, tối ưu vận hành</li>
+                            <li><span class="check"><FontAwesomeIcon :icon="['fas', 'check']" /></span> Hỗ trợ tra cứu thông số và lựa chọn sản phẩm</li>
+                            <li><span class="check"><FontAwesomeIcon :icon="['fas', 'check']" /></span> Tổng hợp nhu cầu đa danh mục trong một đầu mối</li>
+                            <li><span class="check"><FontAwesomeIcon :icon="['fas', 'check']" /></span> Đồng hành báo giá, tiến độ và hồ sơ vật tư</li>
+                            <li><span class="check"><FontAwesomeIcon :icon="['fas', 'check']" /></span> Ưu tiên giải pháp bền vững, tối ưu vận hành</li>
                         </ul>
-                        <Link href="/products" class="btn btn-primary">Khám phá sản phẩm <span>↗</span></Link>
+                        <Link href="/products" class="btn btn-primary">Khám phá sản phẩm <FontAwesomeIcon :icon="['fas', 'arrow-right']" class="icon-ne" /></Link>
                     </div>
                 </div>
             </section>
@@ -164,7 +164,7 @@ import UserLayout from '../../layout/UserLayout.Vue';
                                     có cơ sở hỗ trợ phù hợp.
                                 </p>
                             </div>
-                            <Link href="/contacts" class="btn btn-primary">Trao đổi với chúng tôi <span>↗</span></Link>
+                            <Link href="/contacts" class="btn btn-primary">Trao đổi với chúng tôi <FontAwesomeIcon :icon="['fas', 'arrow-right']" class="icon-ne" /></Link>
                         </div>
                     </div>
                 </div>

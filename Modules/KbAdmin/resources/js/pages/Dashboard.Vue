@@ -69,7 +69,7 @@
                 </div>
 
                 <div style="margin-top:16px">
-                    <Link class="btn primary" href="/admin/consultations">Xem yêu cầu tư vấn ↗</Link>
+                    <Link class="btn primary" href="/admin/consultations">Xem yêu cầu tư vấn <FontAwesomeIcon :icon="['fas', 'arrow-right']" class="icon-ne" /></Link>
                 </div>
             </div>
 

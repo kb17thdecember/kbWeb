@@ -21,7 +21,9 @@ const props = defineProps<{
     projects: FeaturedProject[];
 }>();
 
-const activeFilter = ref('all');
+const PROJECTS_PER_PAGE = 2;
+const activeProjectType = ref<string | null>(null);
+const projectPage = ref(1);
 const selectedProject = ref<FeaturedProject | null>(null);
 const selectedImageIndex = ref(0);
 const selectedProjectImages = computed(() => {
@@ -34,18 +36,50 @@ const selectedProjectImages = computed(() => {
         : [imageUrl(selectedProject.value)];
 });
 
-const filters = [
-    { label: 'Tất cả dự án', value: 'all' },
-    { label: 'Chung cư & nhà ở', value: '1' },
-    { label: 'Văn phòng, khách sạn & bệnh viện', value: '2' },
-    { label: 'Khu công nghiệp', value: '3' },
-];
+const projectGroups = computed(() => [
+    {
+        value: '1',
+        title: 'Chung cư thương mại & NOXH',
+        description: 'Giải pháp cấp nước, nước nóng và vật tư kỹ thuật cho các khu chung cư.',
+    },
+    {
+        value: '2',
+        title: 'Văn phòng, khách sạn & bệnh viện',
+        description: 'Vật tư cơ điện, HVAC và thiết bị cho các công trình dịch vụ.',
+    },
+    {
+        value: '3',
+        title: 'Khu công nghiệp',
+        description: 'Vật tư bảo ôn, đường ống và thiết bị cho nhà máy, khu công nghiệp.',
+    },
+].map((group) => ({
+    ...group,
+    projects: props.projects.filter((project) => String(project.type) === group.value),
+})));
 
 const visibleProjects = computed(() =>
-    props.projects.filter(
-        (project) => activeFilter.value === 'all' || String(project.type) === activeFilter.value,
+    props.projects.filter((project) => String(project.type) === activeProjectType.value),
+);
+
+const projectPageCount = computed(() =>
+    Math.max(1, Math.ceil(visibleProjects.value.length / PROJECTS_PER_PAGE)),
+);
+
+const paginatedProjects = computed(() =>
+    visibleProjects.value.slice(
+        (projectPage.value - 1) * PROJECTS_PER_PAGE,
+        projectPage.value * PROJECTS_PER_PAGE,
     ),
 );
+
+const selectProjectGroup = (type: string | null): void => {
+    activeProjectType.value = type;
+    projectPage.value = 1;
+};
+
+const goToProjectPage = (page: number): void => {
+    projectPage.value = Math.min(Math.max(page, 1), projectPageCount.value);
+};
 
 const imageUrl = (project: FeaturedProject): string =>
     project.image_url
@@ -85,8 +119,8 @@ const onEscape = (event: KeyboardEvent): void => {
 onMounted(() => {
     const requestedType = new URLSearchParams(window.location.search).get('type');
 
-    if (requestedType && filters.some((filter) => filter.value === requestedType)) {
-        activeFilter.value = requestedType;
+    if (requestedType && projectGroups.value.some((group) => group.value === requestedType)) {
+        activeProjectType.value = requestedType;
     }
 
     window.addEventListener('keydown', onEscape);
@@ -110,7 +144,7 @@ onUnmounted(() => {
                         <h1>Dự án tiêu biểu</h1>
                         <p>Khám phá các hạng mục kỹ thuật và giải pháp vật tư trong những công trình tiêu biểu.</p>
                     </div>
-                    <Link class="page-home-link" href="/">← Về trang chủ</Link>
+                    <Link class="page-home-link" href="/"><FontAwesomeIcon :icon="['fas', 'arrow-left']" /> Về trang chủ</Link>
                 </div>
             </section>
 
@@ -129,52 +163,108 @@ onUnmounted(() => {
                                 </p>
                             </div>
 
-                            <div class="product-toolbar">
-                                <div class="filters" aria-label="Lọc theo loại dự án">
-                                    <button
-                                        v-for="filter in filters"
-                                        :key="filter.value"
-                                        class="filter-btn"
-                                        :class="{ active: activeFilter === filter.value }"
-                                        type="button"
-                                        @click="activeFilter = filter.value"
-                                    >
-                                        {{ filter.label }}
-                                    </button>
-                                </div>
-                            </div>
-
-                            <div v-if="visibleProjects.length" class="project-grid">
-                                <article
-                                    v-for="project in visibleProjects"
-                                    :key="project.id"
-                                    class="project-card"
-                                    role="button"
-                                    tabindex="0"
-                                    @click="openProject(project)"
-                                    @keydown.enter="openProject(project)"
-                                    @keydown.space.prevent="openProject(project)"
+                            <div v-if="activeProjectType === null" class="project-directory-grid">
+                                <button
+                                    v-for="(group, index) in projectGroups"
+                                    :key="group.value"
+                                    class="project-group-card"
+                                    type="button"
+                                    @click="selectProjectGroup(group.value)"
                                 >
-                                    <img class="project-image" :src="imageUrl(project)" alt="" loading="lazy">
-                                    <div class="project-info">
-                                        <span class="project-type">
-                                            {{ projectTypeLabel(project.type) }} · {{ project.category }}
-                                        </span>
-                                        <h3>{{ project.name }}</h3>
-                                        <p>{{ project.description }}</p>
-                                        <div class="project-foot">
-                                            <span>{{ project.subcategory }}</span>
-                                            <span class="circle-arrow" aria-hidden="true">↗</span>
+                                    <div class="project-group-art">
+                                        <img
+                                            v-if="group.projects[0]"
+                                            class="project-group-image"
+                                            :src="imageUrl(group.projects[0])"
+                                            :alt="group.projects[0].name"
+                                            loading="lazy"
+                                        >
+                                        <span class="project-image-tag">DỰ ÁN TIÊU BIỂU</span>
+                                    </div>
+                                    <div class="project-group-copy">
+                                        <span class="project-detail-type">NHÓM DỰ ÁN · 0{{ index + 1 }}</span>
+                                        <h3>{{ group.title }}</h3>
+                                        <p>{{ group.description }}</p>
+                                        <div class="project-group-footer">
+                                            <span>{{ group.projects.length }} dự án</span>
+                                            <span class="circle-arrow" aria-hidden="true"><FontAwesomeIcon :icon="['fas', 'arrow-right']" class="icon-ne" /></span>
                                         </div>
                                     </div>
-                                </article>
+                                </button>
                             </div>
-                            <div v-else class="empty-state">
-                                {{
-                                    projects.length === 0
-                                        ? 'Chưa có dự án tiêu biểu nào được cập nhật.'
-                                        : 'Chưa có dự án thuộc nhóm công trình này.'
-                                }}
+                            <div v-else class="project-directory-details">
+                                <div class="project-detail-back">
+                                    <button class="text-back" type="button" @click="selectProjectGroup(null)">
+                                        <FontAwesomeIcon :icon="['fas', 'arrow-left']" /> Tất cả nhóm dự án
+                                    </button>
+                                    <span>
+                                        {{ projectGroups.find((group) => group.value === activeProjectType)?.title }}
+                                        · {{ visibleProjects.length }} hồ sơ dự án
+                                    </span>
+                                </div>
+                                <div v-if="paginatedProjects.length" class="project-detail-grid">
+                                    <article
+                                        v-for="project in paginatedProjects"
+                                        :key="project.id"
+                                        class="project-detail-card"
+                                    >
+                                        <div class="project-detail-art">
+                                            <img
+                                                class="project-detail-image"
+                                                :src="imageUrl(project)"
+                                                :alt="project.name"
+                                                loading="lazy"
+                                            >
+                                            <span class="project-image-tag">{{ projectTypeLabel(project.type) }}</span>
+                                        </div>
+                                        <div class="project-detail-copy">
+                                            <span class="project-detail-type">CASE STUDY · {{ projectTypeLabel(project.type) }}</span>
+                                            <h3>{{ project.name }}</h3>
+                                            <p>{{ project.description }}</p>
+                                            <div class="project-detail-meta">
+                                                <div><span>Vị trí</span><strong>{{ project.location }}</strong></div>
+                                                <div><span>Hạng mục tham chiếu</span><strong>{{ project.category }} · {{ project.subcategory }}</strong></div>
+                                            </div>
+                                            <div class="project-detail-note">
+                                                Thông tin dự án được cập nhật theo dữ liệu hiện có. Vui lòng liên hệ để xác nhận phạm vi cung ứng.
+                                            </div>
+                                            <div class="project-card-actions">
+                                                <button class="project-view-detail" type="button" @click="openProject(project)">
+                                                    Xem chi tiết dự án <FontAwesomeIcon :icon="['fas', 'arrow-right']" class="icon-ne" />
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </article>
+                                </div>
+                                <div v-else class="empty-state">
+                                    Chưa có dự án thuộc nhóm công trình này.
+                                </div>
+                                <nav v-if="projectPageCount > 1" class="pagination" aria-label="Phân trang dự án">
+                                    <button
+                                        class="page-btn"
+                                        type="button"
+                                        aria-label="Trang trước"
+                                        :disabled="projectPage === 1"
+                                        @click="goToProjectPage(projectPage - 1)"
+                                    ><FontAwesomeIcon :icon="['fas', 'arrow-left']" /></button>
+                                    <button
+                                        v-for="page in projectPageCount"
+                                        :key="page"
+                                        class="page-btn"
+                                        :class="{ active: projectPage === page }"
+                                        type="button"
+                                        :aria-current="projectPage === page ? 'page' : undefined"
+                                        @click="goToProjectPage(page)"
+                                    >{{ page }}</button>
+                                    <span class="page-status">Trang {{ projectPage }} / {{ projectPageCount }}</span>
+                                    <button
+                                        class="page-btn"
+                                        type="button"
+                                        aria-label="Trang sau"
+                                        :disabled="projectPage === projectPageCount"
+                                        @click="goToProjectPage(projectPage + 1)"
+                                    ><FontAwesomeIcon :icon="['fas', 'arrow-right']" /></button>
+                                </nav>
                             </div>
                         </div>
                     </div>
@@ -189,7 +279,7 @@ onUnmounted(() => {
             @click.self="selectedProject = null"
         >
             <section class="modal project-modal-detail" role="dialog" aria-modal="true" :aria-label="`Chi tiết dự án ${selectedProject.name}`">
-                <button class="close-btn modal-close" type="button" aria-label="Đóng" @click="selectedProject = null">×</button>
+                <button class="close-btn modal-close" type="button" aria-label="Đóng" @click="selectedProject = null"><FontAwesomeIcon :icon="['fas', 'xmark']" /></button>
                 <div class="project-modal-layout">
                     <div class="project-modal-art project-modal-gallery">
                         <div class="project-gallery-shell">
@@ -201,9 +291,9 @@ onUnmounted(() => {
                                 >
                             </div>
                             <div v-if="selectedProjectImages.length > 1" class="gallery-control-row project-gallery-control">
-                                <button class="gallery-step" type="button" aria-label="Ảnh trước" @click="stepProjectImage(-1)">←</button>
+                                <button class="gallery-step" type="button" aria-label="Ảnh trước" @click="stepProjectImage(-1)"><FontAwesomeIcon :icon="['fas', 'arrow-left']" /></button>
                                 <span>{{ String(selectedImageIndex + 1).padStart(2, '0') }} / {{ String(selectedProjectImages.length).padStart(2, '0') }}</span>
-                                <button class="gallery-step" type="button" aria-label="Ảnh tiếp theo" @click="stepProjectImage(1)">→</button>
+                                <button class="gallery-step" type="button" aria-label="Ảnh tiếp theo" @click="stepProjectImage(1)"><FontAwesomeIcon :icon="['fas', 'arrow-right']" /></button>
                             </div>
                             <div v-if="selectedProjectImages.length > 1" class="gallery-thumbs project-gallery-thumbs">
                                 <button
@@ -237,7 +327,7 @@ onUnmounted(() => {
                             Thông tin địa điểm và hạng mục được cung cấp theo dữ liệu dự án. Vui lòng liên hệ để xác nhận chi tiết.
                         </p>
                         <Link class="btn btn-primary" href="/contacts" @click="selectedProject = null">
-                            Trao đổi về hạng mục này ↗
+                            Trao đổi về hạng mục này <FontAwesomeIcon :icon="['fas', 'arrow-right']" class="icon-ne" />
                         </Link>
                     </div>
                 </div>

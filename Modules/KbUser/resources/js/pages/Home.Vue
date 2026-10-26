@@ -535,7 +535,7 @@ onUnmounted(() => {
                 <div class="eyebrow"><span class="dot"></span> Đối tác vật tư kỹ thuật đáng tin cậy</div>
                 <h1>Kiến tạo công trình.<br><span>Nâng tầm</span> chất lượng.</h1>
                 <p class="hero-lead">Từ thiết bị nước nóng Ariston đến giải pháp bảo ôn K-FLEX và vật tư MEP chuyên dụng — lựa chọn đúng sản phẩm, tối ưu hiệu quả cho từng công trình.</p>
-                <div class="hero-ctas"><Link href="/products" class="btn btn-primary">Khám phá sản phẩm <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14m-6-6 6 6-6 6"/></svg></Link><Link href="/featured-projects" class="btn btn-outline">Xem dự án <span>↗</span></Link>
+                <div class="hero-ctas"><Link href="/products" class="btn btn-primary">Khám phá sản phẩm <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14m-6-6 6 6-6 6"/></svg></Link><Link href="/featured-projects" class="btn btn-outline">Xem dự án <FontAwesomeIcon :icon="['fas', 'arrow-right']" class="icon-ne" /></Link>
                 </div>
                 <div class="hero-bottom">
                   <div class="mini-stat"><strong>MEP</strong><span>Giải pháp kỹ thuật</span>
@@ -624,7 +624,7 @@ onUnmounted(() => {
                 <strong class="cat-title">{{ category.name }}</strong>
                 <span class="cat-bottom">
                   <span>Xem dòng sản phẩm</span>
-                  <span class="circle-arrow" aria-hidden="true">↗</span>
+                  <span class="circle-arrow" aria-hidden="true"><FontAwesomeIcon :icon="['fas', 'arrow-right']" class="icon-ne" /></span>
                 </span>
               </Link>
             </div>
@@ -632,7 +632,7 @@ onUnmounted(() => {
               Chưa có danh mục sản phẩm nào được cập nhật.
             </div>
             <div v-if="activeProjectType === null" class="view-all">
-              <Link class="btn btn-dark" href="/categories">Khám phá tất cả danh mục <span>↗</span></Link>
+              <Link class="btn btn-dark" href="/categories">Khám phá tất cả danh mục <FontAwesomeIcon :icon="['fas', 'arrow-right']" class="icon-ne" /></Link>
             </div>
           </div>
         </section>
@@ -732,7 +732,7 @@ onUnmounted(() => {
               </div>
             </div>
             <nav v-if="pageCount > 1" class="pagination" aria-label="Phân trang sản phẩm">
-              <button class="page-btn" type="button" aria-label="Trang trước" :disabled="currentPage === 1" @click="goToPage(currentPage - 1)">←</button>
+              <button class="page-btn" type="button" aria-label="Trang trước" :disabled="currentPage === 1" @click="goToPage(currentPage - 1)"><FontAwesomeIcon :icon="['fas', 'arrow-left']" /></button>
               <button
                   v-for="page in pageCount"
                   :key="page"
@@ -745,11 +745,11 @@ onUnmounted(() => {
                 {{ page }}
               </button>
               <span class="page-status">Trang {{ currentPage }} / {{ pageCount }}</span>
-              <button class="page-btn" type="button" aria-label="Trang sau" :disabled="currentPage === pageCount" @click="goToPage(currentPage + 1)">→</button>
+              <button class="page-btn" type="button" aria-label="Trang sau" :disabled="currentPage === pageCount" @click="goToPage(currentPage + 1)"><FontAwesomeIcon :icon="['fas', 'arrow-right']" /></button>
             </nav>
             <div class="view-all">
               <button class="btn btn-dark" type="button" @click="showAllProducts">
-                Xem tất cả sản phẩm <span>↗</span>
+                Xem tất cả sản phẩm <FontAwesomeIcon :icon="['fas', 'arrow-right']" class="icon-ne" />
               </button>
             </div>
             <p class="note">* Giá hiển thị là giá minh họa cho bản demo, chưa phải báo giá thương mại. Vui lòng liên hệ để xác nhận tồn kho, thông số và giá thực tế.</p>
@@ -773,11 +773,11 @@ onUnmounted(() => {
               </h2>
               <p>Chúng tôi hướng đến việc trở thành đầu mối cung ứng tin cậy cho nhà thầu, đơn vị cơ điện và chủ đầu tư — bằng danh mục rõ ràng, tư vấn phù hợp và quy trình làm việc chuyên nghiệp.</p>
               <ul class="check-list">
-                <li><span class="check">✓</span> Hỗ trợ tra cứu thông số và lựa chọn sản phẩm</li>
-                <li><span class="check">✓</span> Tổng hợp nhu cầu đa danh mục trong một đầu mối</li>
-                <li><span class="check">✓</span> Đồng hành báo giá, tiến độ và hồ sơ vật tư</li>
-                <li><span class="check">✓</span> Ưu tiên giải pháp bền vững, tối ưu vận hành</li>
-              </ul><Link href="/contacts" class="btn btn-primary">Trao đổi với chuyên viên <span>↗</span></Link>
+                <li><span class="check"><FontAwesomeIcon :icon="['fas', 'check']" /></span> Hỗ trợ tra cứu thông số và lựa chọn sản phẩm</li>
+                <li><span class="check"><FontAwesomeIcon :icon="['fas', 'check']" /></span> Tổng hợp nhu cầu đa danh mục trong một đầu mối</li>
+                <li><span class="check"><FontAwesomeIcon :icon="['fas', 'check']" /></span> Đồng hành báo giá, tiến độ và hồ sơ vật tư</li>
+                <li><span class="check"><FontAwesomeIcon :icon="['fas', 'check']" /></span> Ưu tiên giải pháp bền vững, tối ưu vận hành</li>
+              </ul><Link href="/contacts" class="btn btn-primary">Trao đổi với chuyên viên <FontAwesomeIcon :icon="['fas', 'arrow-right']" class="icon-ne" /></Link>
             </div>
           </div>
         </section>
@@ -817,7 +817,7 @@ onUnmounted(() => {
                       <p>{{ group.description }}</p>
                       <div class="project-group-footer">
                         <span>{{ group.projects.length }} dự án</span>
-                        <span class="circle-arrow" aria-hidden="true">↗</span>
+                        <span class="circle-arrow" aria-hidden="true"><FontAwesomeIcon :icon="['fas', 'arrow-right']" class="icon-ne" /></span>
                       </div>
                     </div>
                   </button>
@@ -825,7 +825,7 @@ onUnmounted(() => {
                 <div v-else class="project-directory-details">
                   <div class="project-detail-back">
                     <button class="text-back" type="button" @click="activeProjectType = null">
-                      ← Tất cả nhóm dự án
+                      <FontAwesomeIcon :icon="['fas', 'arrow-left']" /> Tất cả nhóm dự án
                     </button>
                     <span>
                       {{ projectGroups.find((group) => group.value === activeProjectType)?.title }}
@@ -864,7 +864,7 @@ onUnmounted(() => {
                             type="button"
                             @click="openProject(project)"
                           >
-                            Xem chi tiết dự án ↗
+                            Xem chi tiết dự án <FontAwesomeIcon :icon="['fas', 'arrow-right']" class="icon-ne" />
                           </button>
                         </div>
                       </div>
@@ -880,7 +880,7 @@ onUnmounted(() => {
                       aria-label="Trang trước"
                       :disabled="projectPage === 1"
                       @click="goToProjectPage(projectPage - 1)"
-                    >←</button>
+                    ><FontAwesomeIcon :icon="['fas', 'arrow-left']" /></button>
                     <button
                       v-for="page in projectPageCount"
                       :key="page"
@@ -897,11 +897,11 @@ onUnmounted(() => {
                       aria-label="Trang sau"
                       :disabled="projectPage === projectPageCount"
                       @click="goToProjectPage(projectPage + 1)"
-                    >→</button>
+                    ><FontAwesomeIcon :icon="['fas', 'arrow-right']" /></button>
                   </nav>
                 </div>
                 <div class="view-all">
-                  <Link class="btn btn-primary" href="/featured-projects">Xem tất cả dự án <span>↗</span></Link>
+                  <Link class="btn btn-primary" href="/featured-projects">Xem tất cả dự án <FontAwesomeIcon :icon="['fas', 'arrow-right']" class="icon-ne" /></Link>
                 </div>
               </div>
             </div>
@@ -1042,7 +1042,7 @@ onUnmounted(() => {
                   <span v-if="contactForm.errors.message" class="field-error">{{ contactForm.errors.message }}</span>
                 </div>
                 <button class="btn" type="submit" :disabled="contactForm.processing">
-                  {{ contactForm.processing ? 'Đang gửi...' : 'Gửi yêu cầu tư vấn' }} <span>↗</span>
+                  {{ contactForm.processing ? 'Đang gửi...' : 'Gửi yêu cầu tư vấn' }} <FontAwesomeIcon :icon="['fas', 'arrow-right']" class="icon-ne" />
                 </button>
                 <div v-if="contactSuccessMessage" class="form-message show" id="formMessage" role="status" aria-live="polite">
                   {{ contactSuccessMessage }}
@@ -1060,7 +1060,7 @@ onUnmounted(() => {
     <aside class="drawer" :class="{ open: isCartOpen }" :aria-hidden="!isCartOpen" aria-label="Giỏ hàng">
       <div class="drawer-head">
         <h2>Giỏ hàng <span>({{ cartCount }})</span></h2>
-        <button class="close-btn" type="button" aria-label="Đóng giỏ hàng" @click="isCartOpen = false">×</button>
+        <button class="close-btn" type="button" aria-label="Đóng giỏ hàng" @click="isCartOpen = false"><FontAwesomeIcon :icon="['fas', 'xmark']" /></button>
       </div>
       <div class="cart-items">
         <div v-if="cartItems.length === 0" class="cart-empty">
@@ -1097,22 +1097,22 @@ onUnmounted(() => {
         <div class="summary-line"><span>Tạm tính ({{ cartCount }} sản phẩm)</span><strong>{{ formatPrice(cartTotal) }}</strong></div>
         <div class="summary-line"><span>Vận chuyển</span><span>Báo sau</span></div>
         <div class="summary-line total"><span>Tổng tham khảo</span><span>{{ formatPrice(cartTotal) }}</span></div>
-        <button class="btn btn-primary" type="button" @click="openCheckout">Yêu cầu báo giá ↗</button>
+        <button class="btn btn-primary" type="button" @click="openCheckout">Yêu cầu báo giá <FontAwesomeIcon :icon="['fas', 'arrow-right']" class="icon-ne" /></button>
         <div class="cart-hint">Giá hiển thị chỉ để tham khảo. Báo giá thực tế sẽ được xác nhận theo yêu cầu.</div>
       </div>
     </aside>
 
     <div v-if="isProductModalOpen && selectedProduct" class="modal-wrap open" role="presentation" @click.self="closeProduct">
       <section class="modal" role="dialog" aria-modal="true" :aria-label="`Thông tin ${selectedProduct.name}`">
-        <button class="close-btn modal-close" type="button" aria-label="Đóng" @click="closeProduct">×</button>
+        <button class="close-btn modal-close" type="button" aria-label="Đóng" @click="closeProduct"><FontAwesomeIcon :icon="['fas', 'xmark']" /></button>
         <div class="quick-modal">
           <div class="modal-art">
             <img v-if="selectedProductImage" :src="selectedProductImage" :alt="selectedProduct.name">
             <div v-else class="modal-image-placeholder">{{ selectedProduct.category?.name ?? 'KB TECH' }}</div>
             <div v-if="selectedProductImages.length > 1" class="product-gallery-controls">
-              <button type="button" aria-label="Ảnh trước" @click="stepProductImage(-1)">←</button>
+              <button type="button" aria-label="Ảnh trước" @click="stepProductImage(-1)"><FontAwesomeIcon :icon="['fas', 'arrow-left']" /></button>
               <span>{{ selectedImageIndex + 1 }} / {{ selectedProductImages.length }}</span>
-              <button type="button" aria-label="Ảnh tiếp theo" @click="stepProductImage(1)">→</button>
+              <button type="button" aria-label="Ảnh tiếp theo" @click="stepProductImage(1)"><FontAwesomeIcon :icon="['fas', 'arrow-right']" /></button>
             </div>
           </div>
           <div class="modal-copy">
@@ -1131,7 +1131,7 @@ onUnmounted(() => {
 
     <div v-if="isCheckoutOpen" class="modal-wrap open" role="presentation" @click.self="isCheckoutOpen = false">
       <section class="modal checkout-modal" role="dialog" aria-modal="true" aria-label="Yêu cầu báo giá">
-        <button class="close-btn modal-close" type="button" aria-label="Đóng" @click="isCheckoutOpen = false">×</button>
+        <button class="close-btn modal-close" type="button" aria-label="Đóng" @click="isCheckoutOpen = false"><FontAwesomeIcon :icon="['fas', 'xmark']" /></button>
         <form class="checkout-form" @submit.prevent="submitCheckout">
           <h3>Yêu cầu báo giá</h3>
           <div class="checkout-summary">
@@ -1169,7 +1169,7 @@ onUnmounted(() => {
       @click.self="closeProject"
     >
       <section class="modal project-modal-detail" role="dialog" aria-modal="true" :aria-label="`Chi tiết dự án ${selectedProject.name}`">
-        <button class="close-btn modal-close" type="button" aria-label="Đóng" @click="closeProject">×</button>
+        <button class="close-btn modal-close" type="button" aria-label="Đóng" @click="closeProject"><FontAwesomeIcon :icon="['fas', 'xmark']" /></button>
         <div class="project-modal-layout">
           <div class="project-modal-art project-modal-gallery">
             <div class="project-gallery-shell">
@@ -1181,9 +1181,9 @@ onUnmounted(() => {
                 >
               </div>
               <div v-if="selectedProjectImages.length > 1" class="gallery-control-row project-gallery-control">
-                <button class="gallery-step" type="button" aria-label="Ảnh trước" @click="stepProjectImage(-1)">←</button>
+                <button class="gallery-step" type="button" aria-label="Ảnh trước" @click="stepProjectImage(-1)"><FontAwesomeIcon :icon="['fas', 'arrow-left']" /></button>
                 <span>{{ String(selectedProjectImageIndex + 1).padStart(2, '0') }} / {{ String(selectedProjectImages.length).padStart(2, '0') }}</span>
-                <button class="gallery-step" type="button" aria-label="Ảnh tiếp theo" @click="stepProjectImage(1)">→</button>
+                <button class="gallery-step" type="button" aria-label="Ảnh tiếp theo" @click="stepProjectImage(1)"><FontAwesomeIcon :icon="['fas', 'arrow-right']" /></button>
               </div>
               <div v-if="selectedProjectImages.length > 1" class="gallery-thumbs project-gallery-thumbs">
                 <button
@@ -1217,7 +1217,7 @@ onUnmounted(() => {
               Thông tin địa điểm và hạng mục được cung cấp theo dữ liệu dự án. Vui lòng liên hệ để xác nhận chi tiết.
             </p>
             <Link class="btn btn-primary" href="/contacts" @click="closeProject">
-              Trao đổi về hạng mục này ↗
+              Trao đổi về hạng mục này <FontAwesomeIcon :icon="['fas', 'arrow-right']" class="icon-ne" />
             </Link>
           </div>
         </div>

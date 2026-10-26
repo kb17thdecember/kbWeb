@@ -37,7 +37,7 @@ const submit = (): void => {
             </div>
 
             <button class="btn primary" type="submit" :disabled="form.processing">
-                {{ form.processing ? 'Đang kiểm tra...' : 'Tiếp tục ↗' }}
+                {{ form.processing ? 'Đang kiểm tra...' : 'Tiếp tục' }} <FontAwesomeIcon :icon="['fas', 'arrow-right']" class="icon-ne" />
             </button>
         </form>
     </div>

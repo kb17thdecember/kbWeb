@@ -99,7 +99,7 @@ onUnmounted(() => {
                             đội ngũ tư vấn.
                         </p>
                     </div>
-                    <Link class="page-home-link" href="/">← Về trang chủ</Link>
+                    <Link class="page-home-link" href="/"><FontAwesomeIcon :icon="['fas', 'arrow-left']" /> Về trang chủ</Link>
                 </div>
             </section>
 
@@ -228,7 +228,7 @@ onUnmounted(() => {
                                 <span v-if="form.errors.message" class="field-error">{{ form.errors.message }}</span>
                             </div>
                             <button class="btn" type="submit" :disabled="form.processing">
-                                {{ form.processing ? 'Đang gửi...' : 'Gửi yêu cầu tư vấn' }} <span>↗</span>
+                                {{ form.processing ? 'Đang gửi...' : 'Gửi yêu cầu tư vấn' }} <FontAwesomeIcon :icon="['fas', 'arrow-right']" class="icon-ne" />
                             </button>
                             <p v-if="successMessage" class="form-message show" role="status" aria-live="polite">
                                 {{ successMessage }}

@@ -8,7 +8,7 @@
         @click.self="closeModal"
     >
         <div class="dialog">
-            <button class="close" type="button" aria-label="Đóng" :disabled="isSubmitting || isProcessingImage" @click="closeModal">×</button>
+            <button class="close" type="button" aria-label="Đóng" :disabled="isSubmitting || isProcessingImage" @click="closeModal"><FontAwesomeIcon :icon="['fas', 'xmark']" /></button>
             <div class="dialog-head">
                 <div class="eyebrow">ADMIN / CATEGORY</div>
                 <h2 id="categoryModalTitle">{{ modalTitle }}</h2>
@@ -71,14 +71,14 @@
                                 class="image-remove"
                                 aria-label="Xóa ảnh danh mục"
                                 @click="removeImage"
-                            >×</button>
+                            ><FontAwesomeIcon :icon="['fas', 'xmark']" /></button>
                         </div>
                     </div>
                 </div>
                 <div class="formfoot">
                     <button type="button" class="btn" :disabled="isSubmitting || isProcessingImage" @click="closeModal">Hủy</button>
                     <button type="submit" class="btn primary" :disabled="isSubmitting || isProcessingImage">
-                        {{ isSubmitting ? 'Đang lưu...' : isProcessingImage ? 'Đang xử lý ảnh...' : 'Lưu danh mục ↗' }}
+                        {{ isSubmitting ? 'Đang lưu...' : isProcessingImage ? 'Đang xử lý ảnh...' : 'Lưu danh mục' }} <FontAwesomeIcon :icon="['fas', 'arrow-right']" class="icon-ne" />
                     </button>
                 </div>
             </form>

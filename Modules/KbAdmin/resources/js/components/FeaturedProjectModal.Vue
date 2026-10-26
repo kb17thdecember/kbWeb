@@ -8,7 +8,7 @@
         @click.self="closeModal"
     >
         <div class="dialog">
-            <button class="close" type="button" aria-label="Đóng" :disabled="isSubmitting || isProcessingImage" @click="closeModal">×</button>
+            <button class="close" type="button" aria-label="Đóng" :disabled="isSubmitting || isProcessingImage" @click="closeModal"><FontAwesomeIcon :icon="['fas', 'xmark']" /></button>
             <div class="dialog-head">
                 <div class="eyebrow">ADMIN / FEATURED PROJECT</div>
                 <h2 id="featuredProjectModalTitle">{{ project ? 'Sửa dự án' : 'Thêm dự án' }}</h2>
@@ -89,7 +89,7 @@
                                     class="image-remove"
                                     :aria-label="`Bỏ ảnh số ${index + 1}`"
                                     @click="removeSelectedImage(index)"
-                                >×</button>
+                                ><FontAwesomeIcon :icon="['fas', 'xmark']" /></button>
                             </div>
                         </div>
                         <p v-if="project" class="image-help">Không chọn ảnh mới để giữ nguyên bộ ảnh hiện tại.</p>
@@ -98,7 +98,7 @@
                 <div class="formfoot">
                     <button type="button" class="btn" :disabled="isSubmitting || isProcessingImage" @click="closeModal">Hủy</button>
                     <button type="submit" class="btn primary" :disabled="isSubmitting || isProcessingImage">
-                        {{ isSubmitting ? 'Đang lưu...' : isProcessingImage ? 'Đang xử lý ảnh...' : project ? 'Cập nhật dự án ↗' : 'Lưu dự án ↗' }}
+                        {{ isSubmitting ? 'Đang lưu...' : isProcessingImage ? 'Đang xử lý ảnh...' : project ? 'Cập nhật dự án' : 'Lưu dự án' }} <FontAwesomeIcon :icon="['fas', 'arrow-right']" class="icon-ne" />
                     </button>
                 </div>
             </form>

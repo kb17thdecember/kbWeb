@@ -53,10 +53,10 @@ const resend = (): void => {
             </div>
 
             <button class="btn primary" type="submit" :disabled="form.processing">
-                {{ form.processing ? 'Đang xác thực...' : 'Đăng nhập ↗' }}
+                {{ form.processing ? 'Đang xác thực...' : 'Đăng nhập' }} <FontAwesomeIcon :icon="['fas', 'arrow-right']" class="icon-ne" />
             </button>
             <button class="btn" type="button" @click="resend">Gửi lại mã</button>
-            <a class="auth-back" href="/admin/login">← Quay lại</a>
+            <a class="auth-back" href="/admin/login"><FontAwesomeIcon :icon="['fas', 'arrow-left']" /> Quay lại</a>
         </form>
     </div>
 </template>

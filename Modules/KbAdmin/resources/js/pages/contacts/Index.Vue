@@ -131,7 +131,7 @@
                 aria-labelledby="requestDetailTitle"
                 aria-describedby="requestDetailSubtitle"
             >
-                <button class="close" type="button" aria-label="Đóng chi tiết" @click="closeDetail">×</button>
+                <button class="close" type="button" aria-label="Đóng chi tiết" @click="closeDetail"><FontAwesomeIcon :icon="['fas', 'xmark']" /></button>
                 <div class="dialog-head">
                     <div class="eyebrow">CUSTOMER / REQUEST DETAILS</div>
                     <div class="request-detail-head">

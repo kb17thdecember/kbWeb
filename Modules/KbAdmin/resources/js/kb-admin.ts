@@ -1,7 +1,14 @@
 
+import { library } from '@fortawesome/fontawesome-svg-core';
+import { fab } from '@fortawesome/free-brands-svg-icons';
+import { far } from '@fortawesome/free-regular-svg-icons';
+import { fas } from '@fortawesome/free-solid-svg-icons';
+import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome';
 import { createInertiaApp } from '@inertiajs/vue3';
 import { createApp, h, type DefineComponent } from 'vue';
 import '../assets/sass/style.scss';
+
+library.add(fas, far, fab);
 
 const appName = import.meta.env.VITE_APP_NAME || 'KbAdmin';
 
@@ -32,6 +39,7 @@ void createInertiaApp({
             render: () => h(App, props),
         })
             .use(plugin)
+            .component('FontAwesomeIcon', FontAwesomeIcon)
             .mount(el);
     },
 

@@ -1,6 +1,6 @@
 
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, onBeforeUnmount, ref } from 'vue';
 import { Link, router, usePage } from '@inertiajs/vue3';
 
 const page = usePage();
@@ -18,18 +18,64 @@ const props = defineProps<{
 }>();
 
 const menuItems = [
-    { label: 'Dashboard', icon: '▦', href: '/admin/dashboard' },
-    { label: 'Sản Phẩm', icon: '▧', href: '/admin/products' },
-    { label: 'Danh Mục', icon: '▤', href: '/admin/categories' },
-    { label: 'Dự Án Tiêu Biểu', icon: '▣', href: '/admin/case-studies' },
-    { label: 'Yêu Cầu Tư Vấn', icon: '☷', href: '/admin/consultations' },
-    { label: 'Báo Cáo Dự Án', icon: '☷', href: '/admin/project-reports' },
+    { label: 'Dashboard', icon: ['fas', 'house'], href: '/admin/dashboard' },
+    { label: 'Sản Phẩm', icon: ['fas', 'box'], href: '/admin/products' },
+    { label: 'Danh Mục', icon: ['fas', 'layer-group'], href: '/admin/categories' },
+    { label: 'Dự Án Tiêu Biểu', icon: ['fas', 'building'], href: '/admin/case-studies' },
+    { label: 'Yêu Cầu Tư Vấn', icon: ['fas', 'headset'], href: '/admin/consultations' },
+    { label: 'Báo Cáo Dự Án', icon: ['fas', 'chart-line'], href: '/admin/project-reports' },
 ];
 
 const visibleStats = computed(() => props.stats);
 
-function exportProjectReports(): void {
-    window.location.assign('/admin/project-reports/export');
+const isToastVisible = ref(false);
+const toastMessage = ref('');
+let toastTimeout: ReturnType<typeof setTimeout> | undefined;
+
+function showToast(message: string): void {
+    if (toastTimeout) {
+        clearTimeout(toastTimeout);
+    }
+
+    toastMessage.value = message;
+    isToastVisible.value = true;
+    toastTimeout = setTimeout(() => {
+        isToastVisible.value = false;
+        toastTimeout = undefined;
+    }, 3500);
+}
+
+onBeforeUnmount(() => {
+    if (toastTimeout) {
+        clearTimeout(toastTimeout);
+    }
+});
+
+async function exportProjectReports(): Promise<void> {
+    try {
+        const response = await fetch('/admin/project-reports/export', {
+            credentials: 'same-origin',
+            headers: { Accept: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' },
+        });
+
+        if (!response.ok) {
+            throw new Error('export failed');
+        }
+
+        const fileName = /filename="?([^";]+)"?/.exec(response.headers.get('Content-Disposition') ?? '')?.[1]
+            ?? 'bao-cao-du-an.xlsx';
+        const url = URL.createObjectURL(await response.blob());
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = fileName;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        URL.revokeObjectURL(url);
+        showToast('Đã xuất báo cáo Excel thành công.');
+    } catch {
+        showToast('Không thể xuất báo cáo Excel. Vui lòng thử lại.');
+    }
 }
 
 function logout(): void {
@@ -51,8 +97,8 @@ function importProjectReports(event: Event): void {
     router.post('/admin/project-reports/import', { file }, {
         forceFormData: true,
         preserveScroll: true,
-        onSuccess: () => window.alert('Nhập dữ liệu Excel thành công.'),
-        onError: (errors) => window.alert(Object.values(errors).join('\n')),
+        onSuccess: () => showToast('Nhập dữ liệu Excel thành công.'),
+        onError: (errors) => showToast(Object.values(errors).join(' ')),
         onFinish: () => {
             isImporting.value = false;
             input.value = '';
@@ -80,14 +126,14 @@ function importProjectReports(event: Event): void {
                     :class="{ active: currentUrl === item.href }"
                     :title="item.label"
                 >
-                    <span class="nav-icon">{{ item.icon }}</span>
+                    <span class="nav-icon"><FontAwesomeIcon :icon="item.icon" /></span>
                     <span>{{ item.label }}</span>
                     <span v-if="item.href === '/admin/consultations'" class="count">{{ props.openRequestsCount }}</span>
           </Link>
           </nav>
         </div>
         <div class="side-note">
-          <b>Khu vực quản trị</b>Chỉnh sửa dữ liệu và xuất báo cáo dự án.<button id="exportBtn" type="button" @click="exportProjectReports">Xuất báo cáo Excel ↗</button><button id="importBtn" type="button" :disabled="isImporting" @click="importFileInput?.click()">{{ isImporting ? 'Đang nhập...' : 'Nhập dữ liệu Excel ↑' }}</button><input ref="importFileInput" class="hidden" type="file" id="importFile" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" @change="importProjectReports">
+          <b>Khu vực quản trị</b>Chỉnh sửa dữ liệu và xuất báo cáo dự án.<button id="exportBtn" type="button" @click="exportProjectReports"><FontAwesomeIcon :icon="['fas', 'file-export']" /> Xuất báo cáo Excel</button><button id="importBtn" type="button" :disabled="isImporting" @click="importFileInput?.click()"><FontAwesomeIcon :icon="isImporting ? ['fas', 'spinner'] : ['fas', 'file-import']" /> {{ isImporting ? 'Đang nhập...' : 'Nhập dữ liệu Excel' }}</button><input ref="importFileInput" class="hidden" type="file" id="importFile" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" @change="importProjectReports">
         </div>
       </aside>
       <main class="main">
@@ -96,14 +142,14 @@ function importProjectReports(event: Event): void {
             <span class="top-title" id="topTitle">
               {{ menuItems.find(item => currentUrl === item.href)?.label || '' }}
             </span>
-            <label class="global-search">⌕ <input id="globalSearch" type="search" placeholder="Tìm sản phẩm, dự án, khách hàng..."></label>
+            <label class="global-search"><FontAwesomeIcon :icon="['fas', 'magnifying-glass']" /> <input id="globalSearch" type="search" placeholder="Tìm sản phẩm, dự án, khách hàng..."></label>
           </div>
           <div class="profile">
             <span class="avatar">A</span>
             <div>
               <b>Administrator</b><small>Quản trị viên</small>
             </div>
-            <button class="btn" type="button" @click="logout">Đăng xuất</button>
+            <button class="btn" type="button" @click="logout"><FontAwesomeIcon :icon="['fas', 'right-from-bracket']" /> Đăng xuất</button>
           </div>
         </header>
         <div class="content">
@@ -129,5 +175,6 @@ function importProjectReports(event: Event): void {
           </section>
         </div>
       </main>
+      <div class="toast" :class="{ show: isToastVisible }" role="status" aria-live="polite">{{ toastMessage }}</div>
     </div>
 </template>
