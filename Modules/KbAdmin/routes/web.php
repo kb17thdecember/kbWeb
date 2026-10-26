@@ -3,6 +3,7 @@
 use Illuminate\Support\Facades\Route;
 use Modules\KbAdmin\Http\Controllers\AdminAuthController;
 use Modules\KbAdmin\Http\Controllers\CategoryController;
+use Modules\KbAdmin\Http\Controllers\ChatController;
 use Modules\KbAdmin\Http\Controllers\ConsultationController;
 use Modules\KbAdmin\Http\Controllers\DashboardController;
 use Modules\KbAdmin\Http\Controllers\FeaturedProjectController;
@@ -45,6 +46,13 @@ Route::middleware([UseKbAdminRootView::class, EnsureAdminAuthenticated::class])
 
         Route::get('/consultations', [ConsultationController::class, 'index'])
             ->name('admin.consultations.index');
+
+        Route::get('/chats', [ChatController::class, 'index'])->name('admin.chats.index');
+        Route::get('/chats/list', [ChatController::class, 'conversations'])->name('admin.chats.list');
+        Route::get('/chats/{conversation}/messages', [ChatController::class, 'messages'])->name('admin.chats.messages');
+        Route::post('/chats/{conversation}/messages', [ChatController::class, 'store'])->name('admin.chats.store');
+        Route::patch('/chats/{conversation}/status', [ChatController::class, 'updateStatus'])->name('admin.chats.update-status');
+        Route::delete('/chats/{conversation}', [ChatController::class, 'destroy'])->name('admin.chats.destroy');
 
         Route::get('/project-reports', [ProjectReportController::class, 'index'])
             ->name('admin.project-reports.index');

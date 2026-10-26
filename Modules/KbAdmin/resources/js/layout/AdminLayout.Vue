@@ -1,6 +1,6 @@
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref } from 'vue';
+import { computed, onBeforeUnmount, ref, watch } from 'vue';
 import { Link, router, usePage } from '@inertiajs/vue3';
 
 const page = usePage();
@@ -15,6 +15,7 @@ type AdminStat = {
 const props = defineProps<{
     stats: AdminStat[];
     openRequestsCount: number;
+    chatUnreadCount?: number;
 }>();
 
 const menuItems = [
@@ -23,6 +24,7 @@ const menuItems = [
     { label: 'Danh Mục', icon: 'fa-solid fa-layer-group', href: '/admin/categories' },
     { label: 'Dự Án Tiêu Biểu', icon: 'fa-solid fa-building', href: '/admin/case-studies' },
     { label: 'Yêu Cầu Tư Vấn', icon: 'fa-solid fa-headset', href: '/admin/consultations' },
+    { label: 'Chat Cùng Khách', icon: ['fas', 'comments'], href: '/admin/chats' },
     { label: 'Báo Cáo Dự Án', icon: 'fa-solid fa-chart-line', href: '/admin/project-reports' },
 ];
 
@@ -49,7 +51,40 @@ onBeforeUnmount(() => {
     if (toastTimeout) {
         clearTimeout(toastTimeout);
     }
+
+    window.clearInterval(chatUnreadTimer);
 });
+
+const liveChatUnread = ref<number | null>(null);
+const chatUnreadCount = computed(() => liveChatUnread.value ?? props.chatUnreadCount ?? 0);
+
+watch(
+    () => props.chatUnreadCount,
+    () => {
+        liveChatUnread.value = null;
+    },
+);
+
+async function refreshChatUnread(): Promise<void> {
+    try {
+        const response = await fetch('/admin/chats/list', {
+            headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+        });
+
+        if (!response.ok) {
+            return;
+        }
+
+        const data = (await response.json()) as { conversations: { unread_count: number }[] };
+        liveChatUnread.value = data.conversations.reduce((sum, item) => sum + item.unread_count, 0);
+    } catch {
+        // Bỏ qua lỗi mạng tạm thời, lần polling sau sẽ thử lại.
+    }
+}
+
+const chatUnreadTimer = window.setInterval(refreshChatUnread, 10000);
+void refreshChatUnread();
+
 
 async function exportProjectReports(): Promise<void> {
     try {
@@ -129,6 +164,7 @@ function importProjectReports(event: Event): void {
                     <span class="nav-icon"><FontAwesomeIcon :icon="item.icon" /></span>
                     <span>{{ item.label }}</span>
                     <span v-if="item.href === '/admin/consultations'" class="count" style="background-color: red; color: white;">{{ props.openRequestsCount }}</span>
+                    <span v-if="item.href === '/admin/chats' && chatUnreadCount > 0" class="count" style="background-color: red; color: white;">{{ chatUnreadCount }}</span>
           </Link>
           </nav>
         </div>

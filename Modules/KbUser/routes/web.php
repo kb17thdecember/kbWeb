@@ -1,6 +1,7 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
+use Modules\KbUser\Http\Controllers\ChatController;
 use Modules\KbUser\Http\Controllers\KbUserController;
 use Modules\KbUser\Http\Middleware\UseKbUserRootView;
 
@@ -12,6 +13,8 @@ Route::middleware(UseKbUserRootView::class)->group(function () {
     Route::get('/about-us', [KbUserController::class, 'about'])->name('kbuser.about');
     Route::get('/contacts', [KbUserController::class, 'contacts'])->name('kbuser.contacts');
     Route::post('/contacts', [KbUserController::class, 'storeContact'])->middleware('throttle:6,1')->name('kbuser.contacts.store');
+    Route::get('/chat/messages', [ChatController::class, 'messages'])->middleware('throttle:120,1')->name('kbuser.chat.messages');
+    Route::post('/chat/messages', [ChatController::class, 'store'])->middleware('throttle:20,1')->name('kbuser.chat.store');
     Route::get('/kbusers', [KbUserController::class, 'index'])->name('kbuser.index');
 });
 

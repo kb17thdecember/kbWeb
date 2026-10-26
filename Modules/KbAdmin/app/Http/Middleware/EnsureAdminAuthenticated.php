@@ -14,6 +14,10 @@ class EnsureAdminAuthenticated
         $user = Auth::user();
 
         if ($user === null || ! $user->is_admin) {
+            if ($request->expectsJson() && ! $request->header('X-Inertia')) {
+                abort(401);
+            }
+
             if ($request->isMethod('GET')) {
                 $request->session()->put('url.intended', $request->fullUrl());
             }

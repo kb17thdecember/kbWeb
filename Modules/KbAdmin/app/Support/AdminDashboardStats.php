@@ -3,6 +3,7 @@
 namespace Modules\KbAdmin\Support;
 
 use App\Models\Category;
+use App\Models\ChatMessage;
 use App\Models\Contact;
 use App\Models\FeaturedProject;
 use App\Models\Product;
@@ -12,7 +13,8 @@ class AdminDashboardStats
     /**
      * @return array{
      *     stats: list<array{label: string, count: int, description: string}>,
-     *     openRequestsCount: int
+     *     openRequestsCount: int,
+     *     chatUnreadCount: int
      * }
      */
     public function summary(): array
@@ -29,6 +31,10 @@ class AdminDashboardStats
                 ['label' => 'Yêu cầu cần xử lý', 'count' => $openRequestsCount, 'description' => 'Chưa hoàn tất'],
             ],
             'openRequestsCount' => $openRequestsCount,
+            'chatUnreadCount' => ChatMessage::query()
+                ->where('sender', ChatMessage::SENDER_VISITOR)
+                ->whereNull('read_at')
+                ->count(),
         ];
     }
 }
