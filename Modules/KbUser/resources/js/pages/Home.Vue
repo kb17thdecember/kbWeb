@@ -548,7 +548,7 @@ onUnmounted(() => {
               </div>
               <div class="hero-art" role="img" aria-label="Hình minh họa thiết bị kỹ thuật">
                 <div class="orb"></div>
-                <div class="art-tag">Technical supply · Since 2014</div>
+                <div class="art-tag">Technical supply · Since 2019</div>
                 <div class="tank">
                   <img src="../../assets/images/ariston_water_heater.svg" alt="Bình nước nóng Ariston">
                 </div>

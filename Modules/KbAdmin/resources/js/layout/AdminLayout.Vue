@@ -18,12 +18,12 @@ const props = defineProps<{
 }>();
 
 const menuItems = [
-    { label: 'Dashboard', icon: ['fas', 'house'], href: '/admin/dashboard' },
-    { label: 'Sản Phẩm', icon: ['fas', 'box'], href: '/admin/products' },
-    { label: 'Danh Mục', icon: ['fas', 'layer-group'], href: '/admin/categories' },
-    { label: 'Dự Án Tiêu Biểu', icon: ['fas', 'building'], href: '/admin/case-studies' },
-    { label: 'Yêu Cầu Tư Vấn', icon: ['fas', 'headset'], href: '/admin/consultations' },
-    { label: 'Báo Cáo Dự Án', icon: ['fas', 'chart-line'], href: '/admin/project-reports' },
+    { label: 'Dashboard', icon: 'fa-solid fa-house', href: '/admin/dashboard' },
+    { label: 'Sản Phẩm', icon: 'fa-solid fa-box', href: '/admin/products' },
+    { label: 'Danh Mục', icon: 'fa-solid fa-layer-group', href: '/admin/categories' },
+    { label: 'Dự Án Tiêu Biểu', icon: 'fa-solid fa-building', href: '/admin/case-studies' },
+    { label: 'Yêu Cầu Tư Vấn', icon: 'fa-solid fa-headset', href: '/admin/consultations' },
+    { label: 'Báo Cáo Dự Án', icon: 'fa-solid fa-chart-line', href: '/admin/project-reports' },
 ];
 
 const visibleStats = computed(() => props.stats);
@@ -128,12 +128,12 @@ function importProjectReports(event: Event): void {
                 >
                     <span class="nav-icon"><FontAwesomeIcon :icon="item.icon" /></span>
                     <span>{{ item.label }}</span>
-                    <span v-if="item.href === '/admin/consultations'" class="count">{{ props.openRequestsCount }}</span>
+                    <span v-if="item.href === '/admin/consultations'" class="count" style="background-color: red; color: white;">{{ props.openRequestsCount }}</span>
           </Link>
           </nav>
         </div>
         <div class="side-note">
-          <b>Khu vực quản trị</b>Chỉnh sửa dữ liệu và xuất báo cáo dự án.<button id="exportBtn" type="button" @click="exportProjectReports"><FontAwesomeIcon :icon="['fas', 'file-export']" /> Xuất báo cáo Excel</button><button id="importBtn" type="button" :disabled="isImporting" @click="importFileInput?.click()"><FontAwesomeIcon :icon="isImporting ? ['fas', 'spinner'] : ['fas', 'file-import']" /> {{ isImporting ? 'Đang nhập...' : 'Nhập dữ liệu Excel' }}</button><input ref="importFileInput" class="hidden" type="file" id="importFile" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" @change="importProjectReports">
+          <b>Khu vực quản trị</b>Chỉnh sửa dữ liệu và xuất báo cáo dự án.<button id="exportBtn" type="button" @click="exportProjectReports"><FontAwesomeIcon icon="fa-solid fa-file-export" /> Xuất báo cáo Excel</button><button id="importBtn" type="button" :disabled="isImporting" @click="importFileInput?.click()"><FontAwesomeIcon :icon="isImporting ? 'fa-solid fa-spinner' : 'fa-solid fa-file-import'" /> {{ isImporting ? 'Đang nhập...' : 'Nhập dữ liệu Excel' }}</button><input ref="importFileInput" class="hidden" type="file" id="importFile" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" @change="importProjectReports">
         </div>
       </aside>
       <main class="main">
@@ -142,14 +142,14 @@ function importProjectReports(event: Event): void {
             <span class="top-title" id="topTitle">
               {{ menuItems.find(item => currentUrl === item.href)?.label || '' }}
             </span>
-            <label class="global-search"><FontAwesomeIcon :icon="['fas', 'magnifying-glass']" /> <input id="globalSearch" type="search" placeholder="Tìm sản phẩm, dự án, khách hàng..."></label>
+            <label class="global-search"><FontAwesomeIcon icon="fa-solid fa-magnifying-glass" /> <input id="globalSearch" type="search" placeholder="Tìm sản phẩm, dự án, khách hàng..."></label>
           </div>
           <div class="profile">
             <span class="avatar">A</span>
             <div>
               <b>Administrator</b><small>Quản trị viên</small>
             </div>
-            <button class="btn" type="button" @click="logout"><FontAwesomeIcon :icon="['fas', 'right-from-bracket']" /> Đăng xuất</button>
+            <button class="btn" type="button" @click="logout"><FontAwesomeIcon icon="fa-solid fa-right-from-bracket" /> Đăng xuất</button>
           </div>
         </header>
         <div class="content">
