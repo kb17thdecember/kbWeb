@@ -94,6 +94,12 @@ const projectTypeLabel = (type: number | string): string =>
         '3': 'Khu công nghiệp',
     })[String(type)] ?? 'Dự án tiêu biểu';
 
+const projectSummary = (description: string): string => {
+    const characters = Array.from(description);
+
+    return characters.length > 245 ? `${characters.slice(0, 242).join('')}...` : description;
+};
+
 const openProject = (project: FeaturedProject): void => {
     selectedProject.value = project;
     selectedImageIndex.value = 0;
@@ -220,7 +226,7 @@ onUnmounted(() => {
                                         <div class="project-detail-copy">
                                             <span class="project-detail-type">CASE STUDY · {{ projectTypeLabel(project.type) }}</span>
                                             <h3>{{ project.name }}</h3>
-                                            <p>{{ project.description }}</p>
+                                            <p>{{ projectSummary(project.description) }}</p>
                                             <div class="project-detail-meta">
                                                 <div><span>Vị trí</span><strong>{{ project.location }}</strong></div>
                                                 <div><span>Hạng mục tham chiếu</span><strong>{{ project.category }} · {{ project.subcategory }}</strong></div>

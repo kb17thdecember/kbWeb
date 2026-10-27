@@ -85,7 +85,7 @@ class FeaturedProjectController extends Controller
 
         return [
             'name' => ['required', 'string', 'max:255'],
-            'description' => ['required', 'string', 'max:255'],
+            'description' => ['required', 'string'],
             'location' => ['required', 'string', 'max:255'],
             'category' => [
                 'required',

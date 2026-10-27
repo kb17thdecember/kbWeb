@@ -20,7 +20,7 @@ test('the category seeder assigns and stores the parent category logos idempoten
     $logos = [
         'Ariston' => [
             'path' => 'categories/ariston_logo.png',
-            'source' => 'ariston_logo.png',
+            'source' => 'ariston.png',
         ],
         'K-FLEX' => [
             'path' => 'categories/kflex_logo.png',
@@ -32,7 +32,7 @@ test('the category seeder assigns and stores the parent category logos idempoten
 
     foreach ($logos as $name => $logo) {
         $category = $categories->firstWhere('name', $name);
-        $imageContents = file_get_contents(base_path("Modules/KbAdmin/resources/assets/images/{$logo['source']}"));
+        $imageContents = file_get_contents(base_path("Modules/KbAdmin/resources/assets/images/products/{$logo['source']}"));
 
         expect($category)->not->toBeNull()
             ->and($category->images)->toHaveCount(1)

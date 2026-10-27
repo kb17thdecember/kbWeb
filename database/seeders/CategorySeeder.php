@@ -37,7 +37,7 @@ class CategorySeeder extends Seeder
         ];
 
         foreach ($categories as $parentName => $categoryData) {
-            $imagePath = base_path("Modules/KbAdmin/resources/assets/images/{$categoryData['image_source']}");
+            $imagePath = base_path("Modules/KbAdmin/resources/assets/images/products/{$categoryData['image_source']}");
             $imageContents = file_get_contents($imagePath);
 
             if ($imageContents === false) {

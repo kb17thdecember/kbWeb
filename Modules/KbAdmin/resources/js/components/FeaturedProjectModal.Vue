@@ -22,7 +22,7 @@
                     </div>
                     <div class="field full">
                         <label for="featuredProjectDescription">Mô tả</label>
-                        <textarea id="featuredProjectDescription" v-model="description" maxlength="255" required placeholder="Mô tả dự án"></textarea>
+                        <textarea id="featuredProjectDescription" v-model="description" required placeholder="Mô tả dự án"></textarea>
                     </div>
                     <div class="field full">
                         <label for="featuredProjectLocation">Vị trí</label>

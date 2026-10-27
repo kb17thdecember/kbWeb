@@ -32,7 +32,7 @@
                                 </div>
                                 <div>
                                     <b>{{ project.name }}</b>
-                                    <small>{{ project.location }} · {{ project.description }}</small>
+                                    <small>{{ project.location }}</small>
                                 </div>
                             </div>
                         </td>

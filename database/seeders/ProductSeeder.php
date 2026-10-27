@@ -415,7 +415,7 @@ class ProductSeeder extends Seeder
         ];
 
         foreach ($products as $productData) {
-            $imagePath = base_path("Modules/KbAdmin/resources/assets/images/{$productData['image']}");
+            $imagePath = base_path("Modules/KbAdmin/resources/assets/images/products/{$productData['image']}");
             $imageContents = file_get_contents($imagePath);
 
             if ($imageContents === false) {

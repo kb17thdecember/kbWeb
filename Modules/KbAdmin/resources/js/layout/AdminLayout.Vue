@@ -3,7 +3,7 @@
 import { computed, onBeforeUnmount, ref, watch } from 'vue';
 import { Link, router, usePage } from '@inertiajs/vue3';
 
-const page = usePage();
+const page = usePage<{ auth: { user: { name: string } | null } }>();
 const currentUrl = computed(() => page.url.split('?')[0]);
 
 type AdminStat = {
@@ -17,6 +17,8 @@ const props = defineProps<{
     openRequestsCount: number;
     chatUnreadCount?: number;
 }>();
+
+console.log(props.stats);
 
 const menuItems = [
     { label: 'Dashboard', icon: 'fa-solid fa-house', href: '/admin/dashboard' },
@@ -183,7 +185,7 @@ function importProjectReports(event: Event): void {
           <div class="profile">
             <span class="avatar">A</span>
             <div>
-              <b>Administrator</b><small>Quản trị viên</small>
+              <b>{{ page.props.auth.user?.name ?? 'Administrator' }}</b><small>Quản trị viên</small>
             </div>
             <button class="btn" type="button" @click="logout"><FontAwesomeIcon icon="fa-solid fa-right-from-bracket" /> Đăng xuất</button>
           </div>

@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 800" role="img" aria-labelledby="title">
+  <title id="title">Minh họa công trình dự án</title>
+  <defs>
+    <linearGradient id="sky" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0" stop-color="#142d48"/>
+      <stop offset="1" stop-color="#2d6480"/>
+    </linearGradient>
+    <linearGradient id="light" x1="0" x2="0" y1="0" y2="1">
+      <stop offset="0" stop-color="#e7c98a"/>
+      <stop offset="1" stop-color="#b5d3d5"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="800" fill="url(#sky)"/>
+  <circle cx="940" cy="170" r="85" fill="#e7c98a" opacity=".8"/>
+  <path d="M0 620 190 420l130 110 190-270 170 190 130-120 210 210 180-130v390H0Z" fill="#183d55" opacity=".75"/>
+  <path d="M110 800V390h250v410Zm290 0V250h300v550Zm340 0V350h250v450Zm285 0V470h115v330Z" fill="#17344a"/>
+  <path d="M145 435h48v62h-48zm87 0h48v62h-48zm-87 105h48v62h-48zm87 0h48v62h-48zm-87 105h48v62h-48zm87 0h48v62h-48z" fill="url(#light)"/>
+  <path d="M445 300h55v72h-55zm95 0h55v72h-55zm-95 110h55v72h-55zm95 0h55v72h-55zm-95 110h55v72h-55zm95 0h55v72h-55zm-95 110h55v72h-55zm95 0h55v72h-55z" fill="url(#light)"/>
+  <path d="M780 395h52v68h-52zm91 0h52v68h-52zm-91 105h52v68h-52zm91 0h52v68h-52zm-91 105h52v68h-52zm91 0h52v68h-52z" fill="url(#light)"/>
+  <path d="M0 800h1200v-70H0Z" fill="#10283a"/>
+</svg>

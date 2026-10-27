@@ -3762,3 +3762,43 @@ body {
   color: #d65c5c;
   font-size: 12px;
 }
+.modal.project-modal-detail {
+  width: min(1133px, 100%);
+  height: min(90vh, 900px);
+  max-height: 90vh;
+  overflow: hidden;
+}
+.project-modal-detail .project-modal-layout {
+  height: 100%;
+  min-height: 0;
+}
+.project-modal-detail .project-modal-art.project-modal-gallery {
+  height: 100%;
+  min-height: 0;
+}
+.project-modal-detail .project-gallery-shell {
+  flex: 1;
+  min-height: 0;
+}
+.project-modal-detail .project-gallery-stage {
+  min-height: 0;
+}
+.project-modal-detail .project-modal-copy {
+  height: 100%;
+  min-height: 0;
+  overflow-y: auto;
+  justify-content: flex-start;
+  overscroll-behavior: contain;
+}
+@media (max-width:760px) {
+  .project-modal-detail .project-modal-layout {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(200px, 38vh) minmax(0, 1fr);
+  }
+  .project-modal-detail .project-modal-art.project-modal-gallery {
+    border-radius: 24px 24px 0 0;
+  }
+  .project-modal-detail .project-modal-copy {
+    padding: 24px;
+  }
+}

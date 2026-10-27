@@ -81,6 +81,28 @@ test('a featured project can be created with an uploaded image', function () {
     Storage::disk('public')->assertExists($project->images->first()->path);
 });
 
+test('a featured project description is not limited to 255 characters', function () {
+    Storage::fake('public');
+    $parent = Category::factory()->create(['name' => 'Văn phòng']);
+    $child = Category::factory()->create([
+        'name' => 'MEP',
+        'parent_id' => $parent->id,
+    ]);
+    $description = trim(str_repeat('Mô tả chi tiết dự án. ', 20));
+
+    $this->post(route('admin.case-studies.store'), [
+        'name' => 'Tổ hợp văn phòng',
+        'description' => $description,
+        'location' => 'Hà Nội',
+        'category' => $parent->name,
+        'subcategory' => $child->name,
+        'type' => '2',
+        'image' => fakeFeaturedProjectImage('office.png'),
+    ])->assertRedirect(route('admin.case-studies.index'));
+
+    expect(FeaturedProject::query()->sole()->description)->toBe($description);
+});
+
 test('a featured project can be created with up to three uploaded images', function () {
     Storage::fake('public');
     $parent = Category::factory()->create(['name' => 'Văn phòng']);
