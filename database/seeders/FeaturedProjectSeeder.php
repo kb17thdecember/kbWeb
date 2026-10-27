@@ -33,7 +33,7 @@ class FeaturedProjectSeeder extends Seeder
                 'category' => 'K-FLEX',
                 'subcategory' => 'Cao su lưu hóa NBR',
                 'type' => '2',
-                'images' => ['FPTS.jpg', 'FPTS1.jpg'],
+                'images' => ['FPTS.jpg', 'FPTS1.jpg', 'FPTS2.jpg'],
             ],
         ];
 

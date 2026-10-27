@@ -113,7 +113,9 @@ function stepProjectImage(delta: number): void {
 }
 
 watch(selectedProject, (project) => {
-    document.body.style.overflow = project ? 'hidden' : '';
+    const overflow = project ? 'hidden' : '';
+    document.documentElement.style.overflow = overflow;
+    document.body.style.overflow = overflow;
 });
 
 const onEscape = (event: KeyboardEvent): void => {
@@ -134,6 +136,7 @@ onMounted(() => {
 
 onUnmounted(() => {
     window.removeEventListener('keydown', onEscape);
+    document.documentElement.style.overflow = '';
     document.body.style.overflow = '';
 });
 </script>

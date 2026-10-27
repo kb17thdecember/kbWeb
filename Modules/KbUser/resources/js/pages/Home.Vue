@@ -466,7 +466,9 @@ watch([activeFilter, activeSubcategoryId, searchQuery], () => {
 });
 
 watch([isCartOpen, isCheckoutOpen, isProductModalOpen, isProjectModalOpen], (states) => {
-    document.body.style.overflow = states.some(Boolean) ? 'hidden' : '';
+    const overflow = states.some(Boolean) ? 'hidden' : '';
+    document.documentElement.style.overflow = overflow;
+    document.body.style.overflow = overflow;
 });
 
 onMounted(() => {
@@ -526,6 +528,7 @@ onUnmounted(() => {
     window.removeEventListener('keydown', onEscape);
     revealObserver?.disconnect();
     clearTimeout(toastTimer);
+    document.documentElement.style.overflow = '';
     document.body.style.overflow = '';
 });
 </script>
