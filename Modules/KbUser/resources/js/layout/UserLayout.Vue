@@ -40,7 +40,7 @@ const focusProductSearch = () => {
     <header class="nav-shell">
         <div class="wrap nav">
             <Link href="/" class="brand" aria-label="KB TECH trang chủ">
-                <span class="brandmark">Q</span>
+                <span class="brandmark">KB</span>
                 <span class="brandname">
                     KB TECH
                     <small>ENGINEERING SUPPLY</small>
@@ -101,7 +101,7 @@ const focusProductSearch = () => {
     <footer class="footer">
         <div class="wrap">
           <div class="footer-grid">
-            <div><Link href="/" class="brand"><span class="brandmark">Q</span><span class="brandname">KB TECH<small>ENGINEERING SUPPLY</small></span></Link>
+            <div><Link href="/" class="brand"><span class="brandmark">KB</span><span class="brandname">KB TECH<small>ENGINEERING SUPPLY</small></span></Link>
               <p class="footer-desc">Đầu mối cung ứng thiết bị và vật tư kỹ thuật cho các công trình dân dụng, thương mại và công nghiệp.</p>
               <div class="socials"><Link href="/contacts" aria-label="Facebook">f</Link><Link href="/contacts" aria-label="LinkedIn">in</Link><Link href="/contacts" aria-label="Zalo">Z</Link>
               </div>

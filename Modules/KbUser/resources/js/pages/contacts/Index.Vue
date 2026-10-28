@@ -214,7 +214,7 @@ onUnmounted(() => {
                             </div>
                             <div v-if="cartItems.length" class="field">
                                 <label>SẢN PHẨM YÊU CẦU BÁO GIÁ</label>
-                                <ul class="contact-products">
+                                <ul class="contact-products" style="color: #333;">
                                     <li v-for="{ product, quantity } in cartItems" :key="product.id">
                                         {{ product.name }} × {{ quantity }}
                                     </li>

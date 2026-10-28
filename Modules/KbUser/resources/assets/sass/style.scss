@@ -1,15 +1,17 @@
 :root {
   color-scheme: light dark;
-  --ink: light-dark(#172421,#eff5f0);
-  --muted: light-dark(#687873,#a8b7b0);
-  --paper: light-dark(#f7f8f4,#111a18);
-  --surface: light-dark(#fff,#192320);
-  --line: light-dark(#e4e9e2,#2d3b35);
-  --green: #c8f169;
-  --deep: #11231e;
-  --gold: #d8c18c;
-  --radius: 24px;
-  --shadow: 0 18px 55px rgba(16,38,29,.10);
+  --ink: light-dark(#101b21,#efebe3);
+  --muted: light-dark(#5d6a6e,#a9b3b3);
+  --paper: light-dark(#f2f1ee,#0b1418);
+  --surface: light-dark(#fbfaf8,#111d23);
+  --line: light-dark(#dcdad4,#26363d);
+  --green: #b8955c;
+  --deep: #0e1a20;
+  --gold: #b8955c;
+  --brass: #b8955c;
+  --champ: #e2d3b0;
+  --radius: 4px;
+  --shadow: 0 24px 60px rgba(14,26,32,.12);
 }
 * {
   box-sizing: border-box;
@@ -22,7 +24,7 @@ body {
   margin: 0;
   background: var(--paper);
   color: var(--ink);
-  font-family: Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  font-family: "Manrope","Be Vietnam Pro",ui-sans-serif,system-ui,sans-serif;
   line-height: 1.5;
 }
 button,input,select,textarea {
@@ -3260,7 +3262,7 @@ body {
   height: 215px;
   position: relative;
   overflow: hidden;
-  background: #263f33;
+  background: #fbfaf8;
 }
 .project-group-art svg {
   width: 100%;
@@ -3816,5 +3818,263 @@ body {
   }
   .project-modal-detail .project-modal-copy {
     padding: 24px;
+  }
+}
+
+body,button,input,select,textarea {
+  font-family: "Manrope","Be Vietnam Pro",ui-sans-serif,system-ui,sans-serif;
+}
+h1,h2,h3,.section-title,.hero h1 {
+  font-weight: 300 !important;
+  letter-spacing: -.03em !important;
+}
+.cat-title,.product-name,.process-step h3 {
+  font-weight: 500 !important;
+  letter-spacing: -.01em !important;
+}
+.announcement {
+  background: #0e1a20;
+  color: var(--champ);
+  font-weight: 500;
+  letter-spacing: .04em;
+  text-transform: none;
+}
+.nav-shell {
+  background: light-dark(rgba(242,241,238,.94),rgba(11,20,24,.94));
+  backdrop-filter: blur(18px);
+}
+.brandmark {
+  background: transparent;
+  color: var(--brass);
+  border: 1px solid var(--brass);
+  border-radius: 2px;
+  transform: none;
+  font-size: 12px;
+  font-weight: 500;
+}
+.btn,.icon-btn,.filter-btn,.searchbox input,.add-btn,.page-btn,.quick-btn,.circle-arrow {
+  border-radius: 2px;
+}
+.btn {
+  padding: 15px 24px;
+  font-weight: 600;
+  letter-spacing: .04em;
+}
+.btn-primary {
+  background: var(--brass);
+  color: #0e1a20;
+}
+.btn-primary:hover {
+  background: var(--champ);
+}
+.btn-dark {
+  background: #0e1a20;
+}
+.btn:hover,.icon-btn:hover {
+  transform: none;
+  box-shadow: none;
+}
+.btn-outline {
+  border-color: var(--brass);
+}
+.hero-ctas .btn-outline {
+  color: var(--champ);
+  border-color: #8c7248;
+}
+.cart-count,.pill {
+  background: var(--brass);
+  color: #0e1a20;
+}
+.navlinks a:after {
+  background: var(--brass);
+}
+.navlinks a[aria-current="page"] {
+  color: var(--ink);
+}
+.navlinks a[aria-current="page"]:after {
+  background: var(--brass);
+}
+.eyebrow .dot {
+  width: 26px;
+  height: 1px;
+  border-radius: 0;
+  background: var(--brass);
+  box-shadow: none;
+}
+.hero-grid {
+  background: #0e1a20;
+  border-radius: 6px;
+}
+.hero-art {
+  background: radial-gradient(ellipse at 62% 40%,#2c424b 0%,#18292f 48%,#0e1a20 80%);
+}
+.hero-art:before {
+  background: repeating-linear-gradient(90deg,transparent 0 119px,#e2d3b010 120px 121px);
+}
+.orb {
+  border-color: #b8955c44;
+  box-shadow: 0 0 0 40px #b8955c0a;
+}
+.art-tag {
+  border-color: #b8955c55;
+  background: #0e1a2099;
+  color: var(--champ);
+}
+.art-tag:before {
+  background: var(--brass);
+}
+.hero h1 span,.hero .eyebrow {
+  color: var(--champ);
+}
+.hero-bottom {
+  border-top-color: #2f434b;
+}
+.mini-stat strong {
+  color: var(--champ);
+  font-weight: 300;
+}
+.tank-band {
+  background: linear-gradient(90deg,#0e1a20,#1d313a 48%,#0b151a);
+}
+.tank-band small {
+  color: var(--brass);
+}
+.coil-label {
+  background: var(--brass);
+  color: #0e1a20;
+}
+.floating-card {
+  background: #f4f0e6;
+  color: #101b21;
+  border-radius: 3px;
+  animation: none;
+  transform: rotate(-2deg);
+}
+.floating-card .tinyline {
+  background: #ddd5c2;
+}
+.floating-card .tinyline:after {
+  background: var(--brass);
+}
+.art-caption strong {
+  color: var(--champ);
+}
+.trust-icon {
+  background: light-dark(#ebe7dc,#1b2a30);
+  color: var(--brass);
+  border-radius: 2px;
+}
+.category-card,.product-card {
+  border-radius: 4px;
+  background: var(--surface);
+}
+.category-card:hover,.product-card:hover {
+  border-color: var(--brass);
+  box-shadow: var(--shadow);
+}
+.category-card:hover .circle-arrow {
+  background: var(--brass);
+  border-color: var(--brass);
+}
+.product-section {
+  background: light-dark(#e8e6e0,#0f1a1f);
+  border-radius: 6px;
+}
+.product-photo {
+  background: light-dark(#f4f2ed,#18262c);
+}
+.product-photo:before {
+  display: none;
+}
+.filter-btn:hover,.filter-btn.active {
+  background: #0e1a20;
+  border-color: #0e1a20;
+  color: var(--champ);
+  box-shadow: none;
+}
+.add-btn {
+  background: #0e1a20;
+  color: var(--champ);
+}
+.add-btn:hover {
+  background: var(--brass);
+  color: #0e1a20;
+  transform: none;
+}
+.searchbox input:focus {
+  border-color: var(--brass);
+  box-shadow: 0 0 0 3px #b8955c26;
+}
+.page-btn.active,.page-btn[aria-current] {
+  background: #0e1a20;
+  color: var(--champ);
+}
+.project-section {
+  background: #0e1a20;
+  border-radius: 6px;
+}
+.project-group-card,.project-detail-card {
+  border-radius: 3px;
+  background: #16262d;
+}
+.project-type,.project-detail-type {
+  color: var(--champ);
+}
+.project-group-footer .circle-arrow {
+  border-radius: 2px;
+}
+.feature-visual {
+  border-radius: 4px;
+  background: #c9c4b6;
+  filter: grayscale(.75) sepia(.2) contrast(1.02);
+}
+.feature-big {
+  font-family: inherit;
+  font-weight: 300;
+  font-style: normal;
+}
+.feature-big * {
+  font-family: inherit;
+  font-style: normal;
+}
+.contact-card {
+  background: #0e1a20;
+  color: #efebe3;
+  border-radius: 6px;
+}
+.contact-card:after {
+  display: none;
+}
+.contact-card h2,.contact-card h3,.contact-card .section-title {
+  color: #f4f0e6;
+}
+.contact-card p,.contact-card .contact-details div {
+  color: #c3ccca;
+}
+.contact-card .eyebrow {
+  color: var(--champ);
+}
+.field input:focus,.field select:focus,.field textarea:focus {
+  border-color: var(--brass);
+}
+button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible {
+  outline-color: var(--brass);
+}
+.footer {
+  background: #0a1318;
+}
+.footer-links a:hover {
+  color: var(--champ);
+}
+.socials a {
+  border-radius: 2px;
+  border-color: #2c3d44;
+}
+@media (max-width:760px) {
+  .navlinks {
+    background: var(--surface);
+  }
+  .navlinks a[aria-current="page"]:after {
+    width: 100%;
   }
 }
