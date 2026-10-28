@@ -133,11 +133,17 @@ img,svg {
   background: #9cc849;
   transition: width .25s;
 }
+
+@media (hover:hover) and (pointer:fine) {
 .navlinks a:hover {
   color: var(--ink);
 }
+}
+
+@media (hover:hover) and (pointer:fine) {
 .navlinks a:hover:after {
   width: 100%;
+}
 }
 .navactions {
   display: flex;
@@ -156,10 +162,13 @@ img,svg {
   position: relative;
   transition: all .25s;
 }
+
+@media (hover:hover) and (pointer:fine) {
 .icon-btn:hover {
   transform: translateY(-2px);
   border-color: #9fc957;
   box-shadow: 0 6px 18px #9fc95730;
+}
 }
 .icon-btn svg {
   width: 17px;
@@ -194,9 +203,12 @@ img,svg {
   transition: transform .25s,box-shadow .25s,background .25s,color .25s;
   white-space: nowrap;
 }
+
+@media (hover:hover) and (pointer:fine) {
 .btn:hover {
   transform: translateY(-3px);
   box-shadow: 0 12px 24px #182f201f;
+}
 }
 .btn:active,.icon-btn:active {
   transform: scale(.97);
@@ -205,8 +217,11 @@ img,svg {
   background: var(--green);
   color: #17271e;
 }
+
+@media (hover:hover) and (pointer:fine) {
 .btn-primary:hover {
   background: #d6ff83;
+}
 }
 .btn-dark {
   background: #182923;
@@ -613,10 +628,13 @@ img,svg {
   transition: transform .3s,border-color .3s,box-shadow .3s;
   cursor: pointer;
 }
+
+@media (hover:hover) and (pointer:fine) {
 .category-card:hover {
   transform: translateY(-6px);
   border-color: #b4d17e;
   box-shadow: var(--shadow);
+}
 }
 .cat-number {
   font-size: 10px;
@@ -637,8 +655,11 @@ img,svg {
 .cat-art img {
   border-radius: 20%;
 }
+
+@media (hover:hover) and (pointer:fine) {
 .category-card:hover .cat-art {
   transform: scale(1.07) rotate(3deg);
+}
 }
 .cat-art svg {
   width: 95px;
@@ -689,11 +710,14 @@ img,svg {
   place-items: center;
   transition: all .25s;
 }
+
+@media (hover:hover) and (pointer:fine) {
 .category-card:hover .circle-arrow {
   background: var(--green);
   border-color: var(--green);
   color: #18251d;
   transform: rotate(-45deg);
+}
 }
 .product-section {
   background: light-dark(#edf0e8,#151f1b);
@@ -724,11 +748,20 @@ img,svg {
   font-weight: 800;
   transition: all .25s;
 }
-.filter-btn:hover,.filter-btn.active {
+.filter-btn.active {
   background: #1d3127;
   color: #f9fff1;
   border-color: #1d3127;
   box-shadow: 0 5px 14px #11251b20;
+}
+
+@media (hover:hover) and (pointer:fine) {
+.filter-btn:hover {
+  background: #1d3127;
+  color: #f9fff1;
+  border-color: #1d3127;
+  box-shadow: 0 5px 14px #11251b20;
+}
 }
 .searchbox {
   position: relative;
@@ -769,10 +802,13 @@ img,svg {
   transition: transform .3s,box-shadow .3s,border-color .3s;
   min-width: 0;
 }
+
+@media (hover:hover) and (pointer:fine) {
 .product-card:hover {
   transform: translateY(-6px);
   box-shadow: 0 20px 38px #1c30201b;
   border-color: #c6dca2;
+}
 }
 .product-photo {
   height: 220px;
@@ -802,11 +838,17 @@ img,svg {
   object-fit: contain;
   transition: transform .45s;
 }
+
+@media (hover:hover) and (pointer:fine) {
 .product-card:hover .product-photo svg {
   transform: scale(1.06) translateY(-2px);
 }
+}
+
+@media (hover:hover) and (pointer:fine) {
 .product-card:hover .product-photo .product-image {
   transform: scale(1.06);
+}
 }
 .project-image {
   position: absolute;
@@ -817,8 +859,11 @@ img,svg {
   object-fit: cover;
   transition: transform .6s;
 }
+
+@media (hover:hover) and (pointer:fine) {
 .project-card:hover .project-image {
   transform: scale(1.05);
+}
 }
 .cart-thumb img {
   width: 100%;
@@ -968,9 +1013,12 @@ img,svg {
   height: 16px;
   width: 16px;
 }
+
+@media (hover:hover) and (pointer:fine) {
 .product-card:hover .quick-btn {
   opacity: 1;
   transform: translateY(0);
+}
 }
 .product-body {
   padding: 17px;
@@ -1035,10 +1083,13 @@ img,svg {
   width: 17px;
   height: 17px;
 }
+
+@media (hover:hover) and (pointer:fine) {
 .add-btn:hover {
   background: var(--green);
   color: #18251d;
   transform: rotate(90deg);
+}
 }
 .empty-state {
   grid-column: 1/-1;
@@ -1223,8 +1274,11 @@ img,svg {
   z-index: -2;
   transition: transform .6s;
 }
+
+@media (hover:hover) and (pointer:fine) {
 .project-card:hover .project-scene {
   transform: scale(1.05);
+}
 }
 .project-scene:after {
   content: "";
@@ -1308,10 +1362,13 @@ img,svg {
   border-color: #ffffff62;
   color: #fff;
 }
+
+@media (hover:hover) and (pointer:fine) {
 .project-card:hover .circle-arrow {
   background: var(--green);
   border-color: var(--green);
   color: #17271e;
+}
 }
 .process {
   display: grid;
@@ -1557,8 +1614,11 @@ img,svg {
   transition: color .2s;
   cursor: pointer;
 }
+
+@media (hover:hover) and (pointer:fine) {
 .footer-links a:hover {
   color: var(--green);
+}
 }
 .footer-bottom {
   border-top: 1px solid #ffffff1b;
@@ -1583,10 +1643,13 @@ img,svg {
   font-size: 10px;
   transition: all .25s;
 }
+
+@media (hover:hover) and (pointer:fine) {
 .socials a:hover {
   background: var(--green);
   color: #18271e;
   border-color: var(--green);
+}
 }
 /*cart drawer, modal, toast*/
 .overlay {
@@ -1645,10 +1708,13 @@ img,svg {
   font-size: 20px;
   transition: all .2s;
 }
+
+@media (hover:hover) and (pointer:fine) {
 .close-btn:hover {
   background: var(--green);
   color: #17271e;
   transform: rotate(90deg);
+}
 }
 .cart-items {
   overflow-y: auto;
@@ -1719,9 +1785,12 @@ img,svg {
   color: var(--ink);
   transition: background .2s;
 }
+
+@media (hover:hover) and (pointer:fine) {
 .qty button:hover {
   background: var(--green);
   color: #19271e;
+}
 }
 .qty span {
   min-width: 22px;
@@ -2781,11 +2850,14 @@ body {
   font-weight: 800;
   transition: all .25s;
 }
+
+@media (hover:hover) and (pointer:fine) {
 .page-home-link:hover {
   background: var(--green);
   border-color: var(--green);
   color: #17271e;
   transform: translateY(-2px);
+}
 }
 .navlinks a[aria-current="page"] {
   color: var(--ink);
@@ -2847,11 +2919,14 @@ body {
   white-space: nowrap;
   transition: all .22s;
 }
+
+@media (hover:hover) and (pointer:fine) {
 .text-back:hover {
   background: var(--green);
   border-color: var(--green);
   color: #17271e;
   transform: translateY(-2px);
+}
 }
 .subcategory-grid {
   display: grid;
@@ -2885,10 +2960,13 @@ body {
   top: -39px;
   box-shadow: 0 0 0 15px #a3c46d0b,0 0 0 32px #a3c46d08;
 }
+
+@media (hover:hover) and (pointer:fine) {
 .subcategory-card:hover {
   transform: translateY(-4px);
   border-color: #a9ca70;
   box-shadow: var(--shadow);
+}
 }
 .subcat-number {
   font-size: 9px;
@@ -2927,9 +3005,12 @@ body {
   font-weight: 500;
   transition: transform .22s;
 }
+
+@media (hover:hover) and (pointer:fine) {
 .subcategory-card:hover .subcat-card-foot b {
   transform: translate(3px,-2px);
   color: #86ad3f;
+}
 }
 .subcategory-filters {
   display: flex;
@@ -2964,10 +3045,18 @@ body {
   font-weight: 750;
   transition: all .2s;
 }
-.subcat-filter:hover,.subcat-filter.active {
+.subcat-filter.active {
   background: var(--green);
   border-color: var(--green);
   color: #17271e;
+}
+
+@media (hover:hover) and (pointer:fine) {
+.subcat-filter:hover {
+  background: var(--green);
+  border-color: var(--green);
+  color: #17271e;
+}
 }
 .project-category-card {
   cursor: pointer;
@@ -2979,11 +3068,14 @@ body {
 .project-category-card .project-foot .circle-arrow {
   transition: transform .25s,background .25s;
 }
+
+@media (hover:hover) and (pointer:fine) {
 .project-category-card:hover .project-foot .circle-arrow {
   transform: rotate(-45deg);
   background: var(--green);
   color: #17271e;
   border-color: var(--green);
+}
 }
 .project-detail-back {
   display: flex;
@@ -3008,10 +3100,13 @@ body {
   min-width: 0;
   transition: transform .28s,border-color .28s,box-shadow .28s;
 }
+
+@media (hover:hover) and (pointer:fine) {
 .project-detail-card:hover {
   transform: translateY(-5px);
   border-color: #a7ce5b80;
   box-shadow: 0 20px 45px #0002;
+}
 }
 .project-detail-art {
   height: 245px;
@@ -3025,8 +3120,11 @@ body {
   max-width: none;
   transition: transform .6s cubic-bezier(.2,.8,.2,1);
 }
+
+@media (hover:hover) and (pointer:fine) {
 .project-detail-card:hover .project-detail-art svg {
   transform: scale(1.045);
+}
 }
 .project-image-tag {
   position: absolute;
@@ -3114,11 +3212,20 @@ body {
   font-weight: 800;
   transition: all .2s;
 }
-.page-btn:hover:not(:disabled),.page-btn.active {
+.page-btn.active {
   background: var(--green);
   border-color: var(--green);
   color: #17271e;
   transform: translateY(-1px);
+}
+
+@media (hover:hover) and (pointer:fine) {
+.page-btn:hover:not(:disabled) {
+  background: var(--green);
+  border-color: var(--green);
+  color: #17271e;
+  transform: translateY(-1px);
+}
 }
 .page-btn:disabled {
   opacity: .35;
@@ -3144,11 +3251,14 @@ body {
   font-weight: 850;
   transition: all .22s;
 }
+
+@media (hover:hover) and (pointer:fine) {
 .project-view-detail:hover {
   background: var(--green);
   border-color: var(--green);
   color: #17271e;
   transform: translateY(-2px);
+}
 }
 .project-modal-layout {
   display: grid;
@@ -3255,10 +3365,13 @@ body {
   overflow: hidden;
   transition: transform .28s,border-color .28s,box-shadow .28s;
 }
+
+@media (hover:hover) and (pointer:fine) {
 .project-group-card:hover {
   transform: translateY(-5px);
   border-color: #c8f16988;
   box-shadow: 0 22px 45px #0003;
+}
 }
 .project-group-card:focus-visible {
   outline: 3px solid var(--green);
@@ -3283,10 +3396,11 @@ body {
   object-fit: cover;
   transition: transform .6s cubic-bezier(.2,.8,.2,1);
 }
-.project-group-card:hover .project-group-art svg,
-.project-group-card:hover .project-group-art img,
-.project-detail-card:hover .project-detail-art img {
+
+@media (hover:hover) and (pointer:fine) {
+.project-group-card:hover .project-group-art svg,.project-group-card:hover .project-group-art img,.project-detail-card:hover .project-detail-art img {
   transform: scale(1.05);
+}
 }
 .project-group-copy {
   padding: 21px;
@@ -3451,10 +3565,13 @@ body {
   font-weight: 900;
   transition: all .2s;
 }
+
+@media (hover:hover) and (pointer:fine) {
 .gallery-step:hover {
   background: var(--green);
   border-color: var(--green);
   color: #17271e;
+}
 }
 .gallery-thumbs {
   display: grid;
@@ -3486,10 +3603,18 @@ body {
   line-height: 1.3;
   text-align: center;
 }
-.gallery-thumb:hover,.gallery-thumb.active {
+.gallery-thumb.active {
   border-color: #a9ca70;
   background: light-dark(#f2f7e9,#27372b);
   color: var(--ink);
+}
+
+@media (hover:hover) and (pointer:fine) {
+.gallery-thumb:hover {
+  border-color: #a9ca70;
+  background: light-dark(#f2f7e9,#27372b);
+  color: var(--ink);
+}
 }
 .gallery-thumb.active {
   box-shadow: inset 0 0 0 1px #a9ca70;
@@ -3758,8 +3883,11 @@ body {
   box-shadow: 0 0 0 3px rgba(200, 241, 105, .35), 0 4px 12px rgba(200, 241, 105, .5);
   transition: background .2s, color .2s, box-shadow .2s, transform .15s;
 }
+
+@media (hover:hover) and (pointer:fine) {
 .chat-input-row button:not(:disabled):hover {
   transform: scale(1.08);
+}
 }
 .chat-input-row button:disabled {
   background: var(--line);
@@ -3875,15 +4003,21 @@ h1,h2,h3,.section-title,.hero h1 {
   background: var(--brass);
   color: var(--dark);
 }
+
+@media (hover:hover) and (pointer:fine) {
 .btn-primary:hover {
   background: var(--champ);
+}
 }
 .btn-dark {
   background: var(--dark);
 }
+
+@media (hover:hover) and (pointer:fine) {
 .btn:hover,.icon-btn:hover {
   transform: none;
   box-shadow: none;
+}
 }
 .btn-outline {
   border-color: var(--brass);
@@ -3979,13 +4113,19 @@ h1,h2,h3,.section-title,.hero h1 {
   border-radius: 4px;
   background: var(--surface);
 }
+
+@media (hover:hover) and (pointer:fine) {
 .category-card:hover,.product-card:hover,.subcategory-card:hover {
   border-color: var(--brass);
   box-shadow: var(--shadow);
 }
+}
+
+@media (hover:hover) and (pointer:fine) {
 .category-card:hover .circle-arrow {
   background: var(--brass);
   border-color: var(--brass);
+}
 }
 .product-section {
   background: light-dark(#eae7df,#171714);
@@ -3997,20 +4137,32 @@ h1,h2,h3,.section-title,.hero h1 {
 .product-photo:before {
   display: none;
 }
-.filter-btn:hover,.filter-btn.active {
+.filter-btn.active {
   background: var(--dark);
   border-color: var(--dark);
   color: var(--champ);
   box-shadow: none;
 }
+
+@media (hover:hover) and (pointer:fine) {
+.filter-btn:hover {
+  background: var(--dark);
+  border-color: var(--dark);
+  color: var(--champ);
+  box-shadow: none;
+}
+}
 .add-btn {
   background: var(--dark);
   color: var(--champ);
 }
+
+@media (hover:hover) and (pointer:fine) {
 .add-btn:hover {
   background: var(--brass);
   color: var(--dark);
   transform: none;
+}
 }
 .searchbox input:focus {
   border-color: var(--brass);
@@ -4107,9 +4259,12 @@ h1,h2,h3,.section-title,.hero h1 {
   background: var(--brass);
   color: var(--dark);
 }
+
+@media (hover:hover) and (pointer:fine) {
 .contact-form .btn:hover {
   background: var(--dark);
   color: var(--gold2);
+}
 }
 .contact-form-note,.form-message {
   color: var(--muted);
@@ -4122,8 +4277,11 @@ h1,h2,h3,.section-title,.hero h1 {
   border: 1px solid var(--line);
   padding: 22px;
 }
+
+@media (hover:hover) and (pointer:fine) {
 .category-card:hover {
   border-color: #c4b28d;
+}
 }
 .cat-number {
   color: light-dark(#9d927b,#b3a78e);
@@ -4142,11 +4300,14 @@ h1,h2,h3,.section-title,.hero h1 {
 .cat-art img {
   border-radius: 0;
 }
+
+@media (hover:hover) and (pointer:fine) {
 .category-card:hover .circle-arrow {
   background: var(--brass);
   border-color: var(--brass);
   color: var(--dark);
   transform: rotate(-45deg);
+}
 }
 .subcategory-card:before {
   border-color: #b79a6340;
@@ -4155,8 +4316,11 @@ h1,h2,h3,.section-title,.hero h1 {
 .subcat-number {
   color: #9b8051;
 }
+
+@media (hover:hover) and (pointer:fine) {
 .subcategory-card:hover .subcat-card-foot b {
   color: #9b8051;
+}
 }
 .product-name {
   font-size: 17px;
@@ -4179,11 +4343,14 @@ h1,h2,h3,.section-title,.hero h1 {
   border-color: var(--brass);
   box-shadow: 0 0 0 3px #b79a6326;
 }
+
+@media (hover:hover) and (pointer:fine) {
 .page-home-link:hover,.text-back:hover {
   background: var(--brass);
   border-color: var(--brass);
   color: var(--dark);
   transform: none;
+}
 }
 .field-error {
   color: #9d3326;
@@ -4194,8 +4361,11 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 .footer {
   background: #171714;
 }
+
+@media (hover:hover) and (pointer:fine) {
 .footer-links a:hover {
   color: var(--champ);
+}
 }
 .socials a {
   border-radius: 2px;

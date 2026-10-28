@@ -22,6 +22,10 @@
 * {
   box-sizing: border-box;
 }
+html,body {
+  max-width: 100%;
+  overflow-x: clip;
+}
 body {
   margin: 0;
   background: var(--bg);
@@ -106,9 +110,12 @@ button {
   font-size: 12px;
   font-weight: 750;
 }
+
+@media (hover:hover) and (pointer:fine) {
 .nav button:hover {
   background: var(--sidebar-hover);
   color: #fff;
+}
 }
 .nav button.active {
   background: var(--sidebar-active);
@@ -121,9 +128,12 @@ button {
   box-shadow: inset 0 0 0 1px rgba(197, 170, 115, .38);
 }
 
+
+@media (hover:hover) and (pointer:fine) {
 .nav a:hover {
   background: var(--sidebar-hover);
   color: #fff;
+}
 }
 
 .nav a {
@@ -146,8 +156,14 @@ button {
   text-align: center;
   transition: color .15s;
 }
-.nav a:hover .nav-icon,.nav a.active .nav-icon {
+.nav a.active .nav-icon {
   color: #fff;
+}
+
+@media (hover:hover) and (pointer:fine) {
+.nav a:hover .nav-icon {
+  color: #fff;
+}
 }
 
 .nav .count {
@@ -190,10 +206,13 @@ button {
   font-weight: 800;
   font-size: 10px;
 }
+
+@media (hover:hover) and (pointer:fine) {
 .side-note button:hover:not(:disabled) {
   border-color: var(--gold);
   background: var(--sidebar-hover);
   color: #fff;
+}
 }
 .main {
   min-width: 0;
@@ -393,23 +412,32 @@ button {
   text-decoration: none;
   transition: .25s;
 }
+
+@media (hover:hover) and (pointer:fine) {
 .btn:hover {
   border-color: #b59a65;
   color: #8e7443;
   background: #f6f1e7;
+}
 }
 .btn.primary {
   border-color: var(--blue);
   background: var(--blue);
   color: #fff;
 }
+
+@media (hover:hover) and (pointer:fine) {
 .btn.primary:hover {
   background: #9d8250;
 }
+}
+
+@media (hover:hover) and (pointer:fine) {
 .btn.danger:hover {
   border-color: #efc3c3;
   background: #fff5f5;
   color: #b94242;
+}
 }
 .search {
   width: min(230px,100%);
@@ -506,15 +534,21 @@ button {
   color: #716851;
   font-weight: 750;
 }
+
+@media (hover:hover) and (pointer:fine) {
 .mini:hover {
   border-color: #b59a65;
   color: #8e7443;
   background: #f6f1e7;
 }
+}
+
+@media (hover:hover) and (pointer:fine) {
 .mini.danger:hover {
   border-color: #efc3c3;
   background: #fff5f5;
   color: #b94242;
+}
 }
 .cardgrid {
   display: grid;
@@ -557,9 +591,12 @@ button {
   font-weight: 850;
   text-decoration: none;
 }
+
+@media (hover:hover) and (pointer:fine) {
 .shortcut:hover {
   background: #f6f1e7;
   border-color: #d7c69f;
+}
 }
 .shortcut small {
   display: block;
@@ -696,9 +733,12 @@ button {
   color: #9e824c;
   border-radius: 3px;
 }
+
+@media (hover:hover) and (pointer:fine) {
 .request-eye:hover {
   background: #efe5d1;
   border-color: #c5aa73;
+}
 }
 .request-eye svg {
   width: 16px;
@@ -994,8 +1034,11 @@ button {
   display: grid;
   place-items: center;
 }
+
+@media (hover:hover) and (pointer:fine) {
 .image-remove:hover {
   background: #d84d4d;
+}
 }
 .image-url-label {
   font-size: 9px;
@@ -1347,9 +1390,14 @@ button {
   cursor: pointer;
   color: var(--ink);
 }
-.chat-list-item.active,
+.chat-list-item.active {
+  background: var(--bg);
+}
+
+@media (hover:hover) and (pointer:fine) {
 .chat-list-item:hover {
   background: var(--bg);
+}
 }
 .chat-list-item small {
   color: var(--muted);
