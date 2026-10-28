@@ -887,6 +887,7 @@ img,svg {
   color: var(--muted);
   font-size: 12px;
   line-height: 1.9;
+  white-space: pre-line;
 }
 .project-modal-copy dl {
   width: 100%;
@@ -3054,6 +3055,7 @@ body {
   font-size: 11px;
   line-height: 1.85;
   color: #bdccc0;
+  white-space: pre-line;
   margin: 0;
 }
 .project-detail-meta {
