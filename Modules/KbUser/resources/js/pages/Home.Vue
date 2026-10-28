@@ -549,7 +549,7 @@ onUnmounted(() => {
                 <div class="hero-bottom">
                   <div class="mini-stat"><strong>MEP</strong><span>Giải pháp kỹ thuật</span>
                   </div>
-                  <div class="mini-stat"><strong>360°</strong><span>Hỗ trợ xuyên suốt</span>
+                  <div class="mini-stat"><strong>24/7</strong><span>Hỗ trợ xuyên suốt</span>
                   </div>
                   <div class="mini-stat"><strong>B2B</strong><span>Đồng hành dự án</span>
                   </div>
