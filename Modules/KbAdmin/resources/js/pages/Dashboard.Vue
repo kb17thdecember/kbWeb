@@ -29,9 +29,9 @@
 
     const maxDailyRequests = computed(() => Math.max(1, ...props.recentRequests.map((day) => day.count)));
     const requestStatuses = computed(() => [
-        { label: 'Mới', description: 'Chờ tiếp nhận', color: '#5066f6', count: props.requestStatuses.pending },
-        { label: 'Đang xử lý', description: 'Đang theo dõi', color: '#e6a044', count: props.requestStatuses.processing },
-        { label: 'Đã xử lý', description: 'Đã hoàn tất', color: '#32a879', count: props.requestStatuses.resolved },
+        { label: 'Mới', description: 'Chờ tiếp nhận', color: '#18352e', count: props.requestStatuses.pending },
+        { label: 'Đang xử lý', description: 'Đang theo dõi', color: '#b59a65', count: props.requestStatuses.processing },
+        { label: 'Đã xử lý', description: 'Đã hoàn tất', color: '#66805a', count: props.requestStatuses.resolved },
     ]);
 </script>
 

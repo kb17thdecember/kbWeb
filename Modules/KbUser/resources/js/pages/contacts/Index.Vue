@@ -110,7 +110,7 @@ onUnmounted(() => {
                             <div class="eyebrow"><span class="dot"></span> BẮT ĐẦU MỘT CUỘC TRAO ĐỔI</div>
                             <h2>
                                 Công trình của bạn.<br>
-                                <span style="font-weight: 400; font-style: italic">
+                                <span style="font-weight: 400; font-style: italic; color: var(--gold);">
                                     Giải pháp của chúng tôi.
                                 </span>
                             </h2>
@@ -214,7 +214,7 @@ onUnmounted(() => {
                             </div>
                             <div v-if="cartItems.length" class="field">
                                 <label>SẢN PHẨM YÊU CẦU BÁO GIÁ</label>
-                                <ul class="contact-products" style="color: #333;">
+                                <ul class="contact-products">
                                     <li v-for="{ product, quantity } in cartItems" :key="product.id">
                                         {{ product.name }} × {{ quantity }}
                                     </li>

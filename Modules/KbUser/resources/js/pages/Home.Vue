@@ -943,7 +943,7 @@ onUnmounted(() => {
         </section>
         <section class="section">
           <div class="wrap">
-            <div class="testimonial reveal">
+            <div class="testimonial reveal" style="background: light-dark(#e7e1d4, #24241f);">
               <div class="quote-mark">“</div>
               <div class="quote-copy">Một đối tác cung ứng tốt không chỉ giao đúng hàng — mà còn giúp đội dự án chọn đúng giải pháp ngay từ đầu.</div>
               <div class="quote-meta">
@@ -957,7 +957,7 @@ onUnmounted(() => {
             <div class="contact-card reveal">
               <div class="contact-copy">
                 <div class="eyebrow"><span class="dot"></span> Bắt đầu một cuộc trao đổi</div>
-                <h2>Công trình của bạn.<br><span style="font-weight:400;font-style:italic">Giải pháp của chúng tôi.</span>
+                <h2>Công trình của bạn.<br><span style="font-weight:400;font-style:italic;color:var(--gold)">Giải pháp của chúng tôi.</span>
                 </h2>
                 <p>Gửi yêu cầu về mặt hàng, số lượng hoặc bản vẽ. Đội ngũ tư vấn sẽ có cơ sở để hỗ trợ bạn tốt hơn.</p>
                 <div class="contact-details">

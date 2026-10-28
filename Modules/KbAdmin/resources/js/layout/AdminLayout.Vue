@@ -148,7 +148,7 @@ function importProjectReports(event: Event): void {
     <div class="app">
       <aside class="sidebar">
         <div class="brand">
-          <span class="mark">N</span>
+          <span class="mark">K</span>
           <div>
             <b>KB TECH</b><small>ADMINISTRATION</small>
           </div>
@@ -165,8 +165,8 @@ function importProjectReports(event: Event): void {
                 >
                     <span class="nav-icon"><FontAwesomeIcon :icon="item.icon" /></span>
                     <span>{{ item.label }}</span>
-                    <span v-if="item.href === '/admin/consultations'" class="count" style="background-color: red; color: white;">{{ props.openRequestsCount }}</span>
-                    <span v-if="item.href === '/admin/chats' && chatUnreadCount > 0" class="count" style="background-color: red; color: white;">{{ chatUnreadCount }}</span>
+                    <span v-if="item.href === '/admin/consultations'" class="count count-alert">{{ props.openRequestsCount }}</span>
+                    <span v-if="item.href === '/admin/chats' && chatUnreadCount > 0" class="count count-alert">{{ chatUnreadCount }}</span>
           </Link>
           </nav>
         </div>

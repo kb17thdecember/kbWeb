@@ -66,7 +66,7 @@
         justify-content: space-between;
         gap: 12px;
         margin-top: 14px;
-        color: #7e899f;
+        color: var(--muted);
         font-size: 12px;
     }
 
@@ -79,16 +79,16 @@
         min-width: 32px;
         height: 32px;
         padding: 0 8px;
-        border: 1px solid #e5eaf2;
-        border-radius: 7px;
-        background: #fff;
-        color: #1f2b42;
+        border: 1px solid var(--line);
+        border-radius: 3px;
+        background: var(--surface);
+        color: var(--ink);
         cursor: pointer;
     }
 
     .pagination-button.active {
-        border-color: #5066f6;
-        background: #5066f6;
+        border-color: var(--blue);
+        background: var(--blue);
         color: #fff;
     }
 
