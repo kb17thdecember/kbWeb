@@ -38,12 +38,17 @@ class Image extends Model
             && ! str_starts_with($this->path, '/');
     }
 
-    /**
-     * Đường dẫn tương đối để không phụ thuộc vào APP_URL (tránh lỗi localhost/127.0.0.1).
-     */
     public function getUrlAttribute(): string
     {
-        return $this->isStoredFile() ? '/storage/'.ltrim($this->path, '/') : $this->path;
+        if (! $this->isStoredFile()) {
+            return $this->path;
+        }
+
+        if (config('filesystems.disks.public.driver') === 'local') {
+            return '/storage/'.ltrim($this->path, '/');
+        }
+
+        return Storage::disk('public')->url($this->path);
     }
 
     /**
