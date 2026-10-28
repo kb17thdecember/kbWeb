@@ -196,12 +196,6 @@ const categoryProductsUrl = (categoryId: number, subcategoryId?: number): string
     margin-top: 64px;
 }
 
-.cat-art img {
-    width: 95px;
-    height: 95px;
-    object-fit: contain;
-}
-
 .cat-art > span {
     color: var(--muted);
     font-size: 70px;
