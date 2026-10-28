@@ -4558,3 +4558,60 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
     height: 54px;
   }
 }
+
+/* Responsive fixes: centered card buttons, aligned project group footers */
+.quick-btn,.add-btn,.icon-btn,.circle-arrow {
+  padding: 0;
+  box-sizing: border-box;
+  line-height: 0;
+}
+.product-photo .quick-btn,.product-bottom .add-btn {
+  width: 36px;
+  height: 36px;
+  min-width: 36px;
+  min-height: 36px;
+  flex: none;
+}
+@media (max-width:540px) {
+  .product-photo .quick-btn,.product-bottom .add-btn {
+    width: 34px;
+    height: 34px;
+    min-width: 34px;
+    min-height: 34px;
+  }
+  .product-photo .quick-btn svg,.product-bottom .add-btn svg {
+    width: 16px;
+    height: 16px;
+  }
+  .product-bottom {
+    align-items: center;
+  }
+}
+.project-directory-grid {
+  align-items: stretch;
+  grid-auto-rows: 1fr;
+}
+.project-group-card {
+  height: 100%;
+  justify-content: flex-start;
+}
+.project-group-copy {
+  width: 100%;
+}
+.project-group-copy p {
+  flex: 1 0 auto;
+}
+.project-group-footer {
+  margin-top: auto;
+  min-height: 48px;
+  align-items: flex-end;
+}
+.project-group-footer .circle-arrow {
+  width: 30px;
+  height: 30px;
+}
+@media (max-width:980px) {
+  .project-directory-grid {
+    grid-auto-rows: auto;
+  }
+}
