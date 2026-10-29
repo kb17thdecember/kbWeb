@@ -536,10 +536,10 @@ onUnmounted(() => {
 <template>
     <UserLayout :cart-count="cartCount" active-page="home" @open-cart="isCartOpen = true">
         <Head>
-        <title>HVAC Mart | Vật tư HVAC và Thiết bị Cơ điện</title>
+        <title>HVAC Mart - Bình Nước Nóng Ariston và Bảo Ôn K-Flex</title>
         <meta
             name="description"
-            content="HVAC Mart cung cấp vật tư HVAC, vật liệu bảo ôn và thiết bị cơ điện cho công trình. Tư vấn giải pháp phù hợp với nhu cầu thực tế."
+            content="HVAC Mart cung cấp giải pháp bình nước nóng Ariston và bảo ôn K-Flex cho dự án xây dựng trên toàn quốc. Hỗ trợ kỹ thuật, tư vấn kỹ thuật và báo giá cho công trình."
         />
     </Head>
         <main>

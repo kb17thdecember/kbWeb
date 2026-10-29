@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>HVAC Mart | Thiết bị HVAC, bảo ôn K-FLEX và bình nước nóng Ariston</title>
-    <meta name="description" content="HVAC Mart tại Hà Nội cung cấp thiết bị HVAC, vật tư bảo ôn K-FLEX và bình nước nóng Ariston. Khám phá sản phẩm, nhận tư vấn kỹ thuật và báo giá.">
+    <title>HVAC Mart - Bình Nước Nóng Ariston và Bảo Ôn K-Flex</title>
+    <meta name="description" content="HVAC Mart cung cấp bình nước nóng Ariston, vật tư bảo ôn K-Flex và thiết bị HVAC tại Hà Nội. Nhận tư vấn kỹ thuật và báo giá cho công trình.">
     <meta name="application-name" content="HVAC Mart">
     <meta name="robots" content="index, follow">
     <link rel="canonical" href="{{ url()->current() }}">
@@ -12,18 +12,26 @@
     <meta property="og:site_name" content="HVAC Mart">
     <meta property="og:locale" content="vi_VN">
     <meta property="og:url" content="{{ url()->current() }}">
-    <meta property="og:title" content="HVAC Mart | Thiết bị HVAC, bảo ôn K-FLEX và bình nước nóng Ariston">
-    <meta property="og:description" content="Thiết bị HVAC, vật tư bảo ôn K-FLEX và bình nước nóng Ariston. Tư vấn kỹ thuật và báo giá cho công trình.">
-    <meta property="og:image" content="{{ asset('apple-touch-icon.png') }}">
-    <meta property="og:image:alt" content="HVAC Mart - thiết bị và vật tư kỹ thuật HVAC">
+    <meta property="og:title" content="HVAC Mart - Bình Nước Nóng Ariston và Bảo Ôn K-Flex">
+    <meta property="og:description" content="HVAC Mart cung cấp giải pháp bình nước nóng Ariston và bảo ôn K-Flex cho dự án xây dựng trên toàn quốc. Hỗ trợ kỹ thuật, tư vấn kỹ thuật và báo giá cho công trình.">
+    <meta property="og:image" content="{{ asset('favicon.svg') }}">
+    <meta property="og:image:alt" content="HVAC Mart - thiết bị và vật tư kỹ thuật MEP">
     <script type="application/ld+json">
         {!! json_encode([
             '@context' => 'https://schema.org',
             '@type' => 'Organization',
             'name' => 'HVAC Mart',
             'url' => url('/'),
-            'logo' => asset('apple-touch-icon.png'),
-            'description' => 'Thiết bị HVAC, vật tư bảo ôn K-FLEX và bình nước nóng Ariston cho công trình.',
+            'logo' => asset('favicon.svg'),
+            'description' => 'Bình nước nóng Ariston, bảo ôn K-Flex và thiết bị HVAC cho công trình.',
+        ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) !!}
+    </script>
+    <script type="application/ld+json">
+        {!! json_encode([
+            '@context' => 'https://schema.org',
+            '@type' => 'WebSite',
+            'name' => 'HVAC Mart',
+            'url' => url('/'),
         ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) !!}
     </script>
     <link rel="icon" type="image/svg+xml" href="{{ asset('favicon.svg') }}">
