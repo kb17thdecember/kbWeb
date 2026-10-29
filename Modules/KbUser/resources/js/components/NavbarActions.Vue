@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { router, Link } from '@inertiajs/vue3';
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
+import { lockPageScroll } from '../utils/pageScrollLock';
 
 type ProductCategory = {
     id: number;
@@ -36,6 +37,7 @@ const isSearchLoading = ref(false);
 const searchInput = ref<HTMLInputElement | null>(null);
 let searchController: AbortController | undefined;
 let cartRequestController: AbortController | undefined;
+let releasePageScrollLock: (() => void) | null = null;
 
 const cartItems = computed(() =>
     Object.entries(cart.value)
@@ -313,6 +315,16 @@ watch(
     },
 );
 
+watch(isCartOpen, (isOpen) => {
+    if (isOpen) {
+        releasePageScrollLock ??= lockPageScroll();
+        return;
+    }
+
+    releasePageScrollLock?.();
+    releasePageScrollLock = null;
+});
+
 onMounted(() => {
     window.addEventListener('kbuser-cart-updated', refreshCart);
     window.addEventListener('kbuser-cart-open', openCart);
@@ -328,12 +340,10 @@ onUnmounted(() => {
     document.removeEventListener('visibilitychange', refreshCart);
     searchController?.abort();
     cartRequestController?.abort();
-    document.body.style.overflow = '';
+    releasePageScrollLock?.();
+    releasePageScrollLock = null;
 });
 
-watch(isCartOpen, (isOpen) => {
-    document.body.style.overflow = isOpen ? 'hidden' : '';
-});
 </script>
 
 <template>
@@ -416,7 +426,9 @@ watch(isCartOpen, (isOpen) => {
         </button>
 
         <Teleport to="body">
-            <div v-if="isCartOpen" class="overlay open" aria-label="Đóng giỏ hàng" @click="isCartOpen = false"></div>
+            <Transition name="cart-backdrop">
+                <div v-if="isCartOpen" class="overlay open" aria-label="Đóng giỏ hàng" @click="isCartOpen = false"></div>
+            </Transition>
             <aside class="drawer" :class="{ open: isCartOpen }" :aria-hidden="!isCartOpen" aria-label="Giỏ hàng">
                 <div class="drawer-head">
                     <h2>Giỏ hàng <span>({{ cartCount }})</span></h2>

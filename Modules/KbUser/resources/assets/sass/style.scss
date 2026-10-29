@@ -1655,16 +1655,24 @@ img,svg {
 .overlay {
   position: fixed;
   inset: 0;
-  background: #06140fc0;
-  backdrop-filter: blur(4px);
+  background: #06140f80;
+  backdrop-filter: blur(2px);
   z-index: 90;
   opacity: 0;
   pointer-events: none;
-  transition: opacity .3s;
+  transition: opacity .32s ease-out;
 }
 .overlay.open {
   opacity: 1;
   pointer-events: auto;
+}
+.overlay.cart-backdrop-enter-from,
+.overlay.cart-backdrop-leave-to {
+  opacity: 0;
+}
+.overlay.cart-backdrop-enter-active,
+.overlay.cart-backdrop-leave-active {
+  transition: opacity .38s ease;
 }
 .drawer {
   position: fixed;
@@ -1675,14 +1683,16 @@ img,svg {
   background: var(--surface);
   z-index: 100;
   padding: 25px;
-  transform: translateX(105%);
-  transition: transform .4s cubic-bezier(.2,.8,.2,1);
+  transform: translate3d(100%,0,0);
+  transition: transform .62s cubic-bezier(.22,.61,.36,1);
+  will-change: transform;
+  backface-visibility: hidden;
   display: flex;
   flex-direction: column;
-  box-shadow: -20px 0 60px #0002;
+  box-shadow: -16px 0 40px #00000018;
 }
 .drawer.open {
-  transform: translateX(0);
+  transform: translate3d(0,0,0);
 }
 .drawer-head {
   display: flex;
@@ -1977,6 +1987,12 @@ img,svg {
     scroll-behavior: auto !important;
     animation: none !important;
     transition: none !important;
+  }
+  .overlay,.overlay.cart-backdrop-enter-active,.overlay.cart-backdrop-leave-active {
+    transition: opacity .38s ease !important;
+  }
+  .drawer {
+    transition: transform .62s cubic-bezier(.22,.61,.36,1) !important;
   }
 }
 @media (max-width:1050px) {
@@ -2808,6 +2824,7 @@ html {
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
   font-kerning: normal;
+  scrollbar-gutter: stable;
 }
 body {
   -webkit-font-smoothing: antialiased;

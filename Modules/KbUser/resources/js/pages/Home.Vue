@@ -2,6 +2,7 @@
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 import { Head, Link, useForm } from '@inertiajs/vue3';
 import UserLayout from '../layout/UserLayout.Vue';
+import { lockPageScroll } from '../utils/pageScrollLock';
 
 type HomeProduct = {
     id: number;
@@ -65,6 +66,7 @@ const isToastVisible = ref(false);
 const contactSuccessMessage = ref('');
 let toastTimer: ReturnType<typeof setTimeout> | undefined;
 let revealObserver: IntersectionObserver | undefined;
+let releasePageScrollLock: (() => void) | null = null;
 const checkoutForm = useForm({
     name: '',
     phone: '',
@@ -451,11 +453,14 @@ watch([activeFilter, activeSubcategoryId, searchQuery], () => {
     currentPage.value = 1;
 });
 
-watch([isCheckoutOpen, isProductModalOpen, isProjectModalOpen], (states) => {
-    const sharedCartOpen = document.querySelector('.drawer.open') !== null;
-    const overflow = states.some(Boolean) || sharedCartOpen ? 'hidden' : '';
-    document.documentElement.style.overflow = overflow;
-    document.body.style.overflow = overflow;
+watch([isProductModalOpen, isCheckoutOpen, isProjectModalOpen], (states) => {
+    if (states.some(Boolean)) {
+        releasePageScrollLock ??= lockPageScroll();
+        return;
+    }
+
+    releasePageScrollLock?.();
+    releasePageScrollLock = null;
 });
 
 onMounted(() => {
@@ -519,8 +524,8 @@ onUnmounted(() => {
     window.removeEventListener('keydown', onEscape);
     revealObserver?.disconnect();
     clearTimeout(toastTimer);
-    document.documentElement.style.overflow = '';
-    document.body.style.overflow = '';
+    releasePageScrollLock?.();
+    releasePageScrollLock = null;
 });
 </script>
 

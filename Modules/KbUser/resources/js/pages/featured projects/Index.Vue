@@ -2,6 +2,7 @@
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { Head, Link } from '@inertiajs/vue3';
 import UserLayout from '../../layout/UserLayout.Vue';
+import { lockPageScroll } from '../../utils/pageScrollLock';
 
 type FeaturedProject = {
     id: number;
@@ -26,6 +27,7 @@ const activeProjectType = ref<string | null>(null);
 const projectPage = ref(1);
 const selectedProject = ref<FeaturedProject | null>(null);
 const selectedImageIndex = ref(0);
+let releasePageScrollLock: (() => void) | null = null;
 const selectedProjectImages = computed(() => {
     if (!selectedProject.value) {
         return [];
@@ -113,9 +115,13 @@ function stepProjectImage(delta: number): void {
 }
 
 watch(selectedProject, (project) => {
-    const overflow = project ? 'hidden' : '';
-    document.documentElement.style.overflow = overflow;
-    document.body.style.overflow = overflow;
+    if (project) {
+        releasePageScrollLock ??= lockPageScroll();
+        return;
+    }
+
+    releasePageScrollLock?.();
+    releasePageScrollLock = null;
 });
 
 const onEscape = (event: KeyboardEvent): void => {
@@ -136,8 +142,8 @@ onMounted(() => {
 
 onUnmounted(() => {
     window.removeEventListener('keydown', onEscape);
-    document.documentElement.style.overflow = '';
-    document.body.style.overflow = '';
+    releasePageScrollLock?.();
+    releasePageScrollLock = null;
 });
 </script>
 

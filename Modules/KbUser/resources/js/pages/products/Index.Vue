@@ -2,6 +2,7 @@
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { Head, Link } from '@inertiajs/vue3';
 import UserLayout from '../../layout/UserLayout.Vue';
+import { lockPageScroll } from '../../utils/pageScrollLock';
 
 type Product = {
     id: number;
@@ -37,6 +38,7 @@ const selectedImageIndex = ref(0);
 const toastMessage = ref('');
 const isToastVisible = ref(false);
 let toastTimer: ReturnType<typeof setTimeout> | undefined;
+let releasePageScrollLock: (() => void) | null = null;
 
 const filters = computed(() => [
     { label: 'Tất cả', value: 'all' },
@@ -139,6 +141,16 @@ const openCartDrawer = (): void => {
     window.dispatchEvent(new Event('kbuser-cart-open'));
 };
 
+watch(selectedProduct, (product) => {
+    if (product) {
+        releasePageScrollLock ??= lockPageScroll();
+        return;
+    }
+
+    releasePageScrollLock?.();
+    releasePageScrollLock = null;
+});
+
 const loadCart = (): void => {
     const savedCart = sessionStorage.getItem('kbuser-cart');
 
@@ -230,11 +242,6 @@ watch([activeFilter, activeSubcategoryId, searchQuery], () => {
     currentPage.value = 1;
 });
 
-watch(selectedProduct, (product) => {
-    document.body.style.overflow =
-        product || document.querySelector('.drawer.open') ? 'hidden' : '';
-});
-
 onMounted(() => {
     loadCart();
     window.addEventListener('kbuser-cart-updated', loadCart);
@@ -265,7 +272,8 @@ onUnmounted(() => {
     window.removeEventListener('kbuser-cart-updated', loadCart);
     window.removeEventListener('keydown', onEscape);
     clearTimeout(toastTimer);
-    document.body.style.overflow = '';
+    releasePageScrollLock?.();
+    releasePageScrollLock = null;
 });
 </script>
 
