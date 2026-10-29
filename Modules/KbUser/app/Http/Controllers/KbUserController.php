@@ -4,6 +4,8 @@ namespace Modules\KbUser\Http\Controllers;
 
 use App\Http\Controllers\Controller;
 use App\Mail\ContactInquiryReceived;
+use App\Models\Article;
+use App\Models\Catalogue;
 use App\Models\Category;
 use App\Models\Contact;
 use App\Models\FeaturedProject;
@@ -135,6 +137,40 @@ class KbUserController extends Controller
     public function about(): InertiaResponse
     {
         return Inertia::render('about us/Index');
+    }
+
+    public function news(): InertiaResponse
+    {
+        return Inertia::render('news/Index', [
+            'articles' => Article::query()
+                ->published()
+                ->with('images')
+                ->orderByDesc('published_at')
+                ->get(['id', 'title', 'slug', 'excerpt', 'published_at']),
+            'catalogues' => Catalogue::query()
+                ->published()
+                ->with('images')
+                ->latest()
+                ->get(['id', 'title', 'description', 'file_path', 'file_name', 'file_size']),
+        ]);
+    }
+
+    public function showArticle(Article $article): InertiaResponse
+    {
+        abort_unless($article->is_published, 404);
+
+        $article->load('images');
+
+        return Inertia::render('news/Show', [
+            'article' => $article,
+            'related' => Article::query()
+                ->published()
+                ->with('images')
+                ->whereKeyNot($article->id)
+                ->orderByDesc('published_at')
+                ->limit(3)
+                ->get(['id', 'title', 'slug', 'excerpt', 'published_at']),
+        ]);
     }
 
     public function contacts(): InertiaResponse

@@ -21,6 +21,8 @@ class DatabaseSeeder extends Seeder
             CategorySeeder::class,
             ProductSeeder::class,
             FeaturedProjectSeeder::class,
+            ArticleSeeder::class,
+            CatalogueSeeder::class,
             AdminUserSeeder::class,
         ]);
 

@@ -2,6 +2,8 @@
 
 use Illuminate\Support\Facades\Route;
 use Modules\KbAdmin\Http\Controllers\AdminAuthController;
+use Modules\KbAdmin\Http\Controllers\ArticleController;
+use Modules\KbAdmin\Http\Controllers\CatalogueController;
 use Modules\KbAdmin\Http\Controllers\CategoryController;
 use Modules\KbAdmin\Http\Controllers\ChatController;
 use Modules\KbAdmin\Http\Controllers\ConsultationController;
@@ -43,6 +45,17 @@ Route::middleware([UseKbAdminRootView::class, EnsureAdminAuthenticated::class])
 
         Route::get('/case-studies', [FeaturedProjectController::class, 'index'])
             ->name('admin.case-studies.index');
+
+        Route::get('/articles', [ArticleController::class, 'index'])->name('admin.articles.index');
+        Route::post('/articles', [ArticleController::class, 'store'])->name('admin.articles.store');
+        Route::post('/articles/images', [ArticleController::class, 'storeContentImage'])->name('admin.articles.images.store');
+        Route::put('/articles/{article}', [ArticleController::class, 'update'])->name('admin.articles.update');
+        Route::delete('/articles/{article}', [ArticleController::class, 'destroy'])->name('admin.articles.destroy');
+
+        Route::get('/catalogues', [CatalogueController::class, 'index'])->name('admin.catalogues.index');
+        Route::post('/catalogues', [CatalogueController::class, 'store'])->name('admin.catalogues.store');
+        Route::put('/catalogues/{catalogue}', [CatalogueController::class, 'update'])->name('admin.catalogues.update');
+        Route::delete('/catalogues/{catalogue}', [CatalogueController::class, 'destroy'])->name('admin.catalogues.destroy');
 
         Route::get('/consultations', [ConsultationController::class, 'index'])
             ->name('admin.consultations.index');

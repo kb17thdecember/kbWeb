@@ -5,7 +5,7 @@ import ChatWidget from '../components/ChatWidget.Vue';
 
 const props = defineProps<{
     cartCount: number;
-    activePage?: 'home' | 'categories' | 'products' | 'projects' | 'about' | 'contact';
+    activePage?: 'home' | 'categories' | 'products' | 'projects' | 'news' | 'about' | 'contact';
 }>();
 
 const emit = defineEmits<{
@@ -52,6 +52,7 @@ const focusProductSearch = () => {
                 <Link href="/categories" :aria-current="props.activePage === 'categories' ? 'page' : undefined" @click="closeMenu">Danh mục</Link>
                 <Link href="/products" :aria-current="props.activePage === 'products' ? 'page' : undefined" @click="closeMenu">Sản phẩm</Link>
                 <Link href="/featured-projects" :aria-current="props.activePage === 'projects' ? 'page' : undefined" @click="closeMenu">Dự án tiêu biểu</Link>
+                <Link href="/news" :aria-current="props.activePage === 'news' ? 'page' : undefined" @click="closeMenu">Tin tức</Link>
                 <Link href="/about-us" :aria-current="props.activePage === 'about' ? 'page' : undefined" @click="closeMenu">Về chúng tôi</Link>
                 <Link href="/contacts" :aria-current="props.activePage === 'contact' ? 'page' : undefined" @click="closeMenu">Liên hệ</Link>
             </nav>
@@ -108,7 +109,7 @@ const focusProductSearch = () => {
             </div>
             <div>
               <h4>KHÁM PHÁ</h4>
-              <div class="footer-links"><Link href="/about-us">Về chúng tôi</Link><Link href="/categories">Danh mục</Link><Link href="/products">Sản phẩm</Link><Link href="/featured-projects">Dự án</Link>
+              <div class="footer-links"><Link href="/about-us">Về chúng tôi</Link><Link href="/categories">Danh mục</Link><Link href="/products">Sản phẩm</Link><Link href="/featured-projects">Dự án</Link><Link href="/news">Tin tức</Link>
               </div>
             </div>
             <div>
