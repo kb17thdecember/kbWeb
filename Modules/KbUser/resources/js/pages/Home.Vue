@@ -763,9 +763,7 @@ onUnmounted(() => {
               <button class="page-btn" type="button" aria-label="Trang sau" :disabled="currentPage === pageCount" @click="goToPage(currentPage + 1)"><FontAwesomeIcon :icon="['fas', 'arrow-right']" /></button>
             </nav>
             <div class="view-all">
-              <button class="btn btn-dark" type="button" @click="showAllProducts">
-                Xem tất cả sản phẩm <FontAwesomeIcon :icon="['fas', 'arrow-right']" class="icon-ne" />
-              </button>
+              <Link class="btn btn-dark" href="/products">Khám phá tất cả sản phẩm <FontAwesomeIcon :icon="['fas', 'arrow-right']" class="icon-ne" /></Link>
             </div>
             <p class="note">* Giá hiển thị là giá minh họa cho bản demo, chưa phải báo giá thương mại. Vui lòng liên hệ để xác nhận tồn kho, thông số và giá thực tế.</p>
           </div>
