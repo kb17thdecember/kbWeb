@@ -34,7 +34,7 @@ const focusProductSearch = () => {
 
 <template>
     <div class="announcement">
-    Giải pháp vật tư kỹ thuật &amp; công trình · Tư vấn đúng nhu cầu, đồng hành đến hoàn thiện
+    Giải pháp vật tư &amp; thiết bị · Tư vấn đúng nhu cầu, đồng hành đến hoàn thiện
     </div>
     
     <header class="nav-shell">

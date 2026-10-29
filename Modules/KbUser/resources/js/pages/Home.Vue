@@ -535,7 +535,7 @@ onUnmounted(() => {
 
 <template>
     <UserLayout :cart-count="cartCount" active-page="home" @open-cart="isCartOpen = true">
-        <Head title="Thiết bị HVAC, bảo ôn K-FLEX và bình Ariston" />
+        <Head title="HVAC Mart - Bình nước nóng Ariston và Bảo ôn K-FLEX" />
         <main>
         <section id="home" class="hero">
           <div class="wrap">

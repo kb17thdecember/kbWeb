@@ -85,7 +85,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-    <Head title="Liên hệ và báo giá" />
+    <Head title="HVAC Mart | Liên hệ và báo giá" />
 
     <UserLayout :cart-count="0" active-page="contact">
         <main>

@@ -44,7 +44,7 @@ const categoryProductsUrl = (categoryId: number, subcategoryId?: number): string
 </script>
 
 <template>
-    <Head :title="selectedCategory?.name ?? 'Danh mục thiết bị HVAC'" />
+    <Head :title=" selectedCategory ? `HVAC Mart | ${selectedCategory.name}` : 'HVAC Mart | Danh mục sản phẩm'" />
 
     <UserLayout :cart-count="0" active-page="categories">
         <main>

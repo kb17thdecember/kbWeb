@@ -4,7 +4,7 @@ import UserLayout from '../../layout/UserLayout.Vue';
 </script>
 
 <template>
-    <Head title="Về HVAC Mart" />
+    <Head title="HVAC Mart | Về chúng tôi" />
 
     <UserLayout :cart-count="0" active-page="about">
         <main>

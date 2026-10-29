@@ -282,7 +282,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-    <Head title="Thiết bị HVAC, bảo ôn K-FLEX và bình Ariston" />
+    <Head title="HVAC Mart | Sản Phẩm" />
 
     <UserLayout :cart-count="cartCount" active-page="products" @open-cart="isCartOpen = true">
         <main>

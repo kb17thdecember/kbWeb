@@ -142,7 +142,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-    <Head title="Dự án tiêu biểu" />
+    <Head title="HVAC Mart | Dự án tiêu biểu" />
 
     <UserLayout :cart-count="0" active-page="projects">
         <main>
