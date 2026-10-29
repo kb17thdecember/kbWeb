@@ -85,14 +85,14 @@ onUnmounted(() => {
 </script>
 
 <template>
-    <Head title="Liên hệ & báo giá | KB TECH" />
+    <Head title="Liên hệ và báo giá" />
 
     <UserLayout :cart-count="0" active-page="contact">
         <main>
             <section class="page-intro" aria-live="polite">
                 <div class="wrap page-intro-inner">
                     <div>
-                        <div class="eyebrow"><span class="dot"></span> KB TECH / CONTACT</div>
+                        <div class="eyebrow"><span class="dot"></span> HVAC MART / LIÊN HỆ</div>
                         <h1>Liên hệ &amp; báo giá</h1>
                         <p>
                             Gửi yêu cầu về mặt hàng, số lượng hoặc dự án để bắt đầu trao đổi với

@@ -535,15 +535,15 @@ onUnmounted(() => {
 
 <template>
     <UserLayout :cart-count="cartCount" active-page="home" @open-cart="isCartOpen = true">
-        <Head title="Trang chủ | KB TECH" />
+        <Head title="Thiết bị HVAC, bảo ôn K-FLEX và bình Ariston" />
         <main>
         <section id="home" class="hero">
           <div class="wrap">
             <div class="hero-grid">
               <div class="hero-copy">
                 <div class="eyebrow"><span class="dot"></span> Đối tác vật tư kỹ thuật đáng tin cậy</div>
-                <h1>Kiến tạo công trình.<br><span>Nâng tầm</span> chất lượng.</h1>
-                <p class="hero-lead">Từ thiết bị nước nóng Ariston đến giải pháp bảo ôn K-FLEX và vật tư MEP chuyên dụng — lựa chọn đúng sản phẩm, tối ưu hiệu quả cho từng công trình.</p>
+                <h1>HVAC Mart.<br><span>Vật tư HVAC cho công trình.</span></h1>
+                <p class="hero-lead">Khám phá thiết bị HVAC, vật tư bảo ôn K-FLEX và bình nước nóng Ariston. Nhận tư vấn kỹ thuật và báo giá sản phẩm phù hợp cho công trình.</p>
                 <div class="hero-ctas"><Link href="/products" class="btn btn-primary">Khám phá sản phẩm <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14m-6-6 6 6-6 6"/></svg></Link><Link href="/featured-projects" class="btn btn-outline">Xem dự án <FontAwesomeIcon :icon="['fas', 'arrow-right']" class="icon-ne" /></Link>
                 </div>
                 <div class="hero-bottom">
@@ -800,7 +800,7 @@ onUnmounted(() => {
                     <h2 class="section-title">Giải pháp cho<br><em>những không gian lớn.</em>
                     </h2>
                   </div>
-                  <p class="section-desc">Một số dự án tiêu biểu và hạng mục kỹ thuật được KB TECH cập nhật.</p>
+                  <p class="section-desc">Một số dự án tiêu biểu và hạng mục kỹ thuật được HVAC Mart cập nhật.</p>
                 </div>
                 <div v-if="activeProjectType === null" class="project-directory-grid">
                   <button
@@ -1122,7 +1122,7 @@ onUnmounted(() => {
         <div class="quick-modal">
           <div class="modal-art">
             <img v-if="selectedProductImage" :src="selectedProductImage" :alt="selectedProduct.name">
-            <div v-else class="modal-image-placeholder">{{ selectedProduct.category?.name ?? 'KB TECH' }}</div>
+            <div v-else class="modal-image-placeholder">{{ selectedProduct.category?.name ?? 'HVAC Mart' }}</div>
             <div v-if="selectedProductImages.length > 1" class="product-gallery-controls">
               <button type="button" aria-label="Ảnh trước" @click="stepProductImage(-1)"><FontAwesomeIcon :icon="['fas', 'arrow-left']" /></button>
               <span>{{ selectedImageIndex + 1 }} / {{ selectedProductImages.length }}</span>

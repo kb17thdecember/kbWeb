@@ -19,8 +19,8 @@ const submit = (): void => {
     <div class="auth-page">
         <form class="auth-card" @submit.prevent="submit">
             <div class="auth-brand">
-                <span class="mark">N</span>
-                <div><b>KB TECH</b><small>ADMINISTRATION</small></div>
+                <span class="mark">HM</span>
+                <div><b>HVAC Mart</b><small>ADMINISTRATION</small></div>
             </div>
             <h1>Đăng nhập quản trị</h1>
             <p class="auth-hint">Nhập email và mật khẩu, sau đó chúng tôi sẽ gửi mã xác thực qua email.</p>

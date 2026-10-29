@@ -148,9 +148,9 @@ function importProjectReports(event: Event): void {
     <div class="app">
       <aside class="sidebar">
         <div class="brand">
-          <span class="mark">K</span>
+          <span class="mark">HM</span>
           <div>
-            <b>KB TECH</b><small>ADMINISTRATION</small>
+            <b>HVAC Mart</b><small>ADMINISTRATION</small>
           </div>
         </div>
         <div>
@@ -193,12 +193,12 @@ function importProjectReports(event: Event): void {
         <div class="content">
           <div class="welcome">
             <div>
-              <div class="eyebrow">KB TECH / ADMIN CONTROL CENTER</div>
+              <div class="eyebrow">HVAC MART / ADMIN CONTROL CENTER</div>
               <h1>Quản trị vận hành.</h1>
               <p>Quản lý sản phẩm, hình ảnh, danh mục, dự án và yêu cầu tư vấn.</p>
             </div>
             <div class="subnote">
-              <b>Ghi chú dữ liệu</b><br>File này dùng cùng các khóa localStorage với website KB TECH khi được mở trên cùng domain. Nếu mở bằng file://, hãy dùng chức năng xuất/nhập JSON để chuyển dữ liệu.</div>
+              <b>Ghi chú dữ liệu</b><br>File này dùng cùng các khóa localStorage với website HVAC Mart khi được mở trên cùng domain. Nếu mở bằng file://, hãy dùng chức năng xuất/nhập JSON để chuyển dữ liệu.</div>
           </div>
           <div class="warning" id="storageWarning">Dữ liệu được lưu trong trình duyệt. Bản HTML tĩnh chưa có máy chủ, đăng nhập bảo mật hoặc đồng bộ giữa các thiết bị.</div>
           <div class="stats" id="stats">

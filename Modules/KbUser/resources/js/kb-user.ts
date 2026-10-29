@@ -9,7 +9,7 @@ import '../assets/sass/style.scss';
 
 library.add(fas, far, fab);
 
-const appName = import.meta.env.VITE_APP_NAME || 'KbUser';
+const appName = 'HVAC Mart';
 
 const pages = import.meta.glob<{
     default: DefineComponent;
@@ -18,7 +18,7 @@ const pages = import.meta.glob<{
 });
 
 void createInertiaApp({
-    title: (title) => (title ? `${title} - ${appName}` : appName),
+    title: (title) => (title ? `${title} | ${appName}` : appName),
 
     resolve: (name) => {
         const pagePath = `./pages/${name}.Vue`;

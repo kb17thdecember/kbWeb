@@ -7,7 +7,7 @@
 </head>
 <body style="margin:0;padding:24px;background:#f4f6fa;color:#1f2b42;font-family:Arial,sans-serif">
     <main style="max-width:680px;margin:0 auto;padding:28px;background:#fff;border:1px solid #e5eaf2;border-radius:14px">
-        <p style="margin:0 0 8px;color:#5066f6;font-size:12px;font-weight:bold;letter-spacing:.08em">KB TECH · YÊU CẦU TƯ VẤN</p>
+        <p style="margin:0 0 8px;color:#5066f6;font-size:12px;font-weight:bold;letter-spacing:.08em">HVAC MART · YÊU CẦU TƯ VẤN</p>
         <h1 style="margin:0 0 22px;font-size:22px">Có yêu cầu tư vấn mới</h1>
 
         <table style="width:100%;border-collapse:collapse;font-size:14px">

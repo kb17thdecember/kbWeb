@@ -3,23 +3,27 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="KB TECH - cung cấp thiết bị và giải pháp kỹ thuật HVAC: điều hòa, thông gió, điện lạnh. Tư vấn, báo giá và thi công dự án nhanh chóng.">
+    <title>HVAC Mart | Thiết bị HVAC, bảo ôn K-FLEX và bình nước nóng Ariston</title>
+    <meta name="description" content="HVAC Mart tại Hà Nội cung cấp thiết bị HVAC, vật tư bảo ôn K-FLEX và bình nước nóng Ariston. Khám phá sản phẩm, nhận tư vấn kỹ thuật và báo giá.">
+    <meta name="application-name" content="HVAC Mart">
     <meta name="robots" content="index, follow">
     <link rel="canonical" href="{{ url()->current() }}">
     <meta property="og:type" content="website">
-    <meta property="og:site_name" content="KB TECH">
+    <meta property="og:site_name" content="HVAC Mart">
     <meta property="og:locale" content="vi_VN">
     <meta property="og:url" content="{{ url()->current() }}">
-    <meta property="og:title" content="KB TECH - Thiết bị &amp; giải pháp kỹ thuật HVAC">
-    <meta property="og:description" content="Thiết bị và giải pháp kỹ thuật HVAC: tư vấn, báo giá và thi công dự án.">
+    <meta property="og:title" content="HVAC Mart | Thiết bị HVAC, bảo ôn K-FLEX và bình nước nóng Ariston">
+    <meta property="og:description" content="Thiết bị HVAC, vật tư bảo ôn K-FLEX và bình nước nóng Ariston. Tư vấn kỹ thuật và báo giá cho công trình.">
     <meta property="og:image" content="{{ asset('apple-touch-icon.png') }}">
+    <meta property="og:image:alt" content="HVAC Mart - thiết bị và vật tư kỹ thuật HVAC">
     <script type="application/ld+json">
         {!! json_encode([
             '@context' => 'https://schema.org',
             '@type' => 'Organization',
-            'name' => 'KB TECH',
+            'name' => 'HVAC Mart',
             'url' => url('/'),
             'logo' => asset('apple-touch-icon.png'),
+            'description' => 'Thiết bị HVAC, vật tư bảo ôn K-FLEX và bình nước nóng Ariston cho công trình.',
         ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) !!}
     </script>
     <link rel="icon" type="image/svg+xml" href="{{ asset('favicon.svg') }}">

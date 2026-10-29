@@ -98,8 +98,8 @@ const resend = (): void => {
     <div class="auth-page">
         <form class="auth-card" @submit.prevent="submit">
             <div class="auth-brand">
-                <span class="mark">N</span>
-                <div><b>KB TECH</b><small>ADMINISTRATION</small></div>
+                <span class="mark">HM</span>
+                <div><b>HVAC Mart</b><small>ADMINISTRATION</small></div>
             </div>
             <h1>Nhập mã xác thực</h1>
             <p class="auth-hint">

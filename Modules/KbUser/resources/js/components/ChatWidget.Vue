@@ -242,10 +242,10 @@ onBeforeUnmount(() => {
 
 <template>
     <div class="chat-widget">
-        <section v-if="isOpen" class="chat-panel" role="dialog" aria-label="Chat với KB TECH">
+        <section v-if="isOpen" class="chat-panel" role="dialog" aria-label="Chat với HVAC Mart">
             <header class="chat-header">
                 <div>
-                    <b>Chat với KB TECH</b>
+                    <b>Chat với HVAC Mart</b>
                     <small>Chúng tôi phản hồi trong giờ làm việc</small>
                 </div>
                 <button class="chat-close" type="button" aria-label="Đóng chat" @click="toggle">

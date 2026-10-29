@@ -7,7 +7,7 @@
 </head>
 <body style="margin:0;padding:24px;background:#f4f6fa;color:#1f2b42;font-family:Arial,sans-serif">
     <main style="max-width:520px;margin:0 auto;padding:28px;background:#fff;border:1px solid #e5eaf2;border-radius:14px">
-        <p style="margin:0 0 8px;color:#5066f6;font-size:12px;font-weight:bold;letter-spacing:.08em">KB TECH · CHAT KHÁCH HÀNG</p>
+        <p style="margin:0 0 8px;color:#5066f6;font-size:12px;font-weight:bold;letter-spacing:.08em">HVAC MART · CHAT KHÁCH HÀNG</p>
         <h1 style="margin:0 0 16px;font-size:20px">Có tin nhắn mới</h1>
         <p style="margin:0 0 4px;font-size:14px"><b>Khách:</b> {{ $conversation->visitor_name ?: 'Chưa để tên' }}</p>
         <p style="margin:0 0 4px;font-size:14px"><b>Email:</b> {{ $conversation->visitor_email ?: 'Chưa để email' }}</p>

@@ -142,14 +142,14 @@ onUnmounted(() => {
 </script>
 
 <template>
-    <Head title="Dự án tiêu biểu | KB TECH" />
+    <Head title="Dự án tiêu biểu" />
 
     <UserLayout :cart-count="0" active-page="projects">
         <main>
             <section class="page-intro" aria-live="polite">
                 <div class="wrap page-intro-inner">
                     <div>
-                        <div class="eyebrow"><span class="dot"></span> KB TECH / FEATURED PROJECTS</div>
+                        <div class="eyebrow"><span class="dot"></span> HVAC MART / DỰ ÁN TIÊU BIỂU</div>
                         <h1>Dự án tiêu biểu</h1>
                         <p>Khám phá các hạng mục kỹ thuật và giải pháp vật tư trong những công trình tiêu biểu.</p>
                     </div>

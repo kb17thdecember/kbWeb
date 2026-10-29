@@ -282,16 +282,16 @@ onUnmounted(() => {
 </script>
 
 <template>
-    <Head title="Sản phẩm | KB TECH" />
+    <Head title="Thiết bị HVAC, bảo ôn K-FLEX và bình Ariston" />
 
     <UserLayout :cart-count="cartCount" active-page="products" @open-cart="isCartOpen = true">
         <main>
             <section class="page-intro" aria-live="polite">
                 <div class="wrap page-intro-inner">
                     <div>
-                        <div class="eyebrow"><span class="dot"></span> KB TECH / PRODUCTS</div>
+                        <div class="eyebrow"><span class="dot"></span> HVAC MART / SẢN PHẨM</div>
                         <h1>Danh mục sản phẩm</h1>
-                        <p>Thiết bị và vật tư kỹ thuật phù hợp cho từng hạng mục công trình.</p>
+                        <p>Thiết bị HVAC, vật tư bảo ôn K-FLEX và bình nước nóng Ariston cho các hạng mục công trình.</p>
                     </div>
                     <Link class="page-home-link" href="/"><FontAwesomeIcon :icon="['fas', 'arrow-left']" /> Về trang chủ</Link>
                 </div>
@@ -513,7 +513,7 @@ onUnmounted(() => {
                 <div class="quick-modal">
                     <div class="modal-art">
                         <img v-if="selectedImage" :src="selectedImage" :alt="selectedProduct.name">
-                        <div v-else class="modal-image-placeholder">{{ selectedProduct.category?.name ?? 'KB TECH' }}</div>
+                        <div v-else class="modal-image-placeholder">{{ selectedProduct.category?.name ?? 'HVAC Mart' }}</div>
                         <div v-if="selectedImages.length > 1" class="product-gallery-controls">
                             <button type="button" aria-label="Ảnh trước" @click="stepImage(-1)"><FontAwesomeIcon :icon="['fas', 'arrow-left']" /></button>
                             <span>{{ selectedImageIndex + 1 }} / {{ selectedImages.length }}</span>
