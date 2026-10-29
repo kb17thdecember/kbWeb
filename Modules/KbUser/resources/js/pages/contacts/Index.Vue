@@ -71,6 +71,7 @@ const submitContactForm = (): void => {
                 form.reset();
                 cart.value = {};
                 sessionStorage.removeItem('kbuser-cart');
+                window.dispatchEvent(new Event('kbuser-cart-updated'));
                 successMessage.value = 'Yêu cầu báo giá đã được gửi. Chúng tôi sẽ liên hệ với bạn sớm.';
                 notify(successMessage.value);
             },

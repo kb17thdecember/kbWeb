@@ -10,6 +10,7 @@ use App\Models\Category;
 use App\Models\Contact;
 use App\Models\FeaturedProject;
 use App\Models\Product;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
@@ -112,6 +113,56 @@ class KbUserController extends Controller
             'categories' => $categories,
             'products' => $products,
         ]);
+    }
+
+    public function searchProducts(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'q' => ['nullable', 'string', 'max:100'],
+            'ids' => ['sometimes', 'array', 'max:50'],
+            'ids.*' => ['integer', 'distinct', 'min:1'],
+        ]);
+
+        $productQuery = Product::query()
+            ->with(['category:id,name', 'subcategory:id,name', 'images'])
+            ->when(array_key_exists('ids', $validated), function ($query) use ($validated): void {
+                $query->whereIn('id', $validated['ids']);
+            }, function ($query) use ($validated): void {
+                $search = trim($validated['q'] ?? '');
+
+                if (mb_strlen($search) < 2) {
+                    $query->whereRaw('1 = 0');
+
+                    return;
+                }
+
+                $term = "%{$search}%";
+
+                $query->where(function ($query) use ($term): void {
+                    $query->where('name', 'like', $term)
+                        ->orWhere('product_title', 'like', $term)
+                        ->orWhere('description', 'like', $term)
+                        ->orWhereHas('category', fn ($categoryQuery) => $categoryQuery->where('name', 'like', $term))
+                        ->orWhereHas('subcategory', fn ($subcategoryQuery) => $subcategoryQuery->where('name', 'like', $term));
+                });
+            })
+            ->orderByDesc('id');
+
+        if (! array_key_exists('ids', $validated)) {
+            $productQuery->limit(8);
+        }
+
+        $products = $productQuery->get([
+            'id',
+            'name',
+            'product_title',
+            'category_id',
+            'subcategory_id',
+            'description',
+            'price',
+        ]);
+
+        return response()->json(['products' => $products]);
     }
 
     public function featuredProjects(): InertiaResponse

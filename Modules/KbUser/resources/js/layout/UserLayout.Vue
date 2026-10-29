@@ -2,14 +2,11 @@
 import { ref } from 'vue';
 import { Link } from '@inertiajs/vue3';
 import ChatWidget from '../components/ChatWidget.Vue';
+import NavbarActions from '../components/NavbarActions.Vue';
 
 const props = defineProps<{
     cartCount: number;
     activePage?: 'home' | 'categories' | 'products' | 'projects' | 'news' | 'about' | 'contact';
-}>();
-
-const emit = defineEmits<{
-    openCart: [];
 }>();
 
 const isMenuOpen = ref(false);
@@ -18,18 +15,6 @@ const closeMenu = () => {
     isMenuOpen.value = false;
 };
 
-const focusProductSearch = () => {
-    closeMenu();
-    const productSearch = document.querySelector<HTMLInputElement>('#productSearch');
-
-    if (productSearch) {
-        productSearch.focus();
-
-        return;
-    }
-
-    window.location.href = '/products#products';
-};
 </script>
 
 <template>
@@ -58,21 +43,7 @@ const focusProductSearch = () => {
             </nav>
 
             <div class="navactions">
-                <button class="icon-btn" id="searchFocus" type="button" aria-label="Tìm kiếm" @click="focusProductSearch">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
-                        <circle cx="10.8" cy="10.8" r="6.8"></circle>
-                        <path d="m16 16 5 5"></path>
-                    </svg>
-                </button>
-
-                <button class="icon-btn" id="cartOpen" type="button" aria-label="Mở giỏ hàng" @click="emit('openCart')">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
-                        <path d="M3 4h2l2.2 11.1a2 2 0 0 0 2 1.6h8.4a2 2 0 0 0 1.9-1.4L22 8H6"></path>
-                        <circle cx="10" cy="20" r="1"></circle>
-                        <circle cx="18" cy="20" r="1"></circle>
-                    </svg>
-                    <span class="cart-count" id="cartCount">{{ props.cartCount }}</span>
-                </button>
+                <NavbarActions :initial-cart-count="props.cartCount" :active-page="props.activePage" />
 
                 <Link class="btn btn-primary" href="/contacts">
                     Nhận báo giá

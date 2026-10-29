@@ -49,7 +49,6 @@ const activeFilter = ref('all');
 const activeSubcategoryId = ref<number | null>(null);
 const searchQuery = ref('');
 const checkoutMessage = ref('');
-const isCartOpen = ref(false);
 const isCheckoutOpen = ref(false);
 const isProductModalOpen = ref(false);
 const isProjectModalOpen = ref(false);
@@ -312,12 +311,19 @@ const notify = (message: string): void => {
 
 const persistCart = (): void => {
     sessionStorage.setItem('kbuser-cart', JSON.stringify(cart.value));
+    window.dispatchEvent(new Event('kbuser-cart-updated'));
+};
+
+const openCartDrawer = (): void => {
+    window.dispatchEvent(new Event('kbuser-cart-open'));
 };
 
 const loadCart = (): void => {
     const savedCart = sessionStorage.getItem('kbuser-cart');
 
     if (!savedCart) {
+        cart.value = {};
+
         return;
     }
 
@@ -368,24 +374,6 @@ const addToCart = (product: HomeProduct): void => {
     notify(`Đã thêm ${product.name} vào giỏ hàng.`);
 };
 
-const changeQuantity = (productId: number, delta: number): void => {
-    const quantity = (cart.value[productId] ?? 0) + delta;
-
-    if (quantity <= 0) {
-        delete cart.value[productId];
-    } else {
-        cart.value[productId] = quantity;
-    }
-
-    persistCart();
-};
-
-const removeFromCart = (productId: number): void => {
-    delete cart.value[productId];
-    persistCart();
-    notify('Đã xóa sản phẩm khỏi giỏ hàng.');
-};
-
 const openProduct = (product: HomeProduct): void => {
     selectedProduct.value = product;
     selectedImageIndex.value = 0;
@@ -414,7 +402,6 @@ const openCheckout = (): void => {
     }
 
     checkoutMessage.value = '';
-    isCartOpen.value = false;
     isCheckoutOpen.value = true;
 };
 
@@ -454,7 +441,6 @@ const submitContactForm = (): void => {
 
 const onEscape = (event: KeyboardEvent): void => {
     if (event.key === 'Escape') {
-        isCartOpen.value = false;
         isCheckoutOpen.value = false;
         closeProduct();
         closeProject();
@@ -465,14 +451,17 @@ watch([activeFilter, activeSubcategoryId, searchQuery], () => {
     currentPage.value = 1;
 });
 
-watch([isCartOpen, isCheckoutOpen, isProductModalOpen, isProjectModalOpen], (states) => {
-    const overflow = states.some(Boolean) ? 'hidden' : '';
+watch([isCheckoutOpen, isProductModalOpen, isProjectModalOpen], (states) => {
+    const sharedCartOpen = document.querySelector('.drawer.open') !== null;
+    const overflow = states.some(Boolean) || sharedCartOpen ? 'hidden' : '';
     document.documentElement.style.overflow = overflow;
     document.body.style.overflow = overflow;
 });
 
 onMounted(() => {
     loadCart();
+    window.addEventListener('kbuser-cart-updated', loadCart);
+    window.addEventListener('kbuser-checkout', openCheckout);
     window.addEventListener('keydown', onEscape);
 
     const params = new URLSearchParams(window.location.search);
@@ -525,6 +514,8 @@ onMounted(() => {
 });
 
 onUnmounted(() => {
+    window.removeEventListener('kbuser-cart-updated', loadCart);
+    window.removeEventListener('kbuser-checkout', openCheckout);
     window.removeEventListener('keydown', onEscape);
     revealObserver?.disconnect();
     clearTimeout(toastTimer);
@@ -534,7 +525,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-    <UserLayout :cart-count="cartCount" active-page="home" @open-cart="isCartOpen = true">
+    <UserLayout :cart-count="cartCount" active-page="home">
         <Head>
         <title>HVAC Mart - Bình Nước Nóng Ariston và Bảo Ôn K-Flex</title>
         <meta
@@ -1074,52 +1065,6 @@ onUnmounted(() => {
         </section>
     </main>
 
-    <div v-if="isCartOpen" class="overlay open" aria-label="Đóng giỏ hàng" @click="isCartOpen = false"></div>
-    <aside class="drawer" :class="{ open: isCartOpen }" :aria-hidden="!isCartOpen" aria-label="Giỏ hàng">
-      <div class="drawer-head">
-        <h2>Giỏ hàng <span>({{ cartCount }})</span></h2>
-        <button class="close-btn" type="button" aria-label="Đóng giỏ hàng" @click="isCartOpen = false"><FontAwesomeIcon :icon="['fas', 'xmark']" /></button>
-      </div>
-      <div class="cart-items">
-        <div v-if="cartItems.length === 0" class="cart-empty">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3">
-            <path d="M3 4h2l2.2 11.1a2 2 0 0 0 2 1.6h8.4a2 2 0 0 0 1.9-1.4L22 8H6"/>
-            <circle cx="10" cy="20" r="1"/>
-            <circle cx="18" cy="20" r="1"/>
-          </svg>
-          <strong>Giỏ hàng đang trống</strong>
-          <span>Thêm sản phẩm bạn quan tâm để bắt đầu.</span>
-          <button class="btn btn-primary" type="button" style="margin-top: 17px" @click="isCartOpen = false; document.querySelector('#products')?.scrollIntoView({ behavior: 'smooth' })">
-            Khám phá sản phẩm
-          </button>
-        </div>
-        <div v-for="{ product, quantity } in cartItems" :key="product.id" class="cart-row">
-          <div class="cart-thumb">
-            <img v-if="productImage(product)" :src="productImage(product) ?? undefined" :alt="product.name">
-            <span v-else>{{ product.category?.name ?? 'KB' }}</span>
-          </div>
-          <div>
-            <div class="cart-product">{{ product.name }}</div>
-            <div class="cart-price">{{ formatPrice(product.price) }}</div>
-            <div class="qty">
-              <button type="button" :aria-label="`Giảm số lượng ${product.name}`" @click="changeQuantity(product.id, -1)">−</button>
-              <span>{{ quantity }}</span>
-              <button type="button" :aria-label="`Tăng số lượng ${product.name}`" @click="changeQuantity(product.id, 1)">+</button>
-            </div>
-            <button class="remove" type="button" @click="removeFromCart(product.id)">Xóa sản phẩm</button>
-          </div>
-          <strong class="cart-row-total">{{ formatPrice(product.price * quantity) }}</strong>
-        </div>
-      </div>
-      <div v-if="cartItems.length > 0" class="cart-summary">
-        <div class="summary-line"><span>Tạm tính ({{ cartCount }} sản phẩm)</span><strong>{{ formatPrice(cartTotal) }}</strong></div>
-        <div class="summary-line"><span>Vận chuyển</span><span>Báo sau</span></div>
-        <div class="summary-line total"><span>Tổng tham khảo</span><span>{{ formatPrice(cartTotal) }}</span></div>
-        <button class="btn btn-primary" type="button" @click="openCheckout">Yêu cầu báo giá <FontAwesomeIcon :icon="['fas', 'arrow-right']" class="icon-ne" /></button>
-        <div class="cart-hint">Giá hiển thị chỉ để tham khảo. Báo giá thực tế sẽ được xác nhận theo yêu cầu.</div>
-      </div>
-    </aside>
-
     <div v-if="isProductModalOpen && selectedProduct" class="modal-wrap open" role="presentation" @click.self="closeProduct">
       <section class="modal" role="dialog" aria-modal="true" :aria-label="`Thông tin ${selectedProduct.name}`">
         <button class="close-btn modal-close" type="button" aria-label="Đóng" @click="closeProduct"><FontAwesomeIcon :icon="['fas', 'xmark']" /></button>
@@ -1138,7 +1083,7 @@ onUnmounted(() => {
             <h2>{{ selectedProduct.product_title || selectedProduct.name }}</h2>
             <p class="product-description">{{ selectedProduct.description }}</p>
             <div class="modal-price">{{ formatPrice(selectedProduct.price) }} <span>/ sản phẩm · giá tham khảo</span></div>
-            <button class="btn btn-primary" type="button" @click="addToCart(selectedProduct); closeProduct(); isCartOpen = true">
+            <button class="btn btn-primary" type="button" @click="addToCart(selectedProduct); closeProduct(); openCartDrawer()">
               Thêm vào giỏ
             </button>
             <p class="modal-disclaimer">Thông số và giá bán thực tế cần được xác nhận trước khi đặt hàng.</p>

@@ -32,7 +32,6 @@ const activeSubcategoryId = ref<number | null>(null);
 const searchQuery = ref('');
 const currentPage = ref(1);
 const cart = ref<Record<number, number>>({});
-const isCartOpen = ref(false);
 const selectedProduct = ref<Product | null>(null);
 const selectedImageIndex = ref(0);
 const toastMessage = ref('');
@@ -101,9 +100,6 @@ const cartItems = computed(() =>
 const cartCount = computed(() =>
     cartItems.value.reduce((count, item) => count + item.quantity, 0),
 );
-const cartTotal = computed(() =>
-    cartItems.value.reduce((total, item) => total + item.product.price * item.quantity, 0),
-);
 const selectedImages = computed(() => selectedProduct.value?.image ?? []);
 const selectedImage = computed(() => {
     const image = selectedImages.value[selectedImageIndex.value];
@@ -136,12 +132,19 @@ const notify = (message: string): void => {
 
 const persistCart = (): void => {
     sessionStorage.setItem('kbuser-cart', JSON.stringify(cart.value));
+    window.dispatchEvent(new Event('kbuser-cart-updated'));
+};
+
+const openCartDrawer = (): void => {
+    window.dispatchEvent(new Event('kbuser-cart-open'));
 };
 
 const loadCart = (): void => {
     const savedCart = sessionStorage.getItem('kbuser-cart');
 
     if (!savedCart) {
+        cart.value = {};
+
         return;
     }
 
@@ -192,24 +195,6 @@ const addToCart = (product: Product): void => {
     notify(`Đã thêm ${product.name} vào giỏ hàng.`);
 };
 
-const changeQuantity = (productId: number, delta: number): void => {
-    const quantity = (cart.value[productId] ?? 0) + delta;
-
-    if (quantity <= 0) {
-        delete cart.value[productId];
-    } else {
-        cart.value[productId] = quantity;
-    }
-
-    persistCart();
-};
-
-const removeFromCart = (productId: number): void => {
-    delete cart.value[productId];
-    persistCart();
-    notify('Đã xóa sản phẩm khỏi giỏ hàng.');
-};
-
 const selectFilter = (filter: string): void => {
     activeFilter.value = filter;
     activeSubcategoryId.value = null;
@@ -237,7 +222,6 @@ const stepImage = (delta: number): void => {
 
 const onEscape = (event: KeyboardEvent): void => {
     if (event.key === 'Escape') {
-        isCartOpen.value = false;
         selectedProduct.value = null;
     }
 };
@@ -246,15 +230,18 @@ watch([activeFilter, activeSubcategoryId, searchQuery], () => {
     currentPage.value = 1;
 });
 
-watch([isCartOpen, selectedProduct], ([cartOpen, product]) => {
-    document.body.style.overflow = cartOpen || product ? 'hidden' : '';
+watch(selectedProduct, (product) => {
+    document.body.style.overflow =
+        product || document.querySelector('.drawer.open') ? 'hidden' : '';
 });
 
 onMounted(() => {
     loadCart();
+    window.addEventListener('kbuser-cart-updated', loadCart);
     window.addEventListener('keydown', onEscape);
 
     const params = new URLSearchParams(window.location.search);
+    searchQuery.value = params.get('search') ?? '';
     const requestedCategoryId = Number(params.get('category'));
     const requestedCategory = props.categories.find(
         (category) => category.id === requestedCategoryId,
@@ -275,6 +262,7 @@ onMounted(() => {
 });
 
 onUnmounted(() => {
+    window.removeEventListener('kbuser-cart-updated', loadCart);
     window.removeEventListener('keydown', onEscape);
     clearTimeout(toastTimer);
     document.body.style.overflow = '';
@@ -284,7 +272,7 @@ onUnmounted(() => {
 <template>
     <Head title="HVAC Mart | Sản Phẩm" />
 
-    <UserLayout :cart-count="cartCount" active-page="products" @open-cart="isCartOpen = true">
+    <UserLayout :cart-count="cartCount" active-page="products">
         <main>
             <section class="page-intro" aria-live="polite">
                 <div class="wrap page-intro-inner">
@@ -464,44 +452,6 @@ onUnmounted(() => {
             </section>
         </main>
 
-        <div class="overlay" :class="{ open: isCartOpen }" @click="isCartOpen = false"></div>
-        <aside class="drawer" :class="{ open: isCartOpen }" :aria-hidden="!isCartOpen">
-            <div class="drawer-head">
-                <h2>Giỏ hàng <span>({{ cartCount }})</span></h2>
-                <button class="close-btn" type="button" aria-label="Đóng giỏ hàng" @click="isCartOpen = false"><FontAwesomeIcon :icon="['fas', 'xmark']" /></button>
-            </div>
-            <div class="cart-items">
-                <div v-if="cartItems.length === 0" class="cart-empty">
-                    <strong>Giỏ hàng đang trống</strong>
-                    <span>Thêm sản phẩm bạn quan tâm để bắt đầu.</span>
-                </div>
-                <div v-for="{ product, quantity } in cartItems" :key="product.id" class="cart-row">
-                    <div class="cart-thumb">
-                        <img v-if="imageUrl(product)" :src="imageUrl(product) ?? undefined" :alt="product.name">
-                        <span v-else>{{ product.category?.name ?? 'KB' }}</span>
-                    </div>
-                    <div>
-                        <div class="cart-product">{{ product.name }}</div>
-                        <div class="cart-price">{{ formatPrice(product.price) }}</div>
-                        <div class="qty">
-                            <button type="button" :aria-label="`Giảm số lượng ${product.name}`" @click="changeQuantity(product.id, -1)">−</button>
-                            <span>{{ quantity }}</span>
-                            <button type="button" :aria-label="`Tăng số lượng ${product.name}`" @click="changeQuantity(product.id, 1)">+</button>
-                        </div>
-                        <button class="remove" type="button" @click="removeFromCart(product.id)">Xóa sản phẩm</button>
-                    </div>
-                    <strong class="cart-row-total">{{ formatPrice(product.price * quantity) }}</strong>
-                </div>
-            </div>
-            <div v-if="cartItems.length > 0" class="cart-summary">
-                <div class="summary-line"><span>Tạm tính ({{ cartCount }} sản phẩm)</span><strong>{{ formatPrice(cartTotal) }}</strong></div>
-                <div class="summary-line"><span>Vận chuyển</span><span>Báo sau</span></div>
-                <div class="summary-line total"><span>Tổng tham khảo</span><span>{{ formatPrice(cartTotal) }}</span></div>
-                <Link class="btn btn-primary" href="/contacts" @click="isCartOpen = false">Yêu cầu báo giá <FontAwesomeIcon :icon="['fas', 'arrow-right']" class="icon-ne" /></Link>
-                <div class="cart-hint">Giá tham khảo sẽ được xác nhận theo yêu cầu thực tế.</div>
-            </div>
-        </aside>
-
         <div
             v-if="selectedProduct"
             class="modal-wrap open"
@@ -528,7 +478,7 @@ onUnmounted(() => {
                         <button
                             class="btn btn-primary"
                             type="button"
-                            @click="addToCart(selectedProduct); selectedProduct = null; isCartOpen = true"
+                            @click="addToCart(selectedProduct); selectedProduct = null; openCartDrawer()"
                         >Thêm vào giỏ</button>
                         <p class="modal-disclaimer">Thông số và giá bán thực tế cần được xác nhận trước khi đặt hàng.</p>
                     </div>
