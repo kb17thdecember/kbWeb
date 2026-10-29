@@ -135,7 +135,7 @@ import UserLayout from '../../layout/UserLayout.Vue';
 
             <section class="section">
                 <div class="wrap">
-                    <div class="testimonial">
+                    <div class="testimonial" style="background: light-dark(rgb(231, 225, 212), rgb(36, 36, 31));">
                         <div class="quote-mark" aria-hidden="true">“</div>
                         <div class="quote-copy">
                             Một đối tác cung ứng tốt không chỉ giao đúng hàng — mà còn giúp đội dự
