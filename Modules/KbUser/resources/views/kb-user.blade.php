@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>HVAC Mart - Bình Nước Nóng Ariston và Bảo Ôn K-Flex</title>
-    <meta name="description" content="HVAC Mart cung cấp bình nước nóng Ariston, vật tư bảo ôn K-Flex và thiết bị HVAC tại Hà Nội. Nhận tư vấn kỹ thuật và báo giá cho công trình.">
+    <meta name="description" content="HVAC Mart cung cấp BÌNH NƯỚC NÓNG ARISTON và BẢO ÔN K-FLEX trên toàn quốc. Hỗ trợ tư vấn kỹ thuật và báo giá cho công trình.">
     <meta name="application-name" content="HVAC Mart">
     <meta name="robots" content="index, follow">
     <link rel="canonical" href="{{ url()->current() }}">
@@ -13,7 +13,7 @@
     <meta property="og:locale" content="vi_VN">
     <meta property="og:url" content="{{ url()->current() }}">
     <meta property="og:title" content="HVAC Mart - Bình Nước Nóng Ariston và Bảo Ôn K-Flex">
-    <meta property="og:description" content="HVAC Mart cung cấp giải pháp bình nước nóng Ariston và bảo ôn K-Flex cho dự án xây dựng trên toàn quốc. Hỗ trợ kỹ thuật, tư vấn kỹ thuật và báo giá cho công trình.">
+    <meta property="og:description" content="HVAC Mart cung cấp BÌNH NƯỚC NÓNG ARISTON và BẢO ÔN K-FLEX cho dự án xây dựng trên toàn quốc. Hỗ trợ kỹ thuật, tư vấn kỹ thuật và báo giá cho công trình.">
     <meta property="og:image" content="{{ asset('favicon.svg') }}">
     <meta property="og:image:alt" content="HVAC Mart - thiết bị và vật tư kỹ thuật MEP">
     <script type="application/ld+json">
