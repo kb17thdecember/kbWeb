@@ -68,9 +68,9 @@ class ArticleSeeder extends Seeder
                     .'<li>Cho phép lựa chọn độ dày và quy cách theo điều kiện thiết kế, lắp đặt thực tế.</li>'
                     .'</ul>'
                     .'<p>Việc lựa chọn đúng sản phẩm, đối chiếu đầy đủ thông số kỹ thuật và thi công theo hướng dẫn giúp nâng cao chất lượng hệ thống bảo ôn, đồng thời hỗ trợ kiểm soát chi phí vận hành công trình.</p>'
-                    .'<h2>9. KB Tech – Đơn vị cung cấp giải pháp vật tư kỹ thuật</h2>'
-                    .'<p><strong>KB Tech</strong> hướng đến việc cung cấp các giải pháp vật tư kỹ thuật phù hợp với nhu cầu của khách hàng và yêu cầu thực tế của từng công trình. Đối với sản phẩm bảo ôn K-FLEX, chúng tôi hỗ trợ khách hàng lựa chọn dòng sản phẩm, xác định quy cách và đối chiếu thông tin kỹ thuật theo phạm vi cung cấp.</p>'
-                    .'<p>Với các dự án MEP, việc xác định đúng sản phẩm và chuẩn bị hồ sơ từ giai đoạn chào hàng giúp nhà thầu chủ động hơn trong quá trình trình duyệt vật liệu, kiểm tra hàng hóa đầu vào và nghiệm thu. KB Tech hướng đến việc hỗ trợ khách hàng làm rõ thông tin sản phẩm và các tài liệu liên quan nhằm góp phần nâng cao tính minh bạch trong quá trình lựa chọn vật liệu.</p>'
+                    .'<h2>9. HVAC Mart – Đơn vị cung cấp giải pháp vật tư kỹ thuật</h2>'
+                    .'<p><strong>HVAC Mart</strong> hướng đến việc cung cấp các giải pháp vật tư kỹ thuật phù hợp với nhu cầu của khách hàng và yêu cầu thực tế của từng công trình. Đối với sản phẩm bảo ôn K-FLEX, chúng tôi hỗ trợ khách hàng lựa chọn dòng sản phẩm, xác định quy cách và đối chiếu thông tin kỹ thuật theo phạm vi cung cấp.</p>'
+                    .'<p>Với các dự án MEP, việc xác định đúng sản phẩm và chuẩn bị hồ sơ từ giai đoạn chào hàng giúp nhà thầu chủ động hơn trong quá trình trình duyệt vật liệu, kiểm tra hàng hóa đầu vào và nghiệm thu. HVAC Mart hướng đến việc hỗ trợ khách hàng làm rõ thông tin sản phẩm và các tài liệu liên quan nhằm góp phần nâng cao tính minh bạch trong quá trình lựa chọn vật liệu.</p>'
                     .'<p><strong>K-FLEX – Giải pháp bảo ôn cho công trình hiện đại, chú trọng hiệu quả kỹ thuật, hồ sơ minh bạch và sự phù hợp với yêu cầu của từng dự án.</strong></p>',
                 'image' => 'products/ST.png',
                 'published_at' => now()->subDays(10),
@@ -144,9 +144,9 @@ class ArticleSeeder extends Seeder
                     .'<li><strong>Quan tâm đến bảo hành:</strong> Chính sách bảo hành và hỗ trợ kỹ thuật là những tiêu chí cần kiểm tra khi lựa chọn nhà cung cấp.</li>'
                     .'</ul>'
                     .'<p>Để lựa chọn đúng sản phẩm, khách hàng nên đối chiếu thông số kỹ thuật, tính năng thực tế, điều kiện lắp đặt và chính sách bảo hành áp dụng cho từng model.</p>'
-                    .'<h2>9. KB Tech – Tư vấn giải pháp nước nóng Ariston</h2>'
-                    .'<p><strong>KB Tech</strong> hướng đến việc cung cấp giải pháp vật tư và thiết bị kỹ thuật phù hợp với nhu cầu của khách hàng cá nhân, nhà thầu và các dự án xây dựng.</p>'
-                    .'<p>Đối với bình nước nóng Ariston, KB Tech hỗ trợ khách hàng lựa chọn sản phẩm theo dung tích, nhu cầu sử dụng, điều kiện lắp đặt và yêu cầu kỹ thuật của công trình. Đối với khách hàng dự án, việc xác định đúng model và chuẩn bị hồ sơ sản phẩm ngay từ đầu giúp quá trình trình duyệt, cung ứng và nghiệm thu được chủ động hơn.</p>'
+                    .'<h2>9. HVAC Mart – Tư vấn giải pháp nước nóng Ariston</h2>'
+                    .'<p><strong>HVAC Mart</strong> hướng đến việc cung cấp giải pháp vật tư và thiết bị kỹ thuật phù hợp với nhu cầu của khách hàng cá nhân, nhà thầu và các dự án xây dựng.</p>'
+                    .'<p>Đối với bình nước nóng Ariston, <strong>HVAC Mart</strong> hỗ trợ khách hàng lựa chọn sản phẩm theo dung tích, nhu cầu sử dụng, điều kiện lắp đặt và yêu cầu kỹ thuật của công trình. Đối với khách hàng dự án, việc xác định đúng model và chuẩn bị hồ sơ sản phẩm ngay từ đầu giúp quá trình trình duyệt, cung ứng và nghiệm thu được chủ động hơn.</p>'
                     .'<p>Chúng tôi chú trọng cung cấp thông tin sản phẩm rõ ràng, hỗ trợ khách hàng tìm hiểu thông số kỹ thuật và chính sách bảo hành tương ứng, qua đó giúp khách hàng có cơ sở lựa chọn giải pháp nước nóng phù hợp.</p>'
                     .'<p><strong>Bình nước nóng Ariston – Giải pháp nước nóng tiện nghi, chú trọng an toàn, hiệu quả sử dụng và dịch vụ hậu mãi cho gia đình và công trình.</strong></p>',
                 'image' => 'products/AN3_30B_VN.png',
@@ -191,8 +191,8 @@ class ArticleSeeder extends Seeder
                     .'<li><strong>Hồ sơ bàn giao:</strong> Lưu giữ hóa đơn, thông tin sản phẩm, hướng dẫn sử dụng và các giấy tờ liên quan đến bảo hành.</li>'
                     .'<li><strong>Hỗ trợ sau bán hàng:</strong> Xác định đầu mối tiếp nhận yêu cầu và quy trình liên hệ khi cần hỗ trợ kỹ thuật hoặc bảo hành.</li>'
                     .'</ul>'
-                    .'<h2>10. KB Tech – Đồng hành cùng chủ đầu tư và khách hàng</h2>'
-                    .'<p>KB Tech hướng đến việc cung cấp giải pháp thiết bị phù hợp với nhu cầu thực tế của từng công trình. Đối với bình nước nóng Ariston, khách hàng có thể lựa chọn sản phẩm theo yêu cầu kỹ thuật, quy mô sử dụng và ngân sách, đồng thời tìm hiểu rõ các điều kiện bảo hành cần thiết trước khi quyết định đặt hàng.</p>'
+                    .'<h2>10. HVAC Mart – Đồng hành cùng chủ đầu tư và khách hàng</h2>'
+                    .'<p>HVAC Mart hướng đến việc cung cấp giải pháp thiết bị phù hợp với nhu cầu thực tế của từng công trình. Đối với bình nước nóng Ariston, khách hàng có thể lựa chọn sản phẩm theo yêu cầu kỹ thuật, quy mô sử dụng và ngân sách, đồng thời tìm hiểu rõ các điều kiện bảo hành cần thiết trước khi quyết định đặt hàng.</p>'
                     .'<p>Đối với khách hàng dự án, việc xác định model, số lượng, hồ sơ kỹ thuật và điều kiện bảo hành ngay từ giai đoạn chào hàng giúp quá trình mua sắm, thi công và bàn giao được chủ động hơn. Đối với khách hàng cá nhân, việc lựa chọn đúng sản phẩm cùng thông tin bảo hành rõ ràng góp phần nâng cao sự an tâm trong quá trình sử dụng.</p>'
                     .'<p><strong>Ariston – Giải pháp nước nóng cho công trình hiện đại, chú trọng an toàn, chất lượng sử dụng và quyền lợi bảo hành.</strong></p>',
                 'image' => 'products/SLIM3_30B_VN.png',
@@ -260,9 +260,9 @@ class ArticleSeeder extends Seeder
                     .'<li><strong>Tài liệu liên quan đến chống cháy:</strong> Bổ sung khi công trình có yêu cầu cụ thể và tài liệu phù hợp với đúng sản phẩm được cung cấp.</li>'
                     .'</ul>'
                     .'<p>Danh mục hồ sơ thực tế cần được xác định theo chỉ dẫn kỹ thuật và quy trình phê duyệt vật liệu của từng dự án. Chỉ nên đưa vào hồ sơ những chứng chỉ, chứng nhận và báo cáo thử nghiệm có thể xác minh được và áp dụng đúng cho sản phẩm được chào.</p>'
-                    .'<h2>12. KB Tech – Hỗ trợ lựa chọn vật liệu và hồ sơ dự án</h2>'
-                    .'<p>KB Tech hướng đến việc cung cấp giải pháp vật liệu bảo ôn phù hợp với yêu cầu kỹ thuật và điều kiện triển khai của từng công trình. Đối với K-FLEX, việc xác định đúng dòng sản phẩm, quy cách, độ dày và tài liệu đi kèm ngay từ giai đoạn chào hàng giúp nhà thầu chủ động hơn trong quá trình lập hồ sơ trình duyệt và chuẩn bị kế hoạch cung ứng.</p>'
-                    .'<p>Đối với chủ đầu tư, tư vấn thiết kế và nhà thầu MEP, việc kiểm tra tính thống nhất giữa sản phẩm thực tế và hồ sơ kỹ thuật là cơ sở quan trọng để kiểm soát chất lượng vật liệu đầu vào. KB Tech hướng đến việc hỗ trợ khách hàng làm rõ thông tin sản phẩm và các tài liệu cần thiết theo phạm vi cung cấp, qua đó góp phần nâng cao tính minh bạch trong quá trình lựa chọn vật liệu.</p>'
+                    .'<h2>12. HVAC Mart – Hỗ trợ lựa chọn vật liệu và hồ sơ dự án</h2>'
+                    .'<p>HVAC Mart hướng đến việc cung cấp giải pháp vật liệu bảo ôn phù hợp với yêu cầu kỹ thuật và điều kiện triển khai của từng công trình. Đối với K-FLEX, việc xác định đúng dòng sản phẩm, quy cách, độ dày và tài liệu đi kèm ngay từ giai đoạn chào hàng giúp nhà thầu chủ động hơn trong quá trình lập hồ sơ trình duyệt và chuẩn bị kế hoạch cung ứng.</p>'
+                    .'<p>Đối với chủ đầu tư, tư vấn thiết kế và nhà thầu MEP, việc kiểm tra tính thống nhất giữa sản phẩm thực tế và hồ sơ kỹ thuật là cơ sở quan trọng để kiểm soát chất lượng vật liệu đầu vào. HVAC Mart hướng đến việc hỗ trợ khách hàng làm rõ thông tin sản phẩm và các tài liệu cần thiết theo phạm vi cung cấp, qua đó góp phần nâng cao tính minh bạch trong quá trình lựa chọn vật liệu.</p>'
                     .'<h2>13. Vì sao nên lựa chọn bảo ôn K-FLEX cho công trình?</h2>'
                     .'<p>Lựa chọn bảo ôn K-FLEX cần được xem xét trên tổng thể các yếu tố: đặc tính cách nhiệt, khả năng kiểm soát ngưng tụ, sự phù hợp với điều kiện vận hành, quy cách sản phẩm và tính đầy đủ của hồ sơ kỹ thuật. Khi được lựa chọn đúng chủng loại và thi công theo yêu cầu, vật liệu góp phần nâng cao hiệu quả hoạt động của hệ thống cơ điện và hỗ trợ kiểm soát chi phí vận hành công trình.</p>'
                     .'<p>Đặc biệt, đối với các dự án yêu cầu trình duyệt vật liệu và nghiệm thu theo quy trình chặt chẽ, việc chuẩn bị đúng catalogue, bảng dữ liệu kỹ thuật, chứng chỉ chất lượng và báo cáo thử nghiệm liên quan giúp quá trình đánh giá sản phẩm có cơ sở rõ ràng hơn.</p>'
