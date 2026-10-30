@@ -47,76 +47,78 @@ function formatSize(bytes: number): string {
 </script>
 
 <template>
-    <Head title="HVAC Mart | Tin tức & Catalogue" />
+    <div>
+        <Head title="HVAC Mart | Tin tức & Catalogue" />
 
-    <UserLayout :cart-count="0" active-page="news">
-        <main>
-            <section class="page-intro">
-                <div class="wrap page-intro-inner">
-                    <div>
-                        <div class="eyebrow"><span class="dot"></span> HVAC MART / TIN TỨC</div>
-                        <h1>Tin tức &amp; Catalogue</h1>
-                        <p>Bài viết chia sẻ kiến thức kỹ thuật và catalogue sản phẩm Bình nước nóng Ariston và Bảo ôn K-Flex.</p>
-                    </div>
-                    <Link class="page-home-link" href="/"><FontAwesomeIcon :icon="['fas', 'arrow-left']" /> Về trang chủ</Link>
-                </div>
-            </section>
-
-            <section class="section">
-                <div class="wrap">
-                    <div class="news-tabs" role="tablist">
-                        <button
-                            v-for="tab in tabs"
-                            :key="tab.value"
-                            type="button"
-                            role="tab"
-                            class="news-tab"
-                            :class="{ active: activeTab === tab.value }"
-                            :aria-selected="activeTab === tab.value"
-                            @click="activeTab = tab.value"
-                        >{{ tab.label }} <span>{{ tab.count }}</span></button>
-                    </div>
-
-                    <div v-if="activeTab === 'articles'">
-                        <div v-if="articles.length" class="news-grid">
-                            <Link v-for="article in articles" :key="article.id" :href="`/news/${article.slug}`" class="news-card">
-                                <div class="news-thumb">
-                                    <img v-if="article.image_url" :src="article.image_url" :alt="article.title" loading="lazy">
-                                    <FontAwesomeIcon v-else :icon="['fas', 'newspaper']" />
-                                </div>
-                                <div class="news-body">
-                                    <time v-if="article.published_at">{{ formatDate(article.published_at) }}</time>
-                                    <h3>{{ article.title }}</h3>
-                                    <p>{{ article.excerpt }}</p>
-                                    <span class="news-more">Đọc tiếp →</span>
-                                </div>
-                            </Link>
+        <UserLayout :cart-count="0" active-page="news">
+            <main>
+                <section class="page-intro">
+                    <div class="wrap page-intro-inner">
+                        <div>
+                            <div class="eyebrow"><span class="dot"></span> HVAC MART / TIN TỨC</div>
+                            <h1>Tin tức &amp; Catalogue</h1>
+                            <p>Bài viết chia sẻ kiến thức kỹ thuật và catalogue sản phẩm Bình nước nóng Ariston và Bảo ôn K-Flex.</p>
                         </div>
-                        <p v-else class="news-empty">Chưa có bài viết nào.</p>
+                        <Link class="page-home-link" href="/"><FontAwesomeIcon :icon="['fas', 'arrow-left']" /> Về trang chủ</Link>
                     </div>
+                </section>
 
-                    <div v-else>
-                        <div v-if="catalogues.length" class="news-grid">
-                            <article v-for="catalogue in catalogues" :key="catalogue.id" class="news-card is-catalogue">
-                                <div class="news-thumb">
-                                    <img v-if="catalogue.image_url" :src="catalogue.image_url" :alt="catalogue.title" loading="lazy">
-                                    <FontAwesomeIcon v-else :icon="['fas', 'file-pdf']" />
-                                </div>
-                                <div class="news-body">
-                                    <h3>{{ catalogue.title }}</h3>
-                                    <p v-if="catalogue.description">{{ catalogue.description }}</p>
-                                    <small>PDF · {{ formatSize(catalogue.file_size) }}</small>
-                                    <div class="news-actions">
-                                        <a class="btn btn-primary" :href="catalogue.file_url" target="_blank" rel="noopener">Xem</a>
-                                        <a class="btn btn-outline" :href="catalogue.file_url" :download="catalogue.file_name">Tải về</a>
+                <section class="section">
+                    <div class="wrap">
+                        <div class="news-tabs" role="tablist">
+                            <button
+                                v-for="tab in tabs"
+                                :key="tab.value"
+                                type="button"
+                                role="tab"
+                                class="news-tab"
+                                :class="{ active: activeTab === tab.value }"
+                                :aria-selected="activeTab === tab.value"
+                                @click="activeTab = tab.value"
+                            >{{ tab.label }} <span>{{ tab.count }}</span></button>
+                        </div>
+
+                        <div v-if="activeTab === 'articles'">
+                            <div v-if="articles.length" class="news-grid">
+                                <Link v-for="article in articles" :key="article.id" :href="`/news/${article.slug}`" class="news-card">
+                                    <div class="news-thumb">
+                                        <img v-if="article.image_url" :src="article.image_url" :alt="article.title" loading="lazy">
+                                        <FontAwesomeIcon v-else :icon="['fas', 'newspaper']" />
                                     </div>
-                                </div>
-                            </article>
+                                    <div class="news-body">
+                                        <time v-if="article.published_at">{{ formatDate(article.published_at) }}</time>
+                                        <h3>{{ article.title }}</h3>
+                                        <p>{{ article.excerpt }}</p>
+                                        <span class="news-more">Đọc tiếp →</span>
+                                    </div>
+                                </Link>
+                            </div>
+                            <p v-else class="news-empty">Chưa có bài viết nào.</p>
                         </div>
-                        <p v-else class="news-empty">Chưa có catalogue nào.</p>
+
+                        <div v-else>
+                            <div v-if="catalogues.length" class="catalogue-grid">
+                                <article v-for="catalogue in catalogues" :key="catalogue.id" class="catalogue-card">
+                                    <div class="catalogue-thumb">
+                                        <img v-if="catalogue.image_url" :src="catalogue.image_url" :alt="catalogue.title" loading="lazy">
+                                        <span v-else class="catalogue-badge">PDF</span>
+                                    </div>
+                                    <div class="catalogue-body">
+                                        <span class="catalogue-meta">PDF · {{ formatSize(catalogue.file_size) }}</span>
+                                        <h3>{{ catalogue.title }}</h3>
+                                        <p v-if="catalogue.description">{{ catalogue.description }}</p>
+                                        <div class="catalogue-actions">
+                                            <a class="btn btn-outline" :href="catalogue.file_url" target="_blank" rel="noopener">Xem tài liệu</a>
+                                            <a class="btn btn-primary" :href="catalogue.file_url" :download="catalogue.file_name">Tải PDF</a>
+                                        </div>
+                                    </div>
+                                </article>
+                            </div>
+                            <p v-else class="news-empty">Chưa có catalogue nào.</p>
+                        </div>
                     </div>
-                </div>
-            </section>
-        </main>
-    </UserLayout>
+                </section>
+            </main>
+        </UserLayout>
+    </div>
 </template>

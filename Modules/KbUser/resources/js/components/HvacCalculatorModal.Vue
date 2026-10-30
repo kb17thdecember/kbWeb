@@ -112,8 +112,9 @@ const formatPrice = (price: number): string =>
 </script>
 
 <template>
-    <div v-if="open" class="modal-wrap open" role="presentation" @click.self="emit('close')">
-        <section class="modal kb-calc-modal" role="dialog" aria-modal="true" aria-label="Công cụ tính chọn thiết bị HVAC">
+    <Transition name="kb-modal">
+        <div v-if="open" class="modal-wrap open" role="presentation" @click.self="emit('close')">
+            <section class="modal kb-calc-modal" role="dialog" aria-modal="true" aria-label="Công cụ tính chọn thiết bị HVAC">
             <div class="kb-auth-modal-head">
                 <div>
                     <span class="eyebrow"><span class="dot"></span> SMART SIZING TOOL</span>
@@ -288,4 +289,5 @@ const formatPrice = (price: number): string =>
             </div>
         </section>
     </div>
+    </Transition>
 </template>

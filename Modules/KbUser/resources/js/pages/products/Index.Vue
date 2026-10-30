@@ -640,71 +640,73 @@ onUnmounted(() => {
                 </div>
             </div>
 
-            <div
-                v-if="isCompareModalOpen && compareProducts.length > 0"
-                class="modal-wrap open"
-                role="presentation"
-                @click.self="isCompareModalOpen = false"
-            >
-                <section class="modal kb-compare-modal" role="dialog" aria-modal="true" aria-label="So sánh thông số sản phẩm">
-                    <div class="kb-auth-modal-head">
-                        <div>
-                            <span class="eyebrow"><span class="dot"></span> PRODUCT COMPARISON</span>
-                            <h3>So sánh chi tiết sản phẩm ({{ compareProducts.length }} thiết bị)</h3>
+            <Transition name="kb-modal">
+                <div
+                    v-if="isCompareModalOpen && compareProducts.length > 0"
+                    class="modal-wrap open"
+                    role="presentation"
+                    @click.self="isCompareModalOpen = false"
+                >
+                    <section class="modal kb-compare-modal" role="dialog" aria-modal="true" aria-label="So sánh thông số sản phẩm">
+                        <div class="kb-auth-modal-head">
+                            <div>
+                                <span class="eyebrow"><span class="dot"></span> PRODUCT COMPARISON</span>
+                                <h3>So sánh chi tiết sản phẩm ({{ compareProducts.length }} thiết bị)</h3>
+                            </div>
+                            <button class="close-btn" type="button" aria-label="Đóng bảng so sánh" @click="isCompareModalOpen = false">×</button>
                         </div>
-                        <button class="close-btn" type="button" aria-label="Đóng bảng so sánh" @click="isCompareModalOpen = false">×</button>
-                    </div>
 
-                    <div class="kb-compare-table-wrap">
-                        <table class="kb-compare-table">
-                            <thead>
-                                <tr>
-                                    <th>Tiêu chí kỹ thuật</th>
-                                    <th v-for="item in compareProducts" :key="item.id">
-                                        <div class="kb-compare-col-head">
-                                            <img v-if="imageUrl(item)" :src="imageUrl(item) ?? undefined" :alt="item.name">
-                                            <strong>{{ item.name }}</strong>
-                                        </div>
-                                    </th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr>
-                                    <td>Tên thương mại</td>
-                                    <td v-for="item in compareProducts" :key="item.id">{{ item.product_title || item.name }}</td>
-                                </tr>
-                                <tr>
-                                    <td>Danh mục</td>
-                                    <td v-for="item in compareProducts" :key="item.id">{{ item.category?.name ?? '—' }}</td>
-                                </tr>
-                                <tr>
-                                    <td>Dòng sản phẩm</td>
-                                    <td v-for="item in compareProducts" :key="item.id">{{ item.subcategory?.name ?? '—' }}</td>
-                                </tr>
-                                <tr>
-                                    <td>Giá tham khảo</td>
-                                    <td v-for="item in compareProducts" :key="item.id">
-                                        <strong class="kb-compare-price">{{ formatPrice(item.price) }}</strong>
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <td>Mô tả &amp; thông số</td>
-                                    <td v-for="item in compareProducts" :key="item.id">{{ item.description }}</td>
-                                </tr>
-                                <tr>
-                                    <td>Thao tác</td>
-                                    <td v-for="item in compareProducts" :key="item.id">
-                                        <div class="kb-compare-cell-actions">
-                                            <button type="button" class="btn btn-primary" @click="addToCart(item)">+ Giỏ báo giá</button>
-                                            <Link :href="`/products/${item.id}`" class="btn btn-outline">Xem chi tiết</Link>
-                                        </div>
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </section>
-            </div>
+                        <div class="kb-compare-table-wrap">
+                            <table class="kb-compare-table">
+                                <thead>
+                                    <tr>
+                                        <th>Tiêu chí kỹ thuật</th>
+                                        <th v-for="item in compareProducts" :key="item.id">
+                                            <div class="kb-compare-col-head">
+                                                <img v-if="imageUrl(item)" :src="imageUrl(item) ?? undefined" :alt="item.name">
+                                                <strong>{{ item.name }}</strong>
+                                            </div>
+                                        </th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td>Tên thương mại</td>
+                                        <td v-for="item in compareProducts" :key="item.id">{{ item.product_title || item.name }}</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Danh mục</td>
+                                        <td v-for="item in compareProducts" :key="item.id">{{ item.category?.name ?? '—' }}</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Dòng sản phẩm</td>
+                                        <td v-for="item in compareProducts" :key="item.id">{{ item.subcategory?.name ?? '—' }}</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Giá tham khảo</td>
+                                        <td v-for="item in compareProducts" :key="item.id">
+                                            <strong class="kb-compare-price">{{ formatPrice(item.price) }}</strong>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td>Mô tả &amp; thông số</td>
+                                        <td v-for="item in compareProducts" :key="item.id">{{ item.description }}</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Thao tác</td>
+                                        <td v-for="item in compareProducts" :key="item.id">
+                                            <div class="kb-compare-cell-actions">
+                                                <button type="button" class="btn btn-primary" @click="addToCart(item)">+ Giỏ báo giá</button>
+                                                <Link :href="`/products/${item.id}`" class="btn btn-outline">Xem chi tiết</Link>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </section>
+                </div>
+            </Transition>
 
             <HvacCalculatorModal
                 :open="isCalculatorOpen"
@@ -713,46 +715,48 @@ onUnmounted(() => {
                 @add-to-cart="(prod) => addToCart(prod as Product)"
             />
 
-            <div
-                v-if="selectedProduct"
-                class="modal-wrap open"
-                role="presentation"
-                @click.self="selectedProduct = null"
-            >
-                <section class="modal" role="dialog" aria-modal="true" :aria-label="`Thông tin ${selectedProduct.name}`">
-                    <button class="close-btn modal-close" type="button" aria-label="Đóng" @click="selectedProduct = null"><FontAwesomeIcon :icon="['fas', 'xmark']" /></button>
-                    <div class="quick-modal">
-                        <div class="modal-art">
-                            <img v-if="selectedImage" :src="selectedImage" :alt="selectedProduct.name">
-                            <div v-else class="modal-image-placeholder">{{ selectedProduct.category?.name ?? 'HVAC Mart' }}</div>
-                            <div v-if="selectedImages.length > 1" class="product-gallery-controls">
-                                <button type="button" aria-label="Ảnh trước" @click="stepImage(-1)"><FontAwesomeIcon :icon="['fas', 'arrow-left']" /></button>
-                                <span>{{ selectedImageIndex + 1 }} / {{ selectedImages.length }}</span>
-                                <button type="button" aria-label="Ảnh tiếp theo" @click="stepImage(1)"><FontAwesomeIcon :icon="['fas', 'arrow-right']" /></button>
+            <Transition name="kb-modal">
+                <div
+                    v-if="selectedProduct"
+                    class="modal-wrap open"
+                    role="presentation"
+                    @click.self="selectedProduct = null"
+                >
+                    <section class="modal" role="dialog" aria-modal="true" :aria-label="`Thông tin ${selectedProduct.name}`">
+                        <button class="close-btn modal-close" type="button" aria-label="Đóng" @click="selectedProduct = null"><FontAwesomeIcon :icon="['fas', 'xmark']" /></button>
+                        <div class="quick-modal">
+                            <div class="modal-art">
+                                <img v-if="selectedImage" :src="selectedImage" :alt="selectedProduct.name">
+                                <div v-else class="modal-image-placeholder">{{ selectedProduct.category?.name ?? 'HVAC Mart' }}</div>
+                                <div v-if="selectedImages.length > 1" class="product-gallery-controls">
+                                    <button type="button" aria-label="Ảnh trước" @click="stepImage(-1)"><FontAwesomeIcon :icon="['fas', 'arrow-left']" /></button>
+                                    <span>{{ selectedImageIndex + 1 }} / {{ selectedImages.length }}</span>
+                                    <button type="button" aria-label="Ảnh tiếp theo" @click="stepImage(1)"><FontAwesomeIcon :icon="['fas', 'arrow-right']" /></button>
+                                </div>
+                            </div>
+                            <div class="modal-copy">
+                                <div class="product-meta">{{ selectedProduct.category?.name }} · {{ selectedProduct.subcategory?.name }}</div>
+                                <h2>{{ selectedProduct.product_title || selectedProduct.name }}</h2>
+                                <p class="product-description">{{ selectedProduct.description }}</p>
+                                <div class="modal-price">{{ formatPrice(selectedProduct.price) }} <span>/ sản phẩm · giá tham khảo</span></div>
+                                <div class="kb-modal-btn-row">
+                                    <button
+                                        class="btn btn-primary"
+                                        type="button"
+                                        @click="addToCart(selectedProduct); selectedProduct = null; openCartDrawer()"
+                                    >Thêm vào giỏ</button>
+                                    <Link
+                                        class="btn btn-outline"
+                                        :href="`/products/${selectedProduct.id}`"
+                                        @click="selectedProduct = null"
+                                    >Xem chi tiết &amp; Đánh giá</Link>
+                                </div>
+                                <p class="modal-disclaimer">Thông số và giá bán thực tế cần được xác nhận trước khi đặt hàng.</p>
                             </div>
                         </div>
-                        <div class="modal-copy">
-                            <div class="product-meta">{{ selectedProduct.category?.name }} · {{ selectedProduct.subcategory?.name }}</div>
-                            <h2>{{ selectedProduct.product_title || selectedProduct.name }}</h2>
-                            <p class="product-description">{{ selectedProduct.description }}</p>
-                            <div class="modal-price">{{ formatPrice(selectedProduct.price) }} <span>/ sản phẩm · giá tham khảo</span></div>
-                            <div class="kb-modal-btn-row">
-                                <button
-                                    class="btn btn-primary"
-                                    type="button"
-                                    @click="addToCart(selectedProduct); selectedProduct = null; openCartDrawer()"
-                                >Thêm vào giỏ</button>
-                                <Link
-                                    class="btn btn-outline"
-                                    :href="`/products/${selectedProduct.id}`"
-                                    @click="selectedProduct = null"
-                                >Xem chi tiết &amp; Đánh giá</Link>
-                            </div>
-                            <p class="modal-disclaimer">Thông số và giá bán thực tế cần được xác nhận trước khi đặt hàng.</p>
-                        </div>
-                    </div>
-                </section>
-            </div>
+                    </section>
+                </div>
+            </Transition>
 
             <div class="toast" :class="{ show: isToastVisible }" role="status" aria-live="polite">
                 <span class="toast-dot"></span>{{ toastMessage }}

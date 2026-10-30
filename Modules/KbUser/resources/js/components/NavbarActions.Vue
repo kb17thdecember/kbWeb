@@ -838,123 +838,127 @@ onUnmounted(() => {
                 </div>
             </aside>
 
-            <div
-                class="modal-wrap"
-                :class="{ open: isAccountModalOpen }"
-                :aria-hidden="!isAccountModalOpen"
-                @click.self="isAccountModalOpen = false"
-            >
-                <div v-if="isAccountModalOpen" class="modal kb-account-modal" role="dialog" aria-modal="true" aria-label="Hồ sơ khách hàng HVAC Mart">
-                    <div class="kb-auth-modal-head">
-                        <div>
-                            <span class="eyebrow"><span class="dot"></span> CUSTOMER PORTAL</span>
-                            <h3>Hồ sơ báo giá &amp; Sản phẩm đã lưu</h3>
+            <Transition name="kb-modal">
+                <div
+                    v-if="isAccountModalOpen"
+                    class="modal-wrap open"
+                    role="presentation"
+                    @click.self="isAccountModalOpen = false"
+                >
+                    <div class="modal kb-account-modal" role="dialog" aria-modal="true" aria-label="Hồ sơ khách hàng HVAC Mart">
+                        <div class="kb-auth-modal-head">
+                            <div>
+                                <span class="eyebrow"><span class="dot"></span> CUSTOMER PORTAL</span>
+                                <h3>Hồ sơ báo giá &amp; Sản phẩm đã lưu</h3>
+                            </div>
+                            <button class="close-btn" type="button" aria-label="Đóng cửa sổ" @click="isAccountModalOpen = false">×</button>
                         </div>
-                        <button class="close-btn" type="button" aria-label="Đóng cửa sổ" @click="isAccountModalOpen = false">×</button>
-                    </div>
 
-                    <div class="kb-auth-tabs" role="tablist">
-                        <button
-                            type="button"
-                            class="kb-auth-tab"
-                            :class="{ active: accountTab === 'quotes' }"
-                            @click="accountTab = 'quotes'"
-                        >
-                            Lịch sử báo giá ({{ myQuotes.length }})
-                        </button>
-                        <button
-                            type="button"
-                            class="kb-auth-tab"
-                            :class="{ active: accountTab === 'wishlist' }"
-                            @click="accountTab = 'wishlist'"
-                        >
-                            Sản phẩm yêu thích ({{ myWishlistProducts.length }})
-                        </button>
-                    </div>
-
-                    <div v-if="isLoadingAccount" class="empty-state">
-                        Đang tải dữ liệu tài khoản...
-                    </div>
-
-                    <div v-else-if="accountTab === 'quotes'" class="kb-account-body">
-                        <div v-if="myQuotes.length === 0" class="empty-state">
-                            Bạn chưa có yêu cầu báo giá nào. Hãy thêm sản phẩm vào giỏ hoặc gửi yêu cầu tại trang Liên hệ.
+                        <div class="kb-auth-tabs" role="tablist">
+                            <button
+                                type="button"
+                                class="kb-auth-tab"
+                                :class="{ active: accountTab === 'quotes' }"
+                                @click="accountTab = 'quotes'"
+                            >
+                                Lịch sử báo giá ({{ myQuotes.length }})
+                            </button>
+                            <button
+                                type="button"
+                                class="kb-auth-tab"
+                                :class="{ active: accountTab === 'wishlist' }"
+                                @click="accountTab = 'wishlist'"
+                            >
+                                Sản phẩm yêu thích ({{ myWishlistProducts.length }})
+                            </button>
                         </div>
-                        <div v-else class="kb-quote-history-list">
-                            <article v-for="quote in myQuotes" :key="quote.id" class="kb-quote-item">
-                                <div class="kb-quote-item-head">
-                                    <div>
-                                        <strong>#BG-{{ quote.id }} · {{ quote.project_name || quote.category_id || 'Yêu cầu báo giá vật tư' }}</strong>
-                                        <small>Ngày gửi: {{ formatDate(quote.created_at) }}</small>
+
+                        <div v-if="isLoadingAccount" class="empty-state">
+                            Đang tải dữ liệu tài khoản...
+                        </div>
+
+                        <div v-else-if="accountTab === 'quotes'" class="kb-account-body">
+                            <div v-if="myQuotes.length === 0" class="empty-state">
+                                Bạn chưa có yêu cầu báo giá nào. Hãy thêm sản phẩm vào giỏ hoặc gửi yêu cầu tại trang Liên hệ.
+                            </div>
+                            <div v-else class="kb-quote-history-list">
+                                <article v-for="quote in myQuotes" :key="quote.id" class="kb-quote-item">
+                                    <div class="kb-quote-item-head">
+                                        <div>
+                                            <strong>#BG-{{ quote.id }} · {{ quote.project_name || quote.category_id || 'Yêu cầu báo giá vật tư' }}</strong>
+                                            <small>Ngày gửi: {{ formatDate(quote.created_at) }}</small>
+                                        </div>
+                                        <span class="kb-quote-status" :class="`status-${quote.status}`">
+                                            {{ quoteStatusLabel(quote.status) }}
+                                        </span>
                                     </div>
-                                    <span class="kb-quote-status" :class="`status-${quote.status}`">
-                                        {{ quoteStatusLabel(quote.status) }}
-                                    </span>
-                                </div>
-                                <p v-if="quote.product" class="kb-quote-products">{{ quote.product }}</p>
-                                <p class="kb-quote-msg">{{ quote.message }}</p>
-                                <a
-                                    v-if="quote.attachment_url"
-                                    :href="quote.attachment_url"
-                                    target="_blank"
-                                    rel="noopener"
-                                    class="kb-quote-attachment"
-                                >
-                                    📎 File đính kèm: {{ quote.attachment_name || 'Tài liệu BOQ' }}
-                                </a>
-                            </article>
+                                    <p v-if="quote.product" class="kb-quote-products">{{ quote.product }}</p>
+                                    <p class="kb-quote-msg">{{ quote.message }}</p>
+                                    <a
+                                        v-if="quote.attachment_url"
+                                        :href="quote.attachment_url"
+                                        target="_blank"
+                                        rel="noopener"
+                                        class="kb-quote-attachment"
+                                    >
+                                        📎 File đính kèm: {{ quote.attachment_name || 'Tài liệu BOQ' }}
+                                    </a>
+                                </article>
+                            </div>
                         </div>
-                    </div>
 
-                    <div v-else class="kb-account-body">
-                        <div v-if="myWishlistProducts.length === 0" class="empty-state">
-                            Bạn chưa lưu sản phẩm nào. Nhấn biểu tượng ♡ trên sản phẩm để lưu lại.
-                        </div>
-                        <div v-else class="kb-wishlist-list">
-                            <article v-for="item in myWishlistProducts" :key="item.id" class="kb-wishlist-row">
-                                <div>
-                                    <Link :href="`/products/${item.id}`" class="kb-calc-prod-link" @click="isAccountModalOpen = false">
-                                        {{ item.name }}
-                                    </Link>
-                                    <small>{{ item.category?.name ?? 'Sản phẩm' }} · {{ formatPrice(item.price) }}</small>
-                                </div>
-                                <div class="kb-wishlist-row-actions">
-                                    <button type="button" class="btn btn-primary kb-calc-add-btn" @click="addWishlistToCart(item)">
-                                        + Giỏ hàng
-                                    </button>
-                                    <button type="button" class="btn btn-outline kb-calc-add-btn" @click="removeWishlistItem(item.id)">
-                                        Bỏ lưu
-                                    </button>
-                                </div>
-                            </article>
+                        <div v-else class="kb-account-body">
+                            <div v-if="myWishlistProducts.length === 0" class="empty-state">
+                                Bạn chưa lưu sản phẩm nào. Nhấn biểu tượng ♡ trên sản phẩm để lưu lại.
+                            </div>
+                            <div v-else class="kb-wishlist-list">
+                                <article v-for="item in myWishlistProducts" :key="item.id" class="kb-wishlist-row">
+                                    <div>
+                                        <Link :href="`/products/${item.id}`" class="kb-calc-prod-link" @click="isAccountModalOpen = false">
+                                            {{ item.name }}
+                                        </Link>
+                                        <small>{{ item.category?.name ?? 'Sản phẩm' }} · {{ formatPrice(item.price) }}</small>
+                                    </div>
+                                    <div class="kb-wishlist-row-actions">
+                                        <button type="button" class="btn btn-primary kb-calc-add-btn" @click="addWishlistToCart(item)">
+                                            + Giỏ hàng
+                                        </button>
+                                        <button type="button" class="btn btn-outline kb-calc-add-btn" @click="removeWishlistItem(item.id)">
+                                            Bỏ lưu
+                                        </button>
+                                    </div>
+                                </article>
+                            </div>
                         </div>
                     </div>
                 </div>
-            </div>
+            </Transition>
 
-            <div
-                class="modal-wrap"
-                :class="{ open: isAuthModalOpen }"
-                :aria-hidden="!isAuthModalOpen"
-                @click.self="isAuthModalOpen = false"
-            >
-                <div v-if="isAuthModalOpen" class="modal kb-auth-modal" role="dialog" aria-modal="true" aria-label="Tài khoản HVAC Mart">
-                    <div class="kb-auth-modal-head">
-                        <div>
-                            <span class="eyebrow"><span class="dot"></span> HVAC MART ACCOUNT</span>
-                            <h3>Tài khoản khách hàng &amp; đối tác</h3>
+            <Transition name="kb-modal">
+                <div
+                    v-if="isAuthModalOpen"
+                    class="modal-wrap open"
+                    role="presentation"
+                    @click.self="isAuthModalOpen = false"
+                >
+                    <div class="modal kb-auth-modal" role="dialog" aria-modal="true" aria-label="Tài khoản HVAC Mart">
+                        <div class="kb-auth-modal-head">
+                            <div>
+                                <span class="eyebrow"><span class="dot"></span> HVAC MART ACCOUNT</span>
+                                <h3>Tài khoản khách hàng &amp; đối tác</h3>
+                            </div>
+                            <button class="close-btn" type="button" aria-label="Đóng cửa sổ" @click="isAuthModalOpen = false">×</button>
                         </div>
-                        <button class="close-btn" type="button" aria-label="Đóng cửa sổ" @click="isAuthModalOpen = false">×</button>
-                    </div>
 
-                    <UserAuthPanel
-                        :initial-mode="authModalMode"
-                        :google-error="googleError"
-                        :compact="true"
-                        @success="isAuthModalOpen = false"
-                    />
+                        <UserAuthPanel
+                            :initial-mode="authModalMode"
+                            :google-error="googleError"
+                            :compact="true"
+                            @success="isAuthModalOpen = false"
+                        />
+                    </div>
                 </div>
-            </div>
+            </Transition>
         </Teleport>
     </div>
 </template>

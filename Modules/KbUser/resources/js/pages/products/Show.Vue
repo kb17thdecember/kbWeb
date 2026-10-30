@@ -520,12 +520,15 @@ onUnmounted(() => {
                                             <span v-else class="catalogue-badge">PDF</span>
                                         </div>
                                         <div class="catalogue-body">
-                                            <span class="catalogue-meta">{{ catalogue.file_name }} · {{ formatSize(catalogue.file_size) }}</span>
+                                            <span class="catalogue-meta">PDF · {{ formatSize(catalogue.file_size) }}</span>
                                             <h3>{{ catalogue.title }}</h3>
                                             <p v-if="catalogue.description">{{ catalogue.description }}</p>
                                             <div class="catalogue-actions">
-                                                <a class="btn btn-primary" :href="catalogue.file_url" :download="catalogue.file_name" target="_blank" rel="noopener">
-                                                    Tải Catalogue PDF
+                                                <a class="btn btn-outline" :href="catalogue.file_url" target="_blank" rel="noopener">
+                                                    Xem tài liệu
+                                                </a>
+                                                <a class="btn btn-primary" :href="catalogue.file_url" :download="catalogue.file_name">
+                                                    Tải PDF
                                                 </a>
                                             </div>
                                         </div>

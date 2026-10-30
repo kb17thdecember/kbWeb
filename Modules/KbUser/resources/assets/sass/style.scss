@@ -1994,6 +1994,12 @@ img,svg {
   .drawer {
     transition: transform .62s cubic-bezier(.22,.61,.36,1) !important;
   }
+  .modal-wrap,.modal-wrap.kb-modal-enter-active,.modal-wrap.kb-modal-leave-active {
+    transition: opacity .38s cubic-bezier(.22,.61,.36,1) !important;
+  }
+  .modal,.modal-wrap.kb-modal-enter-active .modal,.modal-wrap.kb-modal-leave-active .modal {
+    transition: transform .52s cubic-bezier(.22,.61,.36,1), opacity .38s cubic-bezier(.22,.61,.36,1) !important;
+  }
 }
 @media (max-width:1050px) {
   .navlinks {
@@ -6106,6 +6112,137 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
   margin-top: 52px;
 }
 
+/* Compact & Luxury Catalogue Cards */
+.catalogue-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 16px;
+  margin-top: 18px;
+}
+
+.catalogue-card {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 16px;
+  align-items: center;
+  padding: 14px 16px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  transition: border-color .22s, box-shadow .22s;
+}
+
+.catalogue-card:hover {
+  border-color: var(--brass);
+  box-shadow: 0 10px 26px rgba(23, 23, 20, .06);
+}
+
+.catalogue-thumb {
+  width: fit-content;
+  height: fit-content;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.catalogue-thumb:not(:has(img)) {
+  width: 88px;
+  height: 112px;
+}
+
+.catalogue-thumb img {
+  display: block;
+  width: auto;
+  height: auto;
+  max-width: 96px;
+  max-height: 128px;
+}
+
+.catalogue-badge {
+  padding: 5px 9px;
+  border: 1px solid var(--brass);
+  color: var(--brass);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .08em;
+}
+
+.catalogue-body {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+}
+
+.catalogue-meta {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--brass);
+}
+
+.catalogue-body h3 {
+  margin: 0;
+  font-family: var(--serif);
+  font-size: 16px;
+  font-weight: 500;
+  line-height: 1.3;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.catalogue-body p {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--muted);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.catalogue-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+  flex-wrap: wrap;
+}
+
+.catalogue-actions .btn {
+  padding: 8px 13px;
+  font-size: 10px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  border-radius: 2px;
+}
+
+@media (max-width: 520px) {
+  .catalogue-grid {
+    grid-template-columns: 1fr;
+  }
+  .catalogue-card {
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 12px;
+    padding: 12px;
+  }
+  .catalogue-thumb img {
+    max-width: 76px;
+    max-height: 102px;
+  }
+}
+
 .kb-article-comments {
   margin-top: 42px;
   padding-top: 28px;
@@ -6420,6 +6557,41 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
   .kb-product-tabs-wrap .kb-auth-tabs {
     grid-template-columns: 1fr;
   }
+}
+
+/* Smooth Modal Enter & Leave Transitions (matching Cart Drawer easing) */
+.modal-wrap {
+  background: rgba(15, 22, 18, .54);
+  backdrop-filter: blur(4px);
+  transition: opacity .38s cubic-bezier(.22, .61, .36, 1);
+  will-change: opacity;
+}
+
+.modal {
+  transition: transform .52s cubic-bezier(.22, .61, .36, 1), opacity .38s cubic-bezier(.22, .61, .36, 1);
+  will-change: transform, opacity;
+  backface-visibility: hidden;
+}
+
+.modal-wrap.kb-modal-enter-active,
+.modal-wrap.kb-modal-leave-active {
+  transition: opacity .38s cubic-bezier(.22, .61, .36, 1);
+}
+
+.modal-wrap.kb-modal-enter-active .modal,
+.modal-wrap.kb-modal-leave-active .modal {
+  transition: transform .52s cubic-bezier(.22, .61, .36, 1), opacity .38s cubic-bezier(.22, .61, .36, 1);
+}
+
+.modal-wrap.kb-modal-enter-from,
+.modal-wrap.kb-modal-leave-to {
+  opacity: 0;
+}
+
+.modal-wrap.kb-modal-enter-from .modal,
+.modal-wrap.kb-modal-leave-to .modal {
+  opacity: 0;
+  transform: translate3d(0, 28px, 0) scale(.96);
 }
 
 /* ============================================================

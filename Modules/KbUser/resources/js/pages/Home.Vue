@@ -1075,6 +1075,7 @@ onUnmounted(() => {
         </section>
     </main>
 
+    <Transition name="kb-modal">
     <div v-if="isProductModalOpen && selectedProduct" class="modal-wrap open" role="presentation" @click.self="closeProduct">
       <section class="modal" role="dialog" aria-modal="true" :aria-label="`Thông tin ${selectedProduct.name}`">
         <button class="close-btn modal-close" type="button" aria-label="Đóng" @click="closeProduct"><FontAwesomeIcon :icon="['fas', 'xmark']" /></button>
@@ -1106,7 +1107,9 @@ onUnmounted(() => {
         </div>
       </section>
     </div>
+    </Transition>
 
+    <Transition name="kb-modal">
     <div v-if="isCheckoutOpen" class="modal-wrap open" role="presentation" @click.self="isCheckoutOpen = false">
       <section class="modal checkout-modal" role="dialog" aria-modal="true" aria-label="Yêu cầu báo giá">
         <button class="close-btn modal-close" type="button" aria-label="Đóng" @click="isCheckoutOpen = false"><FontAwesomeIcon :icon="['fas', 'xmark']" /></button>
@@ -1139,7 +1142,9 @@ onUnmounted(() => {
         </form>
       </section>
     </div>
+    </Transition>
 
+    <Transition name="kb-modal">
     <div
       v-if="isProjectModalOpen && selectedProject"
       class="modal-wrap open"
@@ -1201,6 +1206,7 @@ onUnmounted(() => {
         </div>
       </section>
     </div>
+    </Transition>
 
     <div class="toast" :class="{ show: isToastVisible }" role="status" aria-live="polite">
       <span class="toast-dot"></span>{{ toastMessage }}
