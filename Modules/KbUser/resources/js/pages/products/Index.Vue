@@ -286,8 +286,8 @@ onUnmounted(() => {
                 <div class="wrap page-intro-inner">
                     <div>
                         <div class="eyebrow"><span class="dot"></span> HVAC MART / SẢN PHẨM</div>
-                        <h1>Danh mục sản phẩm</h1>
-                        <p>Thiết bị HVAC, vật tư bảo ôn K-FLEX và bình nước nóng Ariston cho các hạng mục công trình.</p>
+                        <h1>Danh sách sản phẩm</h1>
+                        <p>Bảo ôn K-FLEX và bình nước nóng Ariston cho các hạng mục công trình.</p>
                     </div>
                     <Link class="page-home-link" href="/"><FontAwesomeIcon :icon="['fas', 'arrow-left']" /> Về trang chủ</Link>
                 </div>

@@ -47,7 +47,7 @@ function formatSize(bytes: number): string {
 </script>
 
 <template>
-    <Head title="Tin tức & Catalogue" />
+    <Head title="HVAC Mart | Tin tức & Catalogue" />
 
     <UserLayout :cart-count="0" active-page="news">
         <main>
@@ -56,7 +56,7 @@ function formatSize(bytes: number): string {
                     <div>
                         <div class="eyebrow"><span class="dot"></span> HVAC MART / TIN TỨC</div>
                         <h1>Tin tức &amp; Catalogue</h1>
-                        <p>Bài viết chia sẻ kiến thức kỹ thuật và catalogue sản phẩm để bạn xem hoặc tải về.</p>
+                        <p>Bài viết chia sẻ kiến thức kỹ thuật và catalogue sản phẩm Bình nước nóng Ariston và Bảo ôn K-Flex.</p>
                     </div>
                     <Link class="page-home-link" href="/"><FontAwesomeIcon :icon="['fas', 'arrow-left']" /> Về trang chủ</Link>
                 </div>
