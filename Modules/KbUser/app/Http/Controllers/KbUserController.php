@@ -10,6 +10,8 @@ use App\Models\Category;
 use App\Models\Contact;
 use App\Models\FeaturedProject;
 use App\Models\Product;
+use App\Models\ProductReview;
+use App\Models\Wishlist;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -33,6 +35,8 @@ class KbUserController extends Controller
 
         $products = Product::query()
             ->with(['category:id,name', 'subcategory:id,name', 'images'])
+            ->withAvg('reviews', 'rating')
+            ->withCount('reviews')
             ->orderByDesc('id')
             ->get([
                 'id',
@@ -98,6 +102,8 @@ class KbUserController extends Controller
 
         $products = Product::query()
             ->with(['category:id,name', 'subcategory:id,name', 'images'])
+            ->withAvg('reviews', 'rating')
+            ->withCount('reviews')
             ->orderByDesc('id')
             ->get([
                 'id',
@@ -113,6 +119,85 @@ class KbUserController extends Controller
             'categories' => $categories,
             'products' => $products,
         ]);
+    }
+
+    public function showProduct(Product $product): InertiaResponse
+    {
+        $product->load([
+            'category:id,name',
+            'subcategory:id,name',
+            'images',
+            'reviews' => fn ($query) => $query->with('user:id,name,avatar')->latest(),
+            'comments' => fn ($query) => $query->with('user:id,name,avatar')->latest(),
+        ]);
+
+        $relatedProducts = Product::query()
+            ->with(['category:id,name', 'subcategory:id,name', 'images'])
+            ->withAvg('reviews', 'rating')
+            ->withCount('reviews')
+            ->where('category_id', $product->category_id)
+            ->whereKeyNot($product->id)
+            ->orderByDesc('id')
+            ->limit(4)
+            ->get([
+                'id',
+                'name',
+                'product_title',
+                'category_id',
+                'subcategory_id',
+                'description',
+                'price',
+            ]);
+
+        $catalogues = Catalogue::query()
+            ->published()
+            ->with('images')
+            ->latest()
+            ->limit(4)
+            ->get(['id', 'title', 'description', 'file_path', 'file_name', 'file_size']);
+
+        return Inertia::render('products/Show', [
+            'product' => $product,
+            'relatedProducts' => $relatedProducts,
+            'catalogues' => $catalogues,
+            'averageRating' => round((float) $product->reviews->avg('rating'), 1),
+            'reviewsCount' => $product->reviews->count(),
+        ]);
+    }
+
+    public function storeProductReview(Request $request, Product $product): RedirectResponse
+    {
+        $validated = $request->validate([
+            'rating' => ['required', 'integer', 'min:1', 'max:5'],
+            'comment' => ['required', 'string', 'max:2000'],
+        ]);
+
+        ProductReview::query()->updateOrCreate(
+            [
+                'product_id' => $product->id,
+                'user_id' => $request->user()->id,
+            ],
+            [
+                'rating' => $validated['rating'],
+                'comment' => $validated['comment'],
+            ],
+        );
+
+        return back();
+    }
+
+    public function storeProductComment(Request $request, Product $product): RedirectResponse
+    {
+        $validated = $request->validate([
+            'body' => ['required', 'string', 'max:2000'],
+        ]);
+
+        $product->comments()->create([
+            'user_id' => $request->user()->id,
+            'body' => $validated['body'],
+        ]);
+
+        return back();
     }
 
     public function searchProducts(Request $request): JsonResponse
@@ -210,7 +295,10 @@ class KbUserController extends Controller
     {
         abort_unless($article->is_published, 404);
 
-        $article->load('images');
+        $article->load([
+            'images',
+            'comments' => fn ($query) => $query->with('user:id,name,avatar')->latest(),
+        ]);
 
         return Inertia::render('news/Show', [
             'article' => $article,
@@ -221,6 +309,95 @@ class KbUserController extends Controller
                 ->orderByDesc('published_at')
                 ->limit(3)
                 ->get(['id', 'title', 'slug', 'excerpt', 'published_at']),
+        ]);
+    }
+
+    public function storeArticleComment(Request $request, Article $article): RedirectResponse
+    {
+        abort_unless($article->is_published, 404);
+
+        $validated = $request->validate([
+            'body' => ['required', 'string', 'max:2000'],
+        ]);
+
+        $article->comments()->create([
+            'user_id' => $request->user()->id,
+            'body' => $validated['body'],
+        ]);
+
+        return back();
+    }
+
+    public function toggleWishlist(Request $request, Product $product): JsonResponse|RedirectResponse
+    {
+        $user = $request->user();
+        $existing = Wishlist::query()
+            ->where('user_id', $user->id)
+            ->where('product_id', $product->id)
+            ->first();
+
+        if ($existing) {
+            $existing->delete();
+            $wishlisted = false;
+        } else {
+            Wishlist::query()->create([
+                'user_id' => $user->id,
+                'product_id' => $product->id,
+            ]);
+            $wishlisted = true;
+        }
+
+        $wishlistIds = $user->wishlists()->pluck('product_id')->all();
+
+        if ($request->expectsJson()) {
+            return response()->json([
+                'wishlisted' => $wishlisted,
+                'wishlistIds' => $wishlistIds,
+            ]);
+        }
+
+        return back();
+    }
+
+    public function accountOverview(Request $request): JsonResponse
+    {
+        $user = $request->user();
+
+        $quotes = Contact::query()
+            ->where(function ($query) use ($user): void {
+                $query->where('user_id', $user->id)
+                    ->orWhere('email', $user->email);
+            })
+            ->latest()
+            ->limit(25)
+            ->get([
+                'id',
+                'project_name',
+                'category_id',
+                'product',
+                'message',
+                'status',
+                'attachment_path',
+                'attachment_name',
+                'created_at',
+            ]);
+
+        $wishlistProducts = Product::query()
+            ->with(['category:id,name', 'subcategory:id,name', 'images'])
+            ->whereIn('id', $user->wishlists()->pluck('product_id'))
+            ->get([
+                'id',
+                'name',
+                'product_title',
+                'category_id',
+                'subcategory_id',
+                'description',
+                'price',
+            ]);
+
+        return response()->json([
+            'quotes' => $quotes,
+            'wishlistProducts' => $wishlistProducts,
         ]);
     }
 
@@ -250,13 +427,24 @@ class KbUserController extends Controller
             ],
             'project_name' => ['nullable', 'string', 'max:255'],
             'message' => ['required_without:items', 'nullable', 'string', 'max:5000'],
+            'attachment' => ['nullable', 'file', 'mimes:pdf,doc,docx,xls,xlsx,csv,jpg,jpeg,png,webp', 'max:10240'],
             'items' => ['nullable', 'array', 'max:50'],
             'items.*.id' => ['required', 'integer', 'distinct', 'exists:products,id'],
             'items.*.quantity' => ['required', 'integer', 'min:1', 'max:9999'],
         ]);
 
         $items = $validated['items'] ?? [];
-        unset($validated['items']);
+        unset($validated['items'], $validated['attachment']);
+
+        if ($request->user()) {
+            $validated['user_id'] = $request->user()->id;
+        }
+
+        if ($request->hasFile('attachment')) {
+            $file = $request->file('attachment');
+            $validated['attachment_path'] = $file->store('contact-attachments', 'public');
+            $validated['attachment_name'] = $file->getClientOriginalName();
+        }
 
         if ($items !== []) {
             $products = Product::query()

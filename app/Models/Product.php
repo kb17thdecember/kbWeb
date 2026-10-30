@@ -6,6 +6,8 @@ use App\Models\Concerns\HasImages;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 
 class Product extends Model
 {
@@ -61,5 +63,21 @@ class Product extends Model
     public function subcategory(): BelongsTo
     {
         return $this->belongsTo(Category::class, 'subcategory_id');
+    }
+
+    /**
+     * @return HasMany<ProductReview, $this>
+     */
+    public function reviews(): HasMany
+    {
+        return $this->hasMany(ProductReview::class)->latest();
+    }
+
+    /**
+     * @return MorphMany<Comment, $this>
+     */
+    public function comments(): MorphMany
+    {
+        return $this->morphMany(Comment::class, 'commentable')->latest();
     }
 }

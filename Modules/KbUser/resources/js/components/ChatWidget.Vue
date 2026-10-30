@@ -318,9 +318,29 @@ onBeforeUnmount(() => {
             </form>
         </section>
 
-        <button class="chat-toggle" type="button" :aria-label="isOpen ? 'Đóng chat' : 'Mở chat'" @click="toggle">
-            <FontAwesomeIcon :icon="['fas', isOpen ? 'xmark' : 'comments']" />
-            <span v-if="unreadCount > 0 && !isOpen" class="chat-badge">{{ unreadCount }}</span>
-        </button>
+        <div class="kb-floating-quick-contacts">
+            <a
+                href="https://zalo.me/0979807234"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="kb-quick-contact-btn is-zalo"
+                aria-label="Chat Zalo 0979.807.234"
+                title="Tư vấn nhanh qua Zalo: 0979.807.234"
+            >
+                <span>Zalo</span>
+            </a>
+            <a
+                href="tel:0979807234"
+                class="kb-quick-contact-btn is-phone"
+                aria-label="Gọi Hotline 0979.807.234"
+                title="Gọi Hotline kỹ thuật: 0979.807.234"
+            >
+                <FontAwesomeIcon :icon="['fas', 'phone']" />
+            </a>
+            <button class="chat-toggle" type="button" :aria-label="isOpen ? 'Đóng chat' : 'Mở chat'" @click="toggle">
+                <FontAwesomeIcon :icon="['fas', isOpen ? 'xmark' : 'comments']" />
+                <span v-if="unreadCount > 0 && !isOpen" class="chat-badge">{{ unreadCount }}</span>
+            </button>
+        </div>
     </div>
 </template>

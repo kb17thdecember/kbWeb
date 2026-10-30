@@ -721,20 +721,25 @@ onUnmounted(() => {
                 </div>
                 <div class="product-body">
                   <div class="product-meta">{{ product.subcategory?.name ?? 'Danh mục sản phẩm' }}</div>
-                  <h3 class="product-name">{{ product.name }}</h3>
+                  <h3 class="product-name">
+                    <Link :href="`/products/${product.id}`">{{ product.name }}</Link>
+                  </h3>
                   <p class="product-desc">{{ product.product_title }}</p>
                   <div class="product-bottom">
                     <span class="price">
                       {{ formatPrice(product.price) }}
                       <small v-if="product.price > 0">Giá tham khảo · / sản phẩm</small>
                     </span>
-                    <button class="add-btn" type="button" :aria-label="`Thêm ${product.name} vào giỏ`" @click="addToCart(product)">
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M3 4h2l2.2 11.1a2 2 0 0 0 2 1.6h8.4a2 2 0 0 0 1.9-1.4L22 8H6"/>
-                        <circle cx="10" cy="20" r="1"/>
-                        <circle cx="18" cy="20" r="1"/>
-                      </svg>
-                    </button>
+                    <div class="kb-card-bottom-btns">
+                      <Link :href="`/products/${product.id}`" class="kb-card-detail-link">Chi tiết</Link>
+                      <button class="add-btn" type="button" :aria-label="`Thêm ${product.name} vào giỏ`" @click="addToCart(product)">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                          <path d="M3 4h2l2.2 11.1a2 2 0 0 0 2 1.6h8.4a2 2 0 0 0 1.9-1.4L22 8H6"/>
+                          <circle cx="10" cy="20" r="1"/>
+                          <circle cx="18" cy="20" r="1"/>
+                        </svg>
+                      </button>
+                    </div>
                   </div>
                 </div>
               </article>
@@ -1088,9 +1093,14 @@ onUnmounted(() => {
             <h2>{{ selectedProduct.product_title || selectedProduct.name }}</h2>
             <p class="product-description">{{ selectedProduct.description }}</p>
             <div class="modal-price">{{ formatPrice(selectedProduct.price) }} <span>/ sản phẩm · giá tham khảo</span></div>
-            <button class="btn btn-primary" type="button" @click="addToCart(selectedProduct); closeProduct(); openCartDrawer()">
-              Thêm vào giỏ
-            </button>
+            <div class="kb-modal-btn-row">
+              <button class="btn btn-primary" type="button" @click="addToCart(selectedProduct); closeProduct(); openCartDrawer()">
+                Thêm vào giỏ
+              </button>
+              <Link class="btn btn-outline" :href="`/products/${selectedProduct.id}`" @click="closeProduct()">
+                Xem chi tiết &amp; Đánh giá
+              </Link>
+            </div>
             <p class="modal-disclaimer">Thông số và giá bán thực tế cần được xác nhận trước khi đặt hàng.</p>
           </div>
         </div>

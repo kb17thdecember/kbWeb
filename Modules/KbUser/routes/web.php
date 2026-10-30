@@ -23,12 +23,18 @@ Route::middleware(UseKbUserRootView::class)->group(function () {
     Route::get('/categories', [KbUserController::class, 'categories'])->name('kbuser.categories');
     Route::get('/products/search', [KbUserController::class, 'searchProducts'])->name('kbuser.products.search');
     Route::get('/products', [KbUserController::class, 'products'])->name('kbuser.products');
+    Route::get('/products/{product}', [KbUserController::class, 'showProduct'])->whereNumber('product')->name('kbuser.products.show');
+    Route::post('/products/{product}/reviews', [KbUserController::class, 'storeProductReview'])->whereNumber('product')->middleware('auth')->name('kbuser.products.reviews.store');
+    Route::post('/products/{product}/comments', [KbUserController::class, 'storeProductComment'])->whereNumber('product')->middleware('auth')->name('kbuser.products.comments.store');
     Route::get('/featured-projects', [KbUserController::class, 'featuredProjects'])->name('kbuser.featured-projects');
     Route::get('/about-us', [KbUserController::class, 'about'])->name('kbuser.about');
     Route::get('/news', [KbUserController::class, 'news'])->name('kbuser.news');
     Route::get('/news/{article:slug}', [KbUserController::class, 'showArticle'])->name('kbuser.news.show');
+    Route::post('/news/{article:slug}/comments', [KbUserController::class, 'storeArticleComment'])->middleware('auth')->name('kbuser.news.comments.store');
     Route::get('/contacts', [KbUserController::class, 'contacts'])->name('kbuser.contacts');
     Route::post('/contacts', [KbUserController::class, 'storeContact'])->middleware('throttle:6,1')->name('kbuser.contacts.store');
+    Route::post('/wishlist/{product}', [KbUserController::class, 'toggleWishlist'])->whereNumber('product')->middleware('auth')->name('kbuser.wishlist.toggle');
+    Route::get('/my-account/overview', [KbUserController::class, 'accountOverview'])->middleware('auth')->name('kbuser.account.overview');
     Route::get('/chat/messages', [ChatController::class, 'messages'])->middleware('throttle:120,1')->name('kbuser.chat.messages');
     Route::post('/chat/messages', [ChatController::class, 'store'])->middleware('throttle:20,1')->name('kbuser.chat.store');
 

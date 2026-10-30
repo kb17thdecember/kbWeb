@@ -29,19 +29,39 @@ type Product = {
     subcategory: ProductCategory;
 };
 
+type QuoteRecord = {
+    id: number;
+    project_name: string | null;
+    category_id: string | null;
+    product: string | null;
+    message: string;
+    status: string;
+    attachment_name: string | null;
+    attachment_url: string | null;
+    created_at: string;
+};
+
 const props = defineProps<{
     initialCartCount: number;
     activePage?: string;
 }>();
 
-const page = usePage<{ auth?: { user?: AuthUser | null; googleError?: string | null } }>();
+const page = usePage<{ auth?: { user?: AuthUser | null; googleError?: string | null; wishlistIds?: number[] } }>();
 const authUser = computed<AuthUser | null>(() => page.props.auth?.user ?? null);
 const googleError = computed<string | null>(() => page.props.auth?.googleError ?? null);
+const wishlistIds = computed<number[]>(() => page.props.auth?.wishlistIds ?? []);
 const userInitial = computed(() => {
     const raw = authUser.value?.name?.trim() ?? '';
 
     return raw ? raw.charAt(0).toUpperCase() : 'U';
 });
+
+const colorMode = ref<'light' | 'dark'>('light');
+const isAccountModalOpen = ref(false);
+const accountTab = ref<'quotes' | 'wishlist'>('quotes');
+const isLoadingAccount = ref(false);
+const myQuotes = ref<QuoteRecord[]>([]);
+const myWishlistProducts = ref<Product[]>([]);
 
 const cart = ref<Record<number, number>>({});
 const cartCount = ref(props.initialCartCount);
@@ -56,6 +76,7 @@ const searchQuery = ref('');
 const searchResults = ref<Product[]>([]);
 const searchError = ref('');
 const isSearchLoading = ref(false);
+const navbarToolsRef = ref<HTMLElement | null>(null);
 const searchInput = ref<HTMLInputElement | null>(null);
 let searchController: AbortController | undefined;
 let cartRequestController: AbortController | undefined;
@@ -343,11 +364,204 @@ const requestQuote = (): void => {
     }
 };
 
+const applyTheme = (mode: 'light' | 'dark'): void => {
+    colorMode.value = mode;
+    document.documentElement.style.colorScheme = mode;
+    document.documentElement.setAttribute('data-theme', mode);
+    try {
+        localStorage.setItem('kbuser-theme', mode);
+    } catch {
+        // Ignore storage errors
+    }
+};
+
+const toggleTheme = (): void => {
+    applyTheme(colorMode.value === 'dark' ? 'light' : 'dark');
+};
+
+const openAccountModal = async (tab: 'quotes' | 'wishlist' = 'quotes'): Promise<void> => {
+    accountTab.value = tab;
+    isAccountModalOpen.value = true;
+    isUserMenuOpen.value = false;
+    isLoadingAccount.value = true;
+
+    try {
+        const response = await fetch('/my-account/overview', {
+            headers: { Accept: 'application/json' },
+            credentials: 'same-origin',
+        });
+
+        if (response.ok) {
+            const data = (await response.json()) as {
+                quotes: QuoteRecord[];
+                wishlistProducts: Product[];
+            };
+            myQuotes.value = data.quotes ?? [];
+            myWishlistProducts.value = data.wishlistProducts ?? [];
+        }
+    } catch (error) {
+        console.error('Không thể tải dữ liệu tài khoản.', error);
+    } finally {
+        isLoadingAccount.value = false;
+    }
+};
+
+const removeWishlistItem = (productId: number): void => {
+    router.post(
+        `/wishlist/${productId}`,
+        {},
+        {
+            preserveScroll: true,
+            onSuccess: () => {
+                myWishlistProducts.value = myWishlistProducts.value.filter((p) => p.id !== productId);
+            },
+        },
+    );
+};
+
+const addWishlistToCart = (product: Product): void => {
+    const nextCart = { ...cart.value };
+    nextCart[product.id] = (nextCart[product.id] ?? 0) + 1;
+    updateCart(nextCart);
+};
+
+const quoteStatusLabel = (status: string): string => {
+    const normalized = status.toLowerCase();
+    if (normalized === 'completed' || normalized === 'done' || normalized === 'processed') {
+        return 'Đã phản hồi báo giá';
+    }
+    if (normalized === 'in_progress' || normalized === 'processing') {
+        return 'Đang xử lý kỹ thuật';
+    }
+    return 'Đang tiếp nhận';
+};
+
+const formatDate = (value: string): string =>
+    new Date(value).toLocaleDateString('vi-VN', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+    });
+
+const exportCartCsv = (): void => {
+    if (cartItems.value.length === 0) {
+        return;
+    }
+
+    const headers = ['STT', 'Ten san pham', 'Danh muc', 'So luong', 'Don gia tham khao (VND)', 'Thanh tien (VND)'];
+    const rows = cartItems.value.map(({ product, quantity }, idx) => [
+        String(idx + 1),
+        `"${product.name.replace(/"/g, '""')}"`,
+        `"${(product.category?.name ?? 'Vat tu HVAC').replace(/"/g, '""')}"`,
+        String(quantity),
+        String(product.price),
+        String(product.price * quantity),
+    ]);
+    rows.push(['', '"TONG CONG THAM KHAO"', '', String(cartCount.value), '', String(cartTotal.value)]);
+
+    const csvContent = '\uFEFF' + [headers.join(','), ...rows.map((r) => r.join(','))].join('\r\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `bang-du-toan-hvac-mart-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+};
+
+const printCartQuote = (): void => {
+    if (cartItems.value.length === 0) {
+        return;
+    }
+
+    const win = window.open('', '_blank', 'width=860,height=720');
+    if (!win) {
+        return;
+    }
+
+    const rowsHtml = cartItems.value
+        .map(
+            ({ product, quantity }, index) => `
+            <tr>
+                <td style="padding:8px;border:1px solid #ccc;text-align:center;">${index + 1}</td>
+                <td style="padding:8px;border:1px solid #ccc;"><strong>${product.name}</strong><br><small>${product.category?.name ?? ''}</small></td>
+                <td style="padding:8px;border:1px solid #ccc;text-align:center;">${quantity}</td>
+                <td style="padding:8px;border:1px solid #ccc;text-align:right;">${formatPrice(product.price)}</td>
+                <td style="padding:8px;border:1px solid #ccc;text-align:right;"><strong>${formatPrice(product.price * quantity)}</strong></td>
+            </tr>`,
+        )
+        .join('');
+
+    win.document.write(`<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <title>Bảng dự toán vật tư HVAC Mart</title>
+    <style>
+        body { font-family: Arial, sans-serif; color: #1a211b; padding: 32px; }
+        h1 { margin: 0 0 6px; font-size: 22px; }
+        p { margin: 4px 0; font-size: 13px; color: #555; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 14px; }
+        th { background: #1e3328; color: #fff; padding: 10px 8px; border: 1px solid #1e3328; text-align: left; }
+        .total-row td { font-weight: bold; background: #f4f1ea; padding: 10px 8px; border: 1px solid #ccc; }
+    </style>
+</head>
+<body>
+    <h1>HVAC MART — BẢNG TỔNG HỢP DỰ TOÁN VẬT TƯ THAM KHẢO</h1>
+    <p>Hotline: 0979.807.234 · Email: kbnguyen0311@gmail.com · Ngày lập: ${new Date().toLocaleDateString('vi-VN')}</p>
+    ${authUser.value ? `<p>Khách hàng: <strong>${authUser.value.name}</strong> (${authUser.value.email})</p>` : ''}
+    <table>
+        <thead>
+            <tr>
+                <th style="width:48px;text-align:center;">STT</th>
+                <th>Tên thiết bị / Vật tư</th>
+                <th style="width:90px;text-align:center;">Số lượng</th>
+                <th style="width:140px;text-align:right;">Đơn giá</th>
+                <th style="width:150px;text-align:right;">Thành tiền</th>
+            </tr>
+        </thead>
+        <tbody>
+            ${rowsHtml}
+            <tr class="total-row">
+                <td colspan="2">TỔNG GIÁ TRỊ THAM KHẢO</td>
+                <td style="text-align:center;">${cartCount.value}</td>
+                <td></td>
+                <td style="text-align:right;">${formatPrice(cartTotal.value)}</td>
+            </tr>
+        </tbody>
+    </table>
+    <p style="margin-top:18px;font-style:italic;">* Ghi chú: Đơn giá trên là giá tham khảo. Vui lòng gửi yêu cầu báo giá tại HVAC Mart để nhận chiết khấu chính thức theo khối lượng dự án.</p>
+</body>
+</html>`);
+    win.document.close();
+    win.focus();
+    win.print();
+};
+
+const toggleUserMenu = (): void => {
+    isUserMenuOpen.value = !isUserMenuOpen.value;
+    if (isUserMenuOpen.value) {
+        isSearchOpen.value = false;
+        isCartOpen.value = false;
+    }
+};
+
+const onDocumentPointerDown = (event: MouseEvent): void => {
+    const target = event.target as Node | null;
+    if (target && navbarToolsRef.value && !navbarToolsRef.value.contains(target)) {
+        isSearchOpen.value = false;
+        isUserMenuOpen.value = false;
+    }
+};
+
 const onEscape = (event: KeyboardEvent): void => {
     if (event.key === 'Escape') {
         isCartOpen.value = false;
         isSearchOpen.value = false;
         isAuthModalOpen.value = false;
+        isAccountModalOpen.value = false;
         isUserMenuOpen.value = false;
     }
 };
@@ -369,8 +583,8 @@ watch(
     { immediate: true },
 );
 
-watch([isCartOpen, isAuthModalOpen], ([cartOpen, authOpen]) => {
-    if (cartOpen || authOpen) {
+watch([isCartOpen, isAuthModalOpen, isAccountModalOpen], ([cartOpen, authOpen, accountOpen]) => {
+    if (cartOpen || authOpen || accountOpen) {
         releasePageScrollLock ??= lockPageScroll();
         return;
     }
@@ -380,10 +594,22 @@ watch([isCartOpen, isAuthModalOpen], ([cartOpen, authOpen]) => {
 });
 
 onMounted(() => {
+    try {
+        const savedTheme = localStorage.getItem('kbuser-theme');
+        if (savedTheme === 'dark' || savedTheme === 'light') {
+            applyTheme(savedTheme);
+        } else if (window.matchMedia?.('(prefers-color-scheme: dark)').matches) {
+            colorMode.value = 'dark';
+        }
+    } catch {
+        // Ignore storage errors
+    }
+
     window.addEventListener('kbuser-cart-updated', refreshCart);
     window.addEventListener('kbuser-cart-open', openCart);
     window.addEventListener('kbuser-auth-open', onOpenAuthEvent);
     window.addEventListener('keydown', onEscape);
+    document.addEventListener('mousedown', onDocumentPointerDown);
     document.addEventListener('visibilitychange', refreshCart);
     void refreshCart();
 });
@@ -393,6 +619,7 @@ onUnmounted(() => {
     window.removeEventListener('kbuser-cart-open', openCart);
     window.removeEventListener('kbuser-auth-open', onOpenAuthEvent);
     window.removeEventListener('keydown', onEscape);
+    document.removeEventListener('mousedown', onDocumentPointerDown);
     document.removeEventListener('visibilitychange', refreshCart);
     searchController?.abort();
     cartRequestController?.abort();
@@ -402,7 +629,24 @@ onUnmounted(() => {
 </script>
 
 <template>
-    <div class="navbar-tools">
+    <div ref="navbarToolsRef" class="navbar-tools">
+        <button
+            class="icon-btn"
+            id="themeToggle"
+            type="button"
+            :aria-label="colorMode === 'dark' ? 'Chuyển sang giao diện sáng' : 'Chuyển sang giao diện tối'"
+            :title="colorMode === 'dark' ? 'Chế độ sáng' : 'Chế độ tối'"
+            @click="toggleTheme"
+        >
+            <svg v-if="colorMode === 'dark'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
+                <circle cx="12" cy="12" r="4.5"></circle>
+                <path d="M12 2v2.5M12 19.5V22M4.9 4.9l1.8 1.8M17.3 17.3l1.8 1.8M2 12h2.5M19.5 12H22M4.9 19.1l1.8-1.8M17.3 6.7l1.8-1.8"></path>
+            </svg>
+            <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
+                <path d="M21 12.8A8.5 8.5 0 1 1 11.2 3a6.8 6.8 0 0 0 9.8 9.8Z"></path>
+            </svg>
+        </button>
+
         <button
             class="icon-btn"
             id="searchFocus"
@@ -486,7 +730,7 @@ onUnmounted(() => {
                 type="button"
                 aria-label="Menu tài khoản"
                 :aria-expanded="isUserMenuOpen"
-                @click="isUserMenuOpen = !isUserMenuOpen"
+                @click="toggleUserMenu"
             >
                 <img v-if="authUser.avatar" :src="authUser.avatar" :alt="authUser.name" class="kb-user-avatar">
                 <span v-else class="kb-user-initial">{{ userInitial }}</span>
@@ -503,6 +747,12 @@ onUnmounted(() => {
                     <a v-if="authUser.is_admin" href="/admin/dashboard" class="kb-user-dropdown-item">
                         Trang quản trị
                     </a>
+                    <button type="button" class="kb-user-dropdown-item" @click="openAccountModal('quotes')">
+                        Lịch sử yêu cầu báo giá
+                    </button>
+                    <button type="button" class="kb-user-dropdown-item" @click="openAccountModal('wishlist')">
+                        Sản phẩm đã lưu ({{ wishlistIds.length }})
+                    </button>
                     <Link href="/contacts" class="kb-user-dropdown-item" @click="isUserMenuOpen = false">
                         Gửi yêu cầu báo giá
                     </Link>
@@ -576,9 +826,111 @@ onUnmounted(() => {
                         @click="requestQuote"
                     >Yêu cầu báo giá</button>
                     <Link v-else class="btn btn-primary" href="/contacts" @click="isCartOpen = false">Yêu cầu báo giá</Link>
+                    <div class="kb-cart-export-actions">
+                        <button type="button" class="kb-export-btn" @click="printCartQuote">
+                            In / Lưu PDF dự toán
+                        </button>
+                        <button type="button" class="kb-export-btn" @click="exportCartCsv">
+                            Xuất file Excel (.csv)
+                        </button>
+                    </div>
                     <div class="cart-hint">Giá hiển thị chỉ để tham khảo. Báo giá thực tế sẽ được xác nhận theo yêu cầu.</div>
                 </div>
             </aside>
+
+            <div
+                class="modal-wrap"
+                :class="{ open: isAccountModalOpen }"
+                :aria-hidden="!isAccountModalOpen"
+                @click.self="isAccountModalOpen = false"
+            >
+                <div v-if="isAccountModalOpen" class="modal kb-account-modal" role="dialog" aria-modal="true" aria-label="Hồ sơ khách hàng HVAC Mart">
+                    <div class="kb-auth-modal-head">
+                        <div>
+                            <span class="eyebrow"><span class="dot"></span> CUSTOMER PORTAL</span>
+                            <h3>Hồ sơ báo giá &amp; Sản phẩm đã lưu</h3>
+                        </div>
+                        <button class="close-btn" type="button" aria-label="Đóng cửa sổ" @click="isAccountModalOpen = false">×</button>
+                    </div>
+
+                    <div class="kb-auth-tabs" role="tablist">
+                        <button
+                            type="button"
+                            class="kb-auth-tab"
+                            :class="{ active: accountTab === 'quotes' }"
+                            @click="accountTab = 'quotes'"
+                        >
+                            Lịch sử báo giá ({{ myQuotes.length }})
+                        </button>
+                        <button
+                            type="button"
+                            class="kb-auth-tab"
+                            :class="{ active: accountTab === 'wishlist' }"
+                            @click="accountTab = 'wishlist'"
+                        >
+                            Sản phẩm yêu thích ({{ myWishlistProducts.length }})
+                        </button>
+                    </div>
+
+                    <div v-if="isLoadingAccount" class="empty-state">
+                        Đang tải dữ liệu tài khoản...
+                    </div>
+
+                    <div v-else-if="accountTab === 'quotes'" class="kb-account-body">
+                        <div v-if="myQuotes.length === 0" class="empty-state">
+                            Bạn chưa có yêu cầu báo giá nào. Hãy thêm sản phẩm vào giỏ hoặc gửi yêu cầu tại trang Liên hệ.
+                        </div>
+                        <div v-else class="kb-quote-history-list">
+                            <article v-for="quote in myQuotes" :key="quote.id" class="kb-quote-item">
+                                <div class="kb-quote-item-head">
+                                    <div>
+                                        <strong>#BG-{{ quote.id }} · {{ quote.project_name || quote.category_id || 'Yêu cầu báo giá vật tư' }}</strong>
+                                        <small>Ngày gửi: {{ formatDate(quote.created_at) }}</small>
+                                    </div>
+                                    <span class="kb-quote-status" :class="`status-${quote.status}`">
+                                        {{ quoteStatusLabel(quote.status) }}
+                                    </span>
+                                </div>
+                                <p v-if="quote.product" class="kb-quote-products">{{ quote.product }}</p>
+                                <p class="kb-quote-msg">{{ quote.message }}</p>
+                                <a
+                                    v-if="quote.attachment_url"
+                                    :href="quote.attachment_url"
+                                    target="_blank"
+                                    rel="noopener"
+                                    class="kb-quote-attachment"
+                                >
+                                    📎 File đính kèm: {{ quote.attachment_name || 'Tài liệu BOQ' }}
+                                </a>
+                            </article>
+                        </div>
+                    </div>
+
+                    <div v-else class="kb-account-body">
+                        <div v-if="myWishlistProducts.length === 0" class="empty-state">
+                            Bạn chưa lưu sản phẩm nào. Nhấn biểu tượng ♡ trên sản phẩm để lưu lại.
+                        </div>
+                        <div v-else class="kb-wishlist-list">
+                            <article v-for="item in myWishlistProducts" :key="item.id" class="kb-wishlist-row">
+                                <div>
+                                    <Link :href="`/products/${item.id}`" class="kb-calc-prod-link" @click="isAccountModalOpen = false">
+                                        {{ item.name }}
+                                    </Link>
+                                    <small>{{ item.category?.name ?? 'Sản phẩm' }} · {{ formatPrice(item.price) }}</small>
+                                </div>
+                                <div class="kb-wishlist-row-actions">
+                                    <button type="button" class="btn btn-primary kb-calc-add-btn" @click="addWishlistToCart(item)">
+                                        + Giỏ hàng
+                                    </button>
+                                    <button type="button" class="btn btn-outline kb-calc-add-btn" @click="removeWishlistItem(item.id)">
+                                        Bỏ lưu
+                                    </button>
+                                </div>
+                            </article>
+                        </div>
+                    </div>
+                </div>
+            </div>
 
             <div
                 class="modal-wrap"
