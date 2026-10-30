@@ -366,8 +366,17 @@ const requestQuote = (): void => {
 
 const applyTheme = (mode: 'light' | 'dark'): void => {
     colorMode.value = mode;
-    document.documentElement.style.colorScheme = mode;
-    document.documentElement.setAttribute('data-theme', mode);
+    const root = document.documentElement;
+    root.style.colorScheme = mode;
+    root.setAttribute('data-theme', mode);
+    document.body?.setAttribute('data-theme', mode);
+    if (mode === 'dark') {
+        root.style.setProperty('--lightningcss-light', ' ');
+        root.style.setProperty('--lightningcss-dark', 'initial');
+    } else {
+        root.style.setProperty('--lightningcss-light', 'initial');
+        root.style.setProperty('--lightningcss-dark', ' ');
+    }
     try {
         localStorage.setItem('kbuser-theme', mode);
     } catch {
@@ -599,10 +608,12 @@ onMounted(() => {
         if (savedTheme === 'dark' || savedTheme === 'light') {
             applyTheme(savedTheme);
         } else if (window.matchMedia?.('(prefers-color-scheme: dark)').matches) {
-            colorMode.value = 'dark';
+            applyTheme('dark');
+        } else {
+            applyTheme('light');
         }
     } catch {
-        // Ignore storage errors
+        applyTheme('light');
     }
 
     window.addEventListener('kbuser-cart-updated', refreshCart);
