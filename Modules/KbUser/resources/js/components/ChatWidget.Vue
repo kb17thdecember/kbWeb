@@ -1,5 +1,12 @@
 <script setup lang="ts">
+import { usePage } from '@inertiajs/vue3';
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue';
+
+type AuthUser = {
+    name?: string;
+    email?: string;
+    phone?: string | null;
+};
 
 type ChatMessage = {
     id: number;
@@ -11,6 +18,9 @@ type ChatMessage = {
 const POLL_OPEN_MS = 2000;
 const POLL_CLOSED_MS = 20000;
 const MAX_LENGTH = 2000;
+
+const page = usePage<{ auth?: { user?: AuthUser | null } }>();
+const authUser = computed<AuthUser | null>(() => page.props.auth?.user ?? null);
 
 const isOpen = ref(false);
 const messages = ref<ChatMessage[]>([]);
@@ -50,12 +60,28 @@ const IDENTITY_KEY = 'kb_chat_identity';
 
 try {
     const saved = JSON.parse(localStorage.getItem(IDENTITY_KEY) ?? '{}') as Record<string, string>;
-    name.value = saved.name ?? '';
-    email.value = saved.email ?? '';
-    phone.value = saved.phone ?? '';
+    name.value = authUser.value?.name ?? saved.name ?? '';
+    email.value = authUser.value?.email ?? saved.email ?? '';
+    phone.value = authUser.value?.phone ?? saved.phone ?? '';
 } catch {
-    // Dữ liệu lưu cục bộ hỏng thì bỏ qua.
+    name.value = authUser.value?.name ?? '';
+    email.value = authUser.value?.email ?? '';
+    phone.value = authUser.value?.phone ?? '';
 }
+
+watch(authUser, (user) => {
+    if (user) {
+        if (!name.value && user.name) {
+            name.value = user.name;
+        }
+        if (!email.value && user.email) {
+            email.value = user.email;
+        }
+        if (!phone.value && user.phone) {
+            phone.value = user.phone;
+        }
+    }
+});
 
 const saveIdentity = (): void => {
     try {

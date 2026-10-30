@@ -1,7 +1,17 @@
 <script setup lang="ts">
-import { router, Link } from '@inertiajs/vue3';
+import { router, Link, usePage } from '@inertiajs/vue3';
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 import { lockPageScroll } from '../utils/pageScrollLock';
+import UserAuthPanel from './UserAuthPanel.Vue';
+
+type AuthUser = {
+    id: number;
+    name: string;
+    email: string;
+    phone?: string | null;
+    avatar?: string | null;
+    is_admin?: boolean;
+};
 
 type ProductCategory = {
     id: number;
@@ -24,12 +34,24 @@ const props = defineProps<{
     activePage?: string;
 }>();
 
+const page = usePage<{ auth?: { user?: AuthUser | null; googleError?: string | null } }>();
+const authUser = computed<AuthUser | null>(() => page.props.auth?.user ?? null);
+const googleError = computed<string | null>(() => page.props.auth?.googleError ?? null);
+const userInitial = computed(() => {
+    const raw = authUser.value?.name?.trim() ?? '';
+
+    return raw ? raw.charAt(0).toUpperCase() : 'U';
+});
+
 const cart = ref<Record<number, number>>({});
 const cartCount = ref(props.initialCartCount);
 const cartProducts = ref<Product[]>([]);
 const cartError = ref('');
 const isCartOpen = ref(false);
 const isSearchOpen = ref(false);
+const isAuthModalOpen = ref(false);
+const authModalMode = ref<'login' | 'register'>('login');
+const isUserMenuOpen = ref(false);
 const searchQuery = ref('');
 const searchResults = ref<Product[]>([]);
 const searchError = ref('');
@@ -208,6 +230,7 @@ const removeFromCart = (productId: number): void => {
 
 const toggleCart = (): void => {
     isCartOpen.value = !isCartOpen.value;
+    isUserMenuOpen.value = false;
 
     if (isCartOpen.value) {
         void refreshCart();
@@ -216,11 +239,30 @@ const toggleCart = (): void => {
 
 const openCart = (): void => {
     isCartOpen.value = true;
+    isUserMenuOpen.value = false;
     void refreshCart();
+};
+
+const openAuthModal = (mode: 'login' | 'register' = 'login'): void => {
+    authModalMode.value = mode;
+    isAuthModalOpen.value = true;
+    isSearchOpen.value = false;
+    isCartOpen.value = false;
+};
+
+const onOpenAuthEvent = (event: Event): void => {
+    const detail = (event as CustomEvent<{ mode?: 'login' | 'register' }>).detail;
+    openAuthModal(detail?.mode ?? 'login');
+};
+
+const signOut = (): void => {
+    isUserMenuOpen.value = false;
+    router.post('/logout');
 };
 
 const toggleSearch = async (): Promise<void> => {
     isSearchOpen.value = !isSearchOpen.value;
+    isUserMenuOpen.value = false;
 
     if (isSearchOpen.value) {
         await nextTick();
@@ -305,6 +347,8 @@ const onEscape = (event: KeyboardEvent): void => {
     if (event.key === 'Escape') {
         isCartOpen.value = false;
         isSearchOpen.value = false;
+        isAuthModalOpen.value = false;
+        isUserMenuOpen.value = false;
     }
 };
 
@@ -315,8 +359,18 @@ watch(
     },
 );
 
-watch(isCartOpen, (isOpen) => {
-    if (isOpen) {
+watch(
+    googleError,
+    (errorMsg) => {
+        if (errorMsg) {
+            openAuthModal('login');
+        }
+    },
+    { immediate: true },
+);
+
+watch([isCartOpen, isAuthModalOpen], ([cartOpen, authOpen]) => {
+    if (cartOpen || authOpen) {
         releasePageScrollLock ??= lockPageScroll();
         return;
     }
@@ -328,6 +382,7 @@ watch(isCartOpen, (isOpen) => {
 onMounted(() => {
     window.addEventListener('kbuser-cart-updated', refreshCart);
     window.addEventListener('kbuser-cart-open', openCart);
+    window.addEventListener('kbuser-auth-open', onOpenAuthEvent);
     window.addEventListener('keydown', onEscape);
     document.addEventListener('visibilitychange', refreshCart);
     void refreshCart();
@@ -336,6 +391,7 @@ onMounted(() => {
 onUnmounted(() => {
     window.removeEventListener('kbuser-cart-updated', refreshCart);
     window.removeEventListener('kbuser-cart-open', openCart);
+    window.removeEventListener('kbuser-auth-open', onOpenAuthEvent);
     window.removeEventListener('keydown', onEscape);
     document.removeEventListener('visibilitychange', refreshCart);
     searchController?.abort();
@@ -343,7 +399,6 @@ onUnmounted(() => {
     releasePageScrollLock?.();
     releasePageScrollLock = null;
 });
-
 </script>
 
 <template>
@@ -425,6 +480,53 @@ onUnmounted(() => {
             <span class="cart-count" id="cartCount">{{ cartCount }}</span>
         </button>
 
+        <div v-if="authUser" class="kb-user-menu-wrap">
+            <button
+                class="kb-user-trigger"
+                type="button"
+                aria-label="Menu tài khoản"
+                :aria-expanded="isUserMenuOpen"
+                @click="isUserMenuOpen = !isUserMenuOpen"
+            >
+                <img v-if="authUser.avatar" :src="authUser.avatar" :alt="authUser.name" class="kb-user-avatar">
+                <span v-else class="kb-user-initial">{{ userInitial }}</span>
+                <span class="kb-user-name">{{ authUser.name }}</span>
+            </button>
+
+            <div v-if="isUserMenuOpen" class="kb-user-dropdown" role="menu">
+                <div class="kb-user-dropdown-head">
+                    <strong>{{ authUser.name }}</strong>
+                    <small>{{ authUser.email }}</small>
+                    <small v-if="authUser.phone">{{ authUser.phone }}</small>
+                </div>
+                <div class="kb-user-dropdown-links">
+                    <a v-if="authUser.is_admin" href="/admin/dashboard" class="kb-user-dropdown-item">
+                        Trang quản trị
+                    </a>
+                    <Link href="/contacts" class="kb-user-dropdown-item" @click="isUserMenuOpen = false">
+                        Gửi yêu cầu báo giá
+                    </Link>
+                    <button type="button" class="kb-user-dropdown-item is-danger" @click="signOut">
+                        Đăng xuất
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <button
+            v-else
+            id="userAuthOpen"
+            class="kb-auth-trigger"
+            type="button"
+            aria-label="Đăng nhập hoặc đăng ký tài khoản"
+            @click="openAuthModal('login')"
+        >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                <circle cx="12" cy="8" r="4"></circle>
+                <path d="M4 20c1.8-3.8 5-6 8-6s6.2 2.2 8 6"></path>
+            </svg>
+        </button>
+
         <Teleport to="body">
             <Transition name="cart-backdrop">
                 <div v-if="isCartOpen" class="overlay open" aria-label="Đóng giỏ hàng" @click="isCartOpen = false"></div>
@@ -477,6 +579,30 @@ onUnmounted(() => {
                     <div class="cart-hint">Giá hiển thị chỉ để tham khảo. Báo giá thực tế sẽ được xác nhận theo yêu cầu.</div>
                 </div>
             </aside>
+
+            <div
+                class="modal-wrap"
+                :class="{ open: isAuthModalOpen }"
+                :aria-hidden="!isAuthModalOpen"
+                @click.self="isAuthModalOpen = false"
+            >
+                <div v-if="isAuthModalOpen" class="modal kb-auth-modal" role="dialog" aria-modal="true" aria-label="Tài khoản HVAC Mart">
+                    <div class="kb-auth-modal-head">
+                        <div>
+                            <span class="eyebrow"><span class="dot"></span> HVAC MART ACCOUNT</span>
+                            <h3>Tài khoản khách hàng &amp; đối tác</h3>
+                        </div>
+                        <button class="close-btn" type="button" aria-label="Đóng cửa sổ" @click="isAuthModalOpen = false">×</button>
+                    </div>
+
+                    <UserAuthPanel
+                        :initial-mode="authModalMode"
+                        :google-error="googleError"
+                        :compact="true"
+                        @success="isAuthModalOpen = false"
+                    />
+                </div>
+            </div>
         </Teleport>
     </div>
 </template>

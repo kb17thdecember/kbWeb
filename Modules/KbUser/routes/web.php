@@ -4,6 +4,7 @@ use App\Models\Article;
 use Illuminate\Support\Facades\Route;
 use Modules\KbUser\Http\Controllers\ChatController;
 use Modules\KbUser\Http\Controllers\KbUserController;
+use Modules\KbUser\Http\Controllers\UserAuthController;
 use Modules\KbUser\Http\Middleware\UseKbUserRootView;
 
 Route::get('/sitemap.xml', function () {
@@ -30,6 +31,13 @@ Route::middleware(UseKbUserRootView::class)->group(function () {
     Route::post('/contacts', [KbUserController::class, 'storeContact'])->middleware('throttle:6,1')->name('kbuser.contacts.store');
     Route::get('/chat/messages', [ChatController::class, 'messages'])->middleware('throttle:120,1')->name('kbuser.chat.messages');
     Route::post('/chat/messages', [ChatController::class, 'store'])->middleware('throttle:20,1')->name('kbuser.chat.store');
+
+    Route::post('/login', [UserAuthController::class, 'login'])->name('kbuser.login.store');
+    Route::post('/register', [UserAuthController::class, 'register'])->name('kbuser.register.store');
+    Route::post('/logout', [UserAuthController::class, 'logout'])->middleware('auth')->name('kbuser.logout');
+    Route::get('/auth/google/redirect', [UserAuthController::class, 'redirectToGoogle'])->name('kbuser.auth.google.redirect');
+    Route::get('/auth/google/callback', [UserAuthController::class, 'handleGoogleCallback'])->name('kbuser.auth.google.callback');
+
     Route::get('/kbusers', [KbUserController::class, 'index'])->name('kbuser.index');
 });
 
