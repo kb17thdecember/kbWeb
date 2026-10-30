@@ -4854,6 +4854,47 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
   .news-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+  .news-card.is-catalogue {
+    display: grid;
+    grid-template-columns: clamp(88px, 28vw, 120px) minmax(0, 1fr);
+    align-items: stretch;
+    height: auto;
+  }
+  .news-card.is-catalogue .news-thumb {
+    width: auto;
+    min-height: 100%;
+    aspect-ratio: auto;
+    padding: 10px;
+    overflow: hidden;
+  }
+  .news-card.is-catalogue .news-thumb img {
+    width: 100%;
+    height: auto;
+    max-height: 140px;
+    object-fit: contain;
+  }
+  .news-card.is-catalogue .news-body {
+    min-width: 0;
+    padding: 14px 12px;
+    gap: 7px;
+  }
+  .news-card.is-catalogue .news-body h3 {
+    font-size: 17px;
+    overflow-wrap: anywhere;
+  }
+  .news-card.is-catalogue .news-body p {
+    font-size: 13px;
+  }
+  .news-card.is-catalogue .news-actions {
+    gap: 7px;
+    padding-top: 4px;
+  }
+  .news-card.is-catalogue .news-actions .btn {
+    min-width: 0;
+    padding: 11px 8px;
+    font-size: 11px;
+    letter-spacing: 0;
+  }
 }
 @media (max-width:760px) {
   .news-tabs {
