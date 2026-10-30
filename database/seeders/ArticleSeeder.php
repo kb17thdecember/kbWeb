@@ -149,7 +149,7 @@ class ArticleSeeder extends Seeder
                     .'<p>Đối với bình nước nóng Ariston, KB Tech hỗ trợ khách hàng lựa chọn sản phẩm theo dung tích, nhu cầu sử dụng, điều kiện lắp đặt và yêu cầu kỹ thuật của công trình. Đối với khách hàng dự án, việc xác định đúng model và chuẩn bị hồ sơ sản phẩm ngay từ đầu giúp quá trình trình duyệt, cung ứng và nghiệm thu được chủ động hơn.</p>'
                     .'<p>Chúng tôi chú trọng cung cấp thông tin sản phẩm rõ ràng, hỗ trợ khách hàng tìm hiểu thông số kỹ thuật và chính sách bảo hành tương ứng, qua đó giúp khách hàng có cơ sở lựa chọn giải pháp nước nóng phù hợp.</p>'
                     .'<p><strong>Bình nước nóng Ariston – Giải pháp nước nóng tiện nghi, chú trọng an toàn, hiệu quả sử dụng và dịch vụ hậu mãi cho gia đình và công trình.</strong></p>',
-                'image' => 'products/AN#_30B_VN.png',
+                'image' => 'products/AN3_30B_VN.png',
                 'published_at' => now()->subDays(10),
             ],
             [
