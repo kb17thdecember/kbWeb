@@ -5165,14 +5165,26 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 .kb-user-initial {
   width: 30px;
   height: 30px;
+  min-width: 30px;
+  min-height: 30px;
+  flex: 0 0 30px;
   border-radius: 50%;
+  overflow: hidden;
+}
+.kb-user-avatar {
+  display: block;
   object-fit: cover;
+  background: var(--surface);
+  border: 1px solid var(--line);
+}
+.kb-user-initial {
   display: grid;
   place-items: center;
   background: var(--brass);
   color: #171714;
   font-weight: 800;
   font-size: 12px;
+  line-height: 1;
 }
 .kb-user-name {
   max-width: 110px;
@@ -7859,6 +7871,15 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
     min-width: 36px;
     min-height: 36px;
   }
+  .kb-user-avatar,
+  .kb-user-initial {
+    width: 24px;
+    height: 24px;
+    min-width: 24px;
+    min-height: 24px;
+    flex: 0 0 24px;
+    font-size: 11px;
+  }
   .brandname small {
     display: none;
   }
@@ -7876,6 +7897,15 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
     height: 34px;
     min-width: 34px;
     min-height: 34px;
+  }
+  .kb-user-avatar,
+  .kb-user-initial {
+    width: 22px;
+    height: 22px;
+    min-width: 22px;
+    min-height: 22px;
+    flex: 0 0 22px;
+    font-size: 10px;
   }
 }
 

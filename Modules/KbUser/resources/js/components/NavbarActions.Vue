@@ -55,6 +55,14 @@ const userInitial = computed(() => {
 
     return raw ? raw.charAt(0).toUpperCase() : 'U';
 });
+const avatarFailed = ref(false);
+
+watch(
+    () => authUser.value?.avatar,
+    () => {
+        avatarFailed.value = false;
+    },
+);
 
 const colorMode = ref<'light' | 'dark'>('light');
 const isAccountModalOpen = ref(false);
@@ -743,7 +751,14 @@ onUnmounted(() => {
                 :aria-expanded="isUserMenuOpen"
                 @click="toggleUserMenu"
             >
-                <img v-if="authUser.avatar" :src="authUser.avatar" :alt="authUser.name" class="kb-user-avatar">
+                <img
+                    v-if="authUser.avatar && !avatarFailed"
+                    :src="authUser.avatar"
+                    alt=""
+                    referrerpolicy="no-referrer"
+                    class="kb-user-avatar"
+                    @error="avatarFailed = true"
+                >
                 <span v-else class="kb-user-initial">{{ userInitial }}</span>
                 <span class="kb-user-name">{{ authUser.name }}</span>
             </button>
