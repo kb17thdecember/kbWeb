@@ -187,6 +187,32 @@
                         <small>Mô tả nhu cầu</small>
                         <div>{{ selectedContact.message || 'Khách hàng chưa cung cấp mô tả.' }}</div>
                     </div>
+                    <div class="request-detail-item full">
+                        <small>Hồ sơ đính kèm (Bảng khối lượng BOQ / Bản vẽ kỹ thuật)</small>
+                        <div v-if="selectedContact.attachment_url" class="request-detail-attachment">
+                            <span class="request-detail-attachment-name">
+                                📎 {{ selectedContact.attachment_name || 'Tài liệu đính kèm' }}
+                            </span>
+                            <div class="request-detail-attachment-actions">
+                                <a
+                                    class="btn"
+                                    :href="selectedContact.attachment_url"
+                                    target="_blank"
+                                    rel="noopener"
+                                >
+                                    Mở xem tệp
+                                </a>
+                                <a
+                                    class="btn primary"
+                                    :href="selectedContact.attachment_url"
+                                    :download="selectedContact.attachment_name || true"
+                                >
+                                    Tải xuống
+                                </a>
+                            </div>
+                        </div>
+                        <div v-else>Khách hàng không đính kèm tệp.</div>
+                    </div>
                 </div>
                 <div class="request-detail-actions">
                     <button class="btn" type="button" @click="closeDetail">Đóng</button>
@@ -217,6 +243,9 @@
         category_id: string | null;
         project_name: string | null;
         product: string | null;
+        attachment_name: string | null;
+        attachment_url: string | null;
+        created_at: string;
     };
 
     type ContactStatus = 'pending' | 'processing' | 'resolved';
@@ -254,6 +283,7 @@
                 contact.category_id,
                 contact.project_name,
                 contact.message,
+                contact.attachment_name,
                 statusLabel(contact.status),
             ].join(' ').toLocaleLowerCase();
             const createdDate = dateKey(contact.created_at);

@@ -40,7 +40,11 @@ Route::middleware(UseKbUserRootView::class)->group(function () {
 
     Route::post('/login', [UserAuthController::class, 'login'])->name('kbuser.login.store');
     Route::post('/register', [UserAuthController::class, 'register'])->name('kbuser.register.store');
+    Route::post('/forgot-password', [UserAuthController::class, 'sendResetCode'])->middleware('throttle:5,1')->name('kbuser.password.email');
+    Route::post('/reset-password', [UserAuthController::class, 'resetPassword'])->middleware('throttle:10,1')->name('kbuser.password.update');
     Route::post('/logout', [UserAuthController::class, 'logout'])->middleware('auth')->name('kbuser.logout');
+    Route::put('/my-account/profile', [UserAuthController::class, 'updateProfile'])->middleware('auth')->name('kbuser.account.profile.update');
+    Route::put('/my-account/password', [UserAuthController::class, 'updatePassword'])->middleware('auth')->name('kbuser.account.password.update');
     Route::get('/auth/google/redirect', [UserAuthController::class, 'redirectToGoogle'])->name('kbuser.auth.google.redirect');
     Route::get('/auth/google/callback', [UserAuthController::class, 'handleGoogleCallback'])->name('kbuser.auth.google.callback');
 

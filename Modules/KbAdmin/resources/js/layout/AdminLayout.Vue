@@ -200,9 +200,8 @@ function importProjectReports(event: Event): void {
               <p>Quản lý sản phẩm, hình ảnh, danh mục, dự án và yêu cầu tư vấn.</p>
             </div>
             <div class="subnote">
-              <b>Ghi chú dữ liệu</b><br>File này dùng cùng các khóa localStorage với website HVAC Mart khi được mở trên cùng domain. Nếu mở bằng file://, hãy dùng chức năng xuất/nhập JSON để chuyển dữ liệu.</div>
+              <b>Đồng bộ hệ thống trực tuyến</b><br>Mọi cập nhật về sản phẩm, danh mục, dự án, tin tức và báo cáo đều được lưu trên máy chủ cơ sở dữ liệu và hiển thị tức thời trên website HVAC Mart.</div>
           </div>
-          <div class="warning" id="storageWarning">Dữ liệu được lưu trong trình duyệt. Bản HTML tĩnh chưa có máy chủ, đăng nhập bảo mật hoặc đồng bộ giữa các thiết bị.</div>
           <div class="stats" id="stats">
             <div class="stat" v-for="stat in visibleStats" :key="stat.label">
               <span>{{ stat.label }}</span>

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { router, Link, usePage } from '@inertiajs/vue3';
+import { router, Link, useForm, usePage } from '@inertiajs/vue3';
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 import { lockPageScroll } from '../utils/pageScrollLock';
 import UserAuthPanel from './UserAuthPanel.Vue';
@@ -72,10 +72,25 @@ watch(
 
 const colorMode = ref<'light' | 'dark'>('light');
 const isAccountModalOpen = ref(false);
-const accountTab = ref<'quotes' | 'wishlist'>('quotes');
+const accountTab = ref<'profile' | 'quotes' | 'wishlist'>('quotes');
 const isLoadingAccount = ref(false);
 const myQuotes = ref<QuoteRecord[]>([]);
 const myWishlistProducts = ref<Product[]>([]);
+const profileSuccess = ref('');
+const passwordSuccess = ref('');
+const showCurrentPassword = ref(false);
+const showNewPassword = ref(false);
+
+const profileForm = useForm({
+    name: '',
+    phone: '',
+});
+
+const passwordForm = useForm({
+    current_password: '',
+    password: '',
+    password_confirmation: '',
+});
 
 const cart = ref<Record<number, number>>({});
 const cartCount = ref(props.initialCartCount);
@@ -402,8 +417,15 @@ const toggleTheme = (): void => {
     applyTheme(colorMode.value === 'dark' ? 'light' : 'dark');
 };
 
-const openAccountModal = async (tab: 'quotes' | 'wishlist' = 'quotes'): Promise<void> => {
+const openAccountModal = async (tab: 'profile' | 'quotes' | 'wishlist' = 'quotes'): Promise<void> => {
     accountTab.value = tab;
+    profileForm.name = authUser.value?.name ?? '';
+    profileForm.phone = authUser.value?.phone ?? '';
+    profileForm.clearErrors();
+    passwordForm.reset();
+    passwordForm.clearErrors();
+    profileSuccess.value = '';
+    passwordSuccess.value = '';
     isAccountModalOpen.value = true;
     isUserMenuOpen.value = false;
     isLoadingAccount.value = true;
@@ -427,6 +449,27 @@ const openAccountModal = async (tab: 'quotes' | 'wishlist' = 'quotes'): Promise<
     } finally {
         isLoadingAccount.value = false;
     }
+};
+
+const submitProfileUpdate = (): void => {
+    profileSuccess.value = '';
+    profileForm.put('/my-account/profile', {
+        preserveScroll: true,
+        onSuccess: () => {
+            profileSuccess.value = 'Đã cập nhật thông tin cá nhân thành công.';
+        },
+    });
+};
+
+const submitPasswordUpdate = (): void => {
+    passwordSuccess.value = '';
+    passwordForm.put('/my-account/password', {
+        preserveScroll: true,
+        onSuccess: () => {
+            passwordForm.reset();
+            passwordSuccess.value = 'Đã đổi mật khẩu thành công.';
+        },
+    });
 };
 
 const removeWishlistItem = (productId: number): void => {
@@ -779,6 +822,9 @@ onUnmounted(() => {
                     <a v-if="authUser.is_admin" href="/admin/dashboard" class="kb-user-dropdown-item">
                         Trang quản trị
                     </a>
+                    <button type="button" class="kb-user-dropdown-item" @click="openAccountModal('profile')">
+                        {{ loginMethod === 'google' ? 'Hồ sơ cá nhân' : 'Hồ sơ cá nhân & Đổi mật khẩu' }}
+                    </button>
                     <button type="button" class="kb-user-dropdown-item" @click="openAccountModal('quotes')">
                         Lịch sử yêu cầu báo giá
                     </button>
@@ -881,12 +927,20 @@ onUnmounted(() => {
                         <div class="kb-auth-modal-head">
                             <div>
                                 <span class="eyebrow"><span class="dot"></span> CUSTOMER PORTAL</span>
-                                <h3>Hồ sơ báo giá &amp; Sản phẩm đã lưu</h3>
+                                <h3>Hồ sơ cá nhân, Báo giá &amp; Sản phẩm đã lưu</h3>
                             </div>
                             <button class="close-btn" type="button" aria-label="Đóng cửa sổ" @click="isAccountModalOpen = false">×</button>
                         </div>
 
                         <div class="kb-auth-tabs" role="tablist">
+                            <button
+                                type="button"
+                                class="kb-auth-tab"
+                                :class="{ active: accountTab === 'profile' }"
+                                @click="accountTab = 'profile'"
+                            >
+                                {{ loginMethod === 'google' ? 'Hồ sơ cá nhân' : 'Hồ sơ & Mật khẩu' }}
+                            </button>
                             <button
                                 type="button"
                                 class="kb-auth-tab"
@@ -905,8 +959,151 @@ onUnmounted(() => {
                             </button>
                         </div>
 
-                        <div v-if="isLoadingAccount" class="empty-state">
-                            Đang tải dữ liệu tài khoản...
+                        <div
+                            v-if="accountTab === 'profile'"
+                            class="kb-account-body kb-profile-tab-body"
+                            :class="{ 'is-single-col': loginMethod === 'google' }"
+                        >
+                            <form class="kb-profile-section" @submit.prevent="submitProfileUpdate">
+                                <div class="kb-profile-section-head">
+                                    <h4 class="kb-profile-heading">Thông tin cá nhân</h4>
+                                    <p class="kb-profile-sub">Cập nhật họ tên và số điện thoại liên hệ dự án của bạn.</p>
+                                </div>
+                                <p v-if="profileSuccess" class="kb-auth-alert is-success" role="status">{{ profileSuccess }}</p>
+                                <div class="field">
+                                    <label for="kbProfileName">HỌ VÀ TÊN *</label>
+                                    <input
+                                        id="kbProfileName"
+                                        v-model="profileForm.name"
+                                        type="text"
+                                        maxlength="255"
+                                        placeholder="Nguyễn Văn A"
+                                        required
+                                    >
+                                    <span v-if="profileForm.errors.name" class="field-error">{{ profileForm.errors.name }}</span>
+                                </div>
+                                <div class="field">
+                                    <label for="kbProfilePhone">SỐ ĐIỆN THOẠI *</label>
+                                    <input
+                                        id="kbProfilePhone"
+                                        v-model="profileForm.phone"
+                                        type="tel"
+                                        maxlength="30"
+                                        placeholder="09xx xxx xxx"
+                                        required
+                                    >
+                                    <span v-if="profileForm.errors.phone" class="field-error">{{ profileForm.errors.phone }}</span>
+                                </div>
+                                <div class="field">
+                                    <label for="kbProfileEmail">EMAIL ĐĂNG NHẬP</label>
+                                    <input
+                                        id="kbProfileEmail"
+                                        :value="authUser?.email ?? ''"
+                                        type="email"
+                                        disabled
+                                    >
+                                </div>
+                                <button class="btn kb-auth-submit" type="submit" :disabled="profileForm.processing">
+                                    {{ profileForm.processing ? 'Đang lưu...' : 'Lưu thông tin cá nhân' }}
+                                </button>
+                            </form>
+
+                            <form v-if="loginMethod !== 'google'" class="kb-profile-section" @submit.prevent="submitPasswordUpdate">
+                                <div class="kb-profile-section-head">
+                                    <h4 class="kb-profile-heading">Đổi mật khẩu</h4>
+                                    <p class="kb-profile-sub">Sử dụng mật khẩu tối thiểu 8 ký tự để bảo mật tài khoản.</p>
+                                </div>
+                                <p v-if="passwordSuccess" class="kb-auth-alert is-success" role="status">{{ passwordSuccess }}</p>
+                                <div class="field">
+                                    <label for="kbCurrentPassword">MẬT KHẨU HIỆN TẠI *</label>
+                                    <div class="kb-password-wrap">
+                                        <input
+                                            id="kbCurrentPassword"
+                                            v-model="passwordForm.current_password"
+                                            :type="showCurrentPassword ? 'text' : 'password'"
+                                            autocomplete="current-password"
+                                            placeholder="Nhập mật khẩu hiện tại"
+                                            required
+                                        >
+                                        <button
+                                            type="button"
+                                            class="kb-password-toggle"
+                                            :aria-label="showCurrentPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'"
+                                            @click="showCurrentPassword = !showCurrentPassword"
+                                        >
+                                            <svg v-if="showCurrentPassword" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                                                <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-10-8-10-8a18.45 18.45 0 0 1 5.06-5.94" />
+                                                <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 10 8 10 8a18.5 18.5 0 0 1-2.16 3.19" />
+                                                <path d="M14.12 14.12a3 3 0 1 1-4.24-4.24" />
+                                                <line x1="1" y1="1" x2="23" y2="23" />
+                                            </svg>
+                                            <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                                                <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />
+                                                <circle cx="12" cy="12" r="3" />
+                                            </svg>
+                                        </button>
+                                    </div>
+                                    <span v-if="passwordForm.errors.current_password" class="field-error">{{ passwordForm.errors.current_password }}</span>
+                                </div>
+
+                                <div class="field">
+                                    <label for="kbNewPassword">MẬT KHẨU MỚI *</label>
+                                    <div class="kb-password-wrap">
+                                        <input
+                                            id="kbNewPassword"
+                                            v-model="passwordForm.password"
+                                            :type="showNewPassword ? 'text' : 'password'"
+                                            minlength="8"
+                                            autocomplete="new-password"
+                                            placeholder="Tối thiểu 8 ký tự"
+                                            required
+                                        >
+                                        <button
+                                            type="button"
+                                            class="kb-password-toggle"
+                                            :aria-label="showNewPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'"
+                                            @click="showNewPassword = !showNewPassword"
+                                        >
+                                            <svg v-if="showNewPassword" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                                                <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-10-8-10-8a18.45 18.45 0 0 1 5.06-5.94" />
+                                                <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 10 8 10 8a18.5 18.5 0 0 1-2.16 3.19" />
+                                                <path d="M14.12 14.12a3 3 0 1 1-4.24-4.24" />
+                                                <line x1="1" y1="1" x2="23" y2="23" />
+                                            </svg>
+                                            <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                                                <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />
+                                                <circle cx="12" cy="12" r="3" />
+                                            </svg>
+                                        </button>
+                                    </div>
+                                    <span v-if="passwordForm.errors.password" class="field-error">{{ passwordForm.errors.password }}</span>
+                                </div>
+
+                                <div class="field">
+                                    <label for="kbNewPasswordConfirm">XÁC NHẬN MẬT KHẨU MỚI *</label>
+                                    <div class="kb-password-wrap">
+                                        <input
+                                            id="kbNewPasswordConfirm"
+                                            v-model="passwordForm.password_confirmation"
+                                            :type="showNewPassword ? 'text' : 'password'"
+                                            minlength="8"
+                                            autocomplete="new-password"
+                                            placeholder="Nhập lại mật khẩu mới"
+                                            required
+                                        >
+                                    </div>
+                                </div>
+
+                                <button class="btn kb-auth-submit" type="submit" :disabled="passwordForm.processing">
+                                    {{ passwordForm.processing ? 'Đang đổi mật khẩu...' : 'Cập nhật mật khẩu mới' }}
+                                </button>
+                            </form>
+                        </div>
+
+                        <div v-else-if="isLoadingAccount" class="kb-account-body">
+                            <div class="empty-state">
+                                Đang tải dữ liệu tài khoản...
+                            </div>
                         </div>
 
                         <div v-else-if="accountTab === 'quotes'" class="kb-account-body">

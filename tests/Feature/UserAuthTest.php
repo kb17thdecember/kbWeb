@@ -1,7 +1,10 @@
 <?php
 
+use App\Mail\UserPasswordResetOtp;
 use App\Models\User;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Mail;
 
 test('a new user can register with name, email, phone, and password', function () {
     $response = $this->post(route('kbuser.register.store'), [
@@ -107,4 +110,64 @@ test('google oauth redirects and creates or signs in the user on callback', func
         'google_id' => 'google-uid-999',
         'avatar' => 'https://example.com/avatar.png',
     ]);
+});
+
+test('a user can request a password reset code via email and reset their password', function () {
+    Mail::fake();
+
+    $user = User::factory()->create([
+        'email' => 'resetme@example.com',
+        'password' => 'old-password-123',
+    ]);
+
+    $this->post(route('kbuser.password.email'), [
+        'email' => 'resetme@example.com',
+    ])->assertSessionHasNoErrors();
+
+    $sentCode = null;
+    Mail::assertSent(UserPasswordResetOtp::class, function (UserPasswordResetOtp $mail) use (&$sentCode) {
+        $sentCode = $mail->code;
+
+        return $mail->hasTo('resetme@example.com');
+    });
+
+    expect($sentCode)->toBeString()->toHaveLength(6);
+
+    $this->post(route('kbuser.password.update'), [
+        'email' => 'resetme@example.com',
+        'code' => $sentCode,
+        'password' => 'new-password-456',
+        'password_confirmation' => 'new-password-456',
+    ])->assertSessionHasNoErrors();
+
+    $this->assertAuthenticatedAs($user);
+    expect(Hash::check('new-password-456', $user->fresh()->password))->toBeTrue();
+});
+
+test('an authenticated user can update profile info and change password', function () {
+    $user = User::factory()->create([
+        'name' => 'Tên Cũ',
+        'phone' => '0900000001',
+        'password' => 'current-pass-123',
+    ]);
+
+    $this->actingAs($user)
+        ->put(route('kbuser.account.profile.update'), [
+            'name' => 'Nguyễn Tuấn Kiệt',
+            'phone' => '0979807234',
+        ])
+        ->assertSessionHasNoErrors();
+
+    expect($user->fresh()->name)->toBe('Nguyễn Tuấn Kiệt');
+    expect($user->fresh()->phone)->toBe('0979807234');
+
+    $this->actingAs($user)
+        ->put(route('kbuser.account.password.update'), [
+            'current_password' => 'current-pass-123',
+            'password' => 'updated-pass-789',
+            'password_confirmation' => 'updated-pass-789',
+        ])
+        ->assertSessionHasNoErrors();
+
+    expect(Hash::check('updated-pass-789', $user->fresh()->password))->toBeTrue();
 });

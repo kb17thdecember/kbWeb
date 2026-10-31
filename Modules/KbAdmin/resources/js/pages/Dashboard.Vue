@@ -168,10 +168,10 @@
                 <h3>Trạng thái dữ liệu</h3>
                 <p>Sản phẩm, dự án, danh mục và yêu cầu tư vấn được lưu trong cơ sở dữ liệu của website.</p>
 
-                <span class="badge">● Lưu trên máy chủ</span>
+                <span class="badge">● Hệ thống trực tuyến · Bảo mật 2 lớp OTP</span>
 
                 <p style="margin-top:13px">
-                    Thay đổi trong khu vực quản trị được dùng trực tiếp trên website, không phụ thuộc localStorage của trình duyệt.
+                    Dữ liệu quản trị được đồng bộ tức thời với giao diện khách hàng và tự động gửi thông báo email khi có yêu cầu báo giá mới.
                 </p>
 
                 <div class="actions">

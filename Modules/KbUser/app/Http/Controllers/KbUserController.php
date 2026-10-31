@@ -252,6 +252,18 @@ class KbUserController extends Controller
 
     public function featuredProjects(): InertiaResponse
     {
+        $allProducts = Product::query()
+            ->with(['category:id,name', 'subcategory:id,name', 'images'])
+            ->get([
+                'id',
+                'name',
+                'product_title',
+                'category_id',
+                'subcategory_id',
+                'description',
+                'price',
+            ]);
+
         $projects = FeaturedProject::query()
             ->with('images')
             ->latest()
@@ -263,7 +275,28 @@ class KbUserController extends Controller
                 'category',
                 'subcategory',
                 'type',
-            ]);
+            ])
+            ->map(function (FeaturedProject $project) use ($allProducts): array {
+                $catLower = mb_strtolower(trim((string) $project->category));
+                $subLower = mb_strtolower(trim((string) $project->subcategory));
+
+                $matched = $allProducts->filter(function (Product $product) use ($catLower, $subLower): bool {
+                    $pCat = mb_strtolower(trim((string) $product->category?->name));
+                    $pSub = mb_strtolower(trim((string) $product->subcategory?->name));
+
+                    return ($subLower !== '' && $pSub === $subLower)
+                        || ($catLower !== '' && $pCat === $catLower);
+                })->sortByDesc(function (Product $product) use ($subLower): int {
+                    $pSub = mb_strtolower(trim((string) $product->subcategory?->name));
+
+                    return ($subLower !== '' && $pSub === $subLower) ? 1 : 0;
+                })->take(4)->values();
+
+                return [
+                    ...$project->toArray(),
+                    'related_products' => $matched->toArray(),
+                ];
+            });
 
         return Inertia::render('featured projects/Index', [
             'projects' => $projects,

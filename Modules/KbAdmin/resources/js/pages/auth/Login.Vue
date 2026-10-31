@@ -1,10 +1,13 @@
 <script setup lang="ts">
 import { Head, useForm } from '@inertiajs/vue3';
+import { ref } from 'vue';
 
 const form = useForm({
     email: '',
     password: '',
 });
+
+const showPassword = ref(false);
 
 const submit = (): void => {
     form.post('/admin/login', {
@@ -32,7 +35,24 @@ const submit = (): void => {
             </div>
             <div class="field">
                 <label for="adminPassword">Mật khẩu</label>
-                <input id="adminPassword" v-model="form.password" type="password" autocomplete="current-password" required>
+                <div class="auth-password-wrap">
+                    <input
+                        id="adminPassword"
+                        v-model="form.password"
+                        :type="showPassword ? 'text' : 'password'"
+                        autocomplete="current-password"
+                        required
+                    >
+                    <button
+                        type="button"
+                        class="auth-password-toggle"
+                        :aria-label="showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'"
+                        :title="showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'"
+                        @click="showPassword = !showPassword"
+                    >
+                        <FontAwesomeIcon :icon="['fas', showPassword ? 'eye-slash' : 'eye']" />
+                    </button>
+                </div>
                 <span v-if="form.errors.password" class="auth-error">{{ form.errors.password }}</span>
             </div>
 

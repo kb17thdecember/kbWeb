@@ -67,19 +67,49 @@ const contactSuccessMessage = ref('');
 let toastTimer: ReturnType<typeof setTimeout> | undefined;
 let revealObserver: IntersectionObserver | undefined;
 let releasePageScrollLock: (() => void) | null = null;
+const attachmentInput = ref<HTMLInputElement | null>(null);
 const checkoutForm = useForm({
     name: '',
     phone: '',
     email: '',
 });
-const contactForm = useForm({
+const contactForm = useForm<{
+    name: string;
+    phone: string;
+    email: string;
+    category_id: string;
+    project_name: string;
+    message: string;
+    attachment: File | null;
+}>({
     name: '',
     phone: '',
     email: '',
     category_id: '',
     project_name: '',
     message: '',
+    attachment: null,
 });
+
+const onAttachmentChange = (event: Event): void => {
+    const input = event.target as HTMLInputElement;
+    contactForm.attachment = input.files?.[0] ?? null;
+};
+
+const clearAttachment = (): void => {
+    contactForm.attachment = null;
+    if (attachmentInput.value) {
+        attachmentInput.value.value = '';
+    }
+};
+
+const formatAttachmentSize = (bytes: number): string => {
+    if (bytes >= 1048576) {
+        return `${(bytes / 1048576).toFixed(2)} MB`;
+    }
+
+    return `${Math.max(1, Math.round(bytes / 1024))} KB`;
+};
 
 const filters = computed(() => [
     { label: 'Tất cả', value: 'all' },
@@ -433,8 +463,10 @@ const submitContactForm = (): void => {
     contactSuccessMessage.value = '';
     contactForm.post('/contacts?from=home', {
         preserveScroll: true,
+        forceFormData: true,
         onSuccess: () => {
             contactForm.reset();
+            clearAttachment();
             contactSuccessMessage.value = 'Yêu cầu báo giá đã được gửi. Chúng tôi sẽ liên hệ với bạn sớm.';
             notify(contactSuccessMessage.value);
         },
@@ -1059,6 +1091,57 @@ onUnmounted(() => {
                     :aria-invalid="Boolean(contactForm.errors.message)"
                   ></textarea>
                   <span v-if="contactForm.errors.message" class="field-error">{{ contactForm.errors.message }}</span>
+                </div>
+                <div class="field">
+                  <label for="homeBoqAttachment">HỒ SƠ ĐÍNH KÈM (BẢNG KHỐI LƯỢNG BOQ / BẢN VẼ KỸ THUẬT)</label>
+                  <div class="kb-luxury-upload">
+                    <input
+                      id="homeBoqAttachment"
+                      ref="attachmentInput"
+                      type="file"
+                      class="kb-file-input-hidden"
+                      accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.jpg,.jpeg,.png,.webp"
+                      @change="onAttachmentChange"
+                    >
+                    <label v-if="!contactForm.attachment" for="homeBoqAttachment" class="kb-upload-dropzone">
+                      <span class="kb-upload-icon-box" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+                          <path d="M12 16V4m0 0-4 4m4-4 4 4" />
+                          <path d="M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" />
+                        </svg>
+                      </span>
+                      <span class="kb-upload-copy">
+                        <strong>Tải lên bảng khối lượng (BOQ) hoặc bản vẽ</strong>
+                        <small>Định dạng PDF, Excel, Word, Ảnh · Dung lượng tối đa 10MB</small>
+                      </span>
+                      <span class="kb-upload-cta">Chọn tệp</span>
+                    </label>
+
+                    <div v-else class="kb-upload-file-card">
+                      <span class="kb-upload-file-badge" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
+                          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                          <path d="M14 2v6h6" />
+                        </svg>
+                      </span>
+                      <div class="kb-upload-file-meta">
+                        <strong>{{ contactForm.attachment.name }}</strong>
+                        <small>{{ formatAttachmentSize(contactForm.attachment.size) }} · Sẵn sàng đính kèm báo giá</small>
+                      </div>
+                      <div class="kb-upload-file-actions">
+                        <label for="homeBoqAttachment" class="kb-upload-change-btn">Đổi tệp</label>
+                        <button
+                          type="button"
+                          class="kb-upload-remove-btn"
+                          aria-label="Xóa tệp đính kèm"
+                          @click="clearAttachment"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                  <span v-if="contactForm.errors.attachment" class="field-error">{{ contactForm.errors.attachment }}</span>
                 </div>
                 <button class="btn" type="submit" :disabled="contactForm.processing">
                   {{ contactForm.processing ? 'Đang gửi...' : 'Gửi yêu cầu tư vấn' }} <FontAwesomeIcon :icon="['fas', 'arrow-right']" class="icon-ne" />
