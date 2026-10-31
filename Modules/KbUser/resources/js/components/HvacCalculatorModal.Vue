@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Link } from '@inertiajs/vue3';
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 
 type CalculatorProduct = {
     id: number;
@@ -13,7 +13,8 @@ type CalculatorProduct = {
     subcategory: { id: number; name: string } | null;
 };
 
-type ProjectType = 'apartment' | 'hotel_office' | 'industrial_hospital';
+type ProjectType = 'apartment' | 'hotel' | 'industrial';
+type InsulationMaterial = 'mflex' | 'st_kprotect' | 'st' | 'kprotect';
 
 const props = defineProps<{
     open: boolean;
@@ -27,27 +28,48 @@ const emit = defineEmits<{
 
 const activeTab = ref<'ariston' | 'kflex'>('ariston');
 
-// Shared / Ariston calculator state (3 nhóm dự án chính)
+// Loại công trình (3 nhóm dự án)
 const buildingType = ref<ProjectType>('apartment');
-const peopleCount = ref<number>(3);
-const usageStyle = ref<'shower' | 'bathtub' | 'public_business'>('shower');
 
-// K-FLEX calculator state
+// Tab 1: Bình nước nóng & Heatpump
+const peopleCount = ref<number>(3);
+const usageStyle = ref<'shower' | 'bathtub' | 'public'>('shower');
+const hotelSystemType = ref<'both' | 'central' | 'pool'>('both');
+
+// Tab 2: Bảo ôn (Lựa chọn theo loại vật liệu, tự động tính độ dày)
+const materialType = ref<InsulationMaterial>('mflex');
 const pipeApplication = ref<'vrv' | 'chiller' | 'duct'>('vrv');
 const installEnv = ref<'indoor' | 'humid' | 'outdoor'>('indoor');
 const pipeTemp = ref<'standard' | 'deep'>('standard');
 
-const findAristonProducts = (keywords: string[], preferHeatPump = false): CalculatorProduct[] => {
+// Tự động đồng bộ vật liệu bảo ôn đề xuất khi đổi loại công trình
+watch(buildingType, (newType) => {
+    if (newType === 'hotel') {
+        materialType.value = 'st_kprotect';
+    } else {
+        materialType.value = 'mflex';
+    }
+});
+
+const findAristonProducts = (keywords: string[], onlyHeatPump = false): CalculatorProduct[] => {
     const aristonPool = props.products.filter((product) => {
         const haystack = `${product.name} ${product.product_title ?? ''} ${product.category?.name ?? ''} ${product.subcategory?.name ?? ''}`.toLowerCase();
-        return haystack.includes('ariston') || haystack.includes('nước nóng') || haystack.includes('bơm nhiệt') || haystack.includes('slim') || haystack.includes('pro r') || haystack.includes('an3') || haystack.includes('ari ');
+        return (
+            haystack.includes('ariston') ||
+            haystack.includes('nước nóng') ||
+            haystack.includes('bơm nhiệt') ||
+            haystack.includes('slim') ||
+            haystack.includes('pro r') ||
+            haystack.includes('an3') ||
+            haystack.includes('ari ')
+        );
     });
 
     const filtered = aristonPool.filter((product) => {
         const text = `${product.name} ${product.product_title ?? ''} ${product.subcategory?.name ?? ''}`.toLowerCase();
         const isHeatPump = text.includes('bơm nhiệt') || text.includes('ptp') || text.includes('ar-40') || text.includes('ar-80');
-        if (preferHeatPump) {
-            return isHeatPump || keywords.some((kw) => text.includes(kw));
+        if (onlyHeatPump) {
+            return isHeatPump;
         }
         return !isHeatPump && keywords.some((kw) => text.includes(kw));
     });
@@ -62,7 +84,14 @@ const findAristonProducts = (keywords: string[], preferHeatPump = false): Calcul
 const findKflexProducts = (keywords: string[]): CalculatorProduct[] => {
     const kflexPool = props.products.filter((product) => {
         const haystack = `${product.name} ${product.product_title ?? ''} ${product.category?.name ?? ''} ${product.subcategory?.name ?? ''}`.toLowerCase();
-        return haystack.includes('k-flex') || haystack.includes('kflex') || haystack.includes('m-flex') || haystack.includes('mflex') || haystack.includes('k-protect') || haystack.includes('bảo ôn');
+        return (
+            haystack.includes('k-flex') ||
+            haystack.includes('kflex') ||
+            haystack.includes('m-flex') ||
+            haystack.includes('mflex') ||
+            haystack.includes('k-protect') ||
+            haystack.includes('bảo ôn')
+        );
     });
 
     const filtered = kflexPool.filter((product) => {
@@ -78,170 +107,186 @@ const findKflexProducts = (keywords: string[]): CalculatorProduct[] => {
 };
 
 const aristonRecommendation = computed(() => {
-    // Nhóm dự án 2: Văn phòng, Khách sạn -> Heat Pump + Bảo ôn ST / K-Protect
-    if (buildingType.value === 'hotel_office') {
-        if (usageStyle.value === 'public_business') {
-            return {
-                projectScope: 'Văn phòng & Khách sạn (Hạng mục: Heat Pump & Bảo ôn)',
-                capacityLabel: 'Heat Pump / Bình ≥ 100L',
-                lineSuggest: 'Bơm nhiệt Ariston AR-40 PTP HX / AR-80PTP HX hoặc Bình PRO R 100L – ARI 150L',
-                insulationSuggest: 'Bảo ôn cao cấp K-FLEX ST / K-FLEX K-Protect',
-                advice: 'Khách sạn & tòa nhà văn phòng thường lắp hệ thống bơm nhiệt Heat Pump trung tâm. Với khu vệ sinh công cộng hoặc cơ sở kinh doanh dịch vụ cục bộ dùng bình từ 100L trở lên, đi kèm bảo ôn K-FLEX ST hoặc K-Protect.',
-                matched: findAristonProducts(['ar-40', 'ar-80', '100', '150'], true),
-            };
-        }
+    // 1. Khách sạn -> Heatpump - Heatpump hồ bơi, Bảo ôn đề xuất: ST, K-Protect
+    if (buildingType.value === 'hotel') {
+        const systemLabel =
+            hotelSystemType.value === 'pool'
+                ? 'Heatpump hồ bơi'
+                : hotelSystemType.value === 'central'
+                  ? 'Heatpump trung tâm'
+                  : 'Heatpump – Heatpump hồ bơi';
 
         return {
-            projectScope: 'Văn phòng & Khách sạn (Hạng mục: Heat Pump & Bảo ôn)',
-            capacityLabel: 'Heat Pump 48kW – 80kW',
-            lineSuggest: 'Bơm nhiệt Ariston AR-40 PTP HX (48kW) / AR-80PTP HX (80kW)',
-            insulationSuggest: 'Bảo ôn cao cấp K-FLEX ST / K-FLEX K-Protect',
-            advice: 'Đối với dự án khách sạn và tổ hợp văn phòng, giải pháp tiêu chuẩn là lắp đặt bơm nhiệt nước nóng trung tâm (Heat Pump Ariston) kết hợp bảo ôn cao cấp K-FLEX ST hoặc K-Protect chống cháy lan.',
+            projectScope: 'DỰ ÁN KHÁCH SẠN',
+            metricLabel: 'Thiết bị đề xuất',
+            capacityLabel: systemLabel,
+            lineSuggest: 'Bơm nhiệt Ariston AR-40 PTP HX (48kW) / AR-80PTP HX (80kW) & Heatpump hồ bơi',
+            insulationSuggest: 'ST, K-Protect',
+            advice: 'Khách sạn sử dụng hệ thống bơm nhiệt nước nóng trung tâm (Heatpump) và Heatpump gia nhiệt hồ bơi giúp tiết kiệm điện năng vận hành, kết hợp bảo ôn cao cấp K-FLEX ST, K-Protect.',
             matched: findAristonProducts(['ar-40', 'ar-80', 'ptp'], true),
         };
     }
 
-    // Nhóm dự án 3: Khu công nghiệp, Bệnh viện -> Hạng mục chính là Bảo ôn M-Flex; khu công cộng dùng bình >= 100L
-    if (buildingType.value === 'industrial_hospital') {
+    // 2. Khu công nghiệp -> Heatpump, Bảo ôn đề xuất: M-Flex
+    if (buildingType.value === 'industrial') {
         return {
-            projectScope: 'Khu công nghiệp & Bệnh viện (Hạng mục chính: Bảo ôn M-Flex)',
-            capacityLabel: 'Từ 100L – 150L+ (Khu công cộng)',
-            lineSuggest: 'Bình Ariston PRO R 100L / ARI 150L & Bảo ôn K-FLEX M-Flex',
-            insulationSuggest: 'Bảo ôn K-FLEX M-Flex chuyên dụng cho bệnh viện & KCN',
-            advice: 'Dự án khu công nghiệp & bệnh viện tập trung chủ yếu vào hạng mục bảo ôn đường ống (sử dụng dòng M-Flex). Nếu có khu vực tắm công cộng, nhà ăn hoặc cơ sở dịch vụ cần nước nóng thì dùng bình từ 100L trở lên.',
-            matched: [
-                ...findKflexProducts(['m-flex', 'mflex', 'kflex', 'k-flex']).slice(0, 1),
-                ...findAristonProducts(['100', '150'], false).slice(0, 2),
-            ],
+            projectScope: 'DỰ ÁN KHU CÔNG NGHIỆP',
+            metricLabel: 'Thiết bị đề xuất',
+            capacityLabel: 'Heatpump',
+            lineSuggest: 'Bơm nhiệt công nghiệp Ariston AR-40 PTP HX (48kW) / AR-80PTP HX (80kW)',
+            insulationSuggest: 'M-Flex',
+            advice: 'Khu công nghiệp sử dụng hệ thống bơm nhiệt công suất lớn (Heatpump) phục vụ nhu cầu nước nóng tập trung và dây chuyền sản xuất, kết hợp vật tư bảo ôn M-Flex.',
+            matched: findAristonProducts(['ar-40', 'ar-80', 'ptp'], true),
         };
     }
 
-    // Nhóm dự án 1: Chung cư thương mại & NOXH (Bình nước nóng & Bảo ôn)
-    if (usageStyle.value === 'public_business') {
+    // 3. Chung cư, NOXH -> Tính theo dung tích bình, Bảo ôn đề xuất: M-Flex
+    if (usageStyle.value === 'public') {
         return {
-            projectScope: 'Chung cư thương mại & NOXH · Khu công cộng / Cơ sở kinh doanh',
+            projectScope: 'DỰ ÁN CHUNG CƯ, NOXH · KHU CÔNG CỘNG',
+            metricLabel: 'Dung tích bình đề xuất',
             capacityLabel: 'Từ 100L trở lên (100L – 150L)',
-            lineSuggest: 'Ariston PRO R 100 V/H (100L) hoặc ARI 150 HORB (150L)',
-            insulationSuggest: 'Bảo ôn K-FLEX ST / M-Flex cho trục & nhánh ống nước nóng',
-            advice: 'Bình dung tích từ 100L trở lên thường dùng trong khu công cộng, shophouse, phòng gym, spa hoặc cơ sở kinh doanh dịch vụ cần lưu lượng nước nóng lớn và liên tục.',
+            lineSuggest: 'Ariston PRO R 100 V/H (100L) · ARI 150 HORB (150L)',
+            insulationSuggest: 'M-Flex',
+            advice: 'Khu vực công cộng, phòng sinh hoạt cộng đồng hoặc tiện ích thương mại tại chung cư sử dụng bình nước nóng dung tích từ 100L trở lên, đi kèm bảo ôn M-Flex.',
             matched: findAristonProducts(['100', '150']),
         };
     }
 
     if (usageStyle.value === 'bathtub') {
         return {
-            projectScope: 'Chung cư thương mại & NOXH (Bình nước nóng & Bảo ôn)',
-            capacityLabel: 'Từ 80L trở lên (80L – 100L)',
-            lineSuggest: 'Ariston PRO R 80 V/H (80L) hoặc PRO R 100 V/H (100L)',
-            insulationSuggest: 'Bảo ôn K-FLEX ST cho đường ống nước nóng & điều hòa căn hộ',
-            advice: 'Đối với căn hộ chung cư có bồn tắm nằm hoặc sen cây lưu lượng lớn, bắt buộc chọn bình từ 80L trở lên (80L – 100L) để đảm bảo đủ lượng nước ấm cho một lần xả bồn.',
+            projectScope: 'DỰ ÁN CHUNG CƯ, NOXH · CÓ BỒN TẮM',
+            metricLabel: 'Dung tích bình đề xuất',
+            capacityLabel: '80L – 100L',
+            lineSuggest: 'Ariston PRO R 80 V/H (80L) · PRO R 100 V/H (100L)',
+            insulationSuggest: 'M-Flex',
+            advice: 'Căn hộ có lắp đặt bồn tắm hoặc gia đình từ 5 người trở lên cần sử dụng bình dung tích 80L – 100L để đảm bảo đủ lưu lượng nước nóng, đi kèm bảo ôn M-Flex.',
             matched: findAristonProducts(['80', '100']),
         };
     }
 
-    // Chung cư dùng vòi sen tiêu chuẩn: <=2 người (15-20L / 30L), 3 người (30L), >=4 người (50L trở lên)
+    // Tắm vòi sen tiêu chuẩn theo số người:
+    // <= 2 người: 15L - 20L
     if (peopleCount.value <= 2) {
         return {
-            projectScope: 'Chung cư thương mại & NOXH (Bình nước nóng & Bảo ôn)',
-            capacityLabel: '20L – 30L (Khuyên dùng 30L)',
-            lineSuggest: 'Ariston SLIM3 20B / AN3 15B hoặc SLIM3 30B / AN3 30B (30L)',
-            insulationSuggest: 'Bảo ôn K-FLEX cho đường ống điều hòa & nước nóng căn hộ',
-            advice: 'Căn hộ 1–2 người có thể dùng bình 15L–20L; tuy nhiên tại các dự án chung cư thương mại & NOXH, dòng 30L (chuẩn gia đình 3 người) thường được ưu tiên lắp đồng bộ để đảm bảo công suất dự phòng.',
-            matched: findAristonProducts(['30', '20', '15']),
+            projectScope: 'DỰ ÁN CHUNG CƯ, NOXH (< 2 – 2 NGƯỜI)',
+            metricLabel: 'Dung tích bình đề xuất',
+            capacityLabel: '15L – 20L',
+            lineSuggest: 'Ariston AN3 15 B VN (15L) · SLIM3 20B VN (20L)',
+            insulationSuggest: 'M-Flex',
+            advice: 'Căn hộ chung cư, NOXH có từ 1–2 người sử dụng phù hợp với dòng bình nước nóng gián tiếp 15L – 20L nhỏ gọn, kết hợp bảo ôn M-Flex.',
+            matched: findAristonProducts(['15', '20']),
         };
     }
 
-    if (peopleCount.value === 3) {
+    // 3 - 4 người: 30L - 56L
+    if (peopleCount.value <= 4) {
         return {
-            projectScope: 'Chung cư thương mại & NOXH (Bình nước nóng & Bảo ôn)',
-            capacityLabel: '30L',
-            lineSuggest: 'Ariston SLIM3 30B VN / AN3 30B VN / PRO R S 30 SH (30L)',
-            insulationSuggest: 'Bảo ôn K-FLEX cho đường ống điều hòa & nước nóng căn hộ',
-            advice: 'Đối với chung cư thương mại & NOXH, hộ gia đình 3 người sử dụng vòi sen tiêu chuẩn thường dùng bình nước nóng gián tiếp dòng 30L, vừa vặn trần giả phòng tắm và tiết kiệm điện năng.',
-            matched: findAristonProducts(['30']),
+            projectScope: 'DỰ ÁN CHUNG CƯ, NOXH (3 – 4 NGƯỜI)',
+            metricLabel: 'Dung tích bình đề xuất',
+            capacityLabel: '30L – 56L',
+            lineSuggest: 'Ariston SLIM3 30B / AN3 30B (30L) · PRO R S 40 SH (40L) · PRO R 50 V/SH (50L)',
+            insulationSuggest: 'M-Flex',
+            advice: 'Căn hộ chung cư, NOXH cho gia đình 3–4 người sử dụng dòng bình dung tích 30L – 56L (phổ biến 30L, 40L, 50L), kết hợp bảo ôn M-Flex.',
+            matched: findAristonProducts(['30', '40', '50']),
         };
     }
 
-    if (peopleCount.value >= 7) {
-        return {
-            projectScope: 'Chung cư thương mại & NOXH (Bình nước nóng & Bảo ôn)',
-            capacityLabel: '80L – 100L trở lên',
-            lineSuggest: 'Ariston PRO R 80 V/H (80L) hoặc PRO R 100 V/H (100L)',
-            insulationSuggest: 'Bảo ôn K-FLEX cho đường ống điều hòa & nước nóng căn hộ',
-            advice: 'Gia đình đông người (từ 4 người trở lên dùng bình ≥ 50L; với 7+ người hoặc nhiều phòng tắm dùng chung) nên nâng lên bình 80L – 100L để cấp nước nóng liên tục.',
-            matched: findAristonProducts(['80', '100', '50']),
-        };
-    }
-
+    // 5 người trở lên: 80L - 100L
     return {
-        projectScope: 'Chung cư thương mại & NOXH (Bình nước nóng & Bảo ôn)',
-        capacityLabel: 'Từ 50L trở lên (50L – 80L)',
-        lineSuggest: 'Ariston PRO R 50 V / PRO R 50 SH (50L) hoặc PRO R 80 (80L)',
-        insulationSuggest: 'Bảo ôn K-FLEX cho đường ống điều hòa & nước nóng căn hộ',
-        advice: 'Đối với căn hộ chung cư có từ 4 người trở lên, cần chọn bình nước nóng dung tích từ 50L trở lên để đảm bảo đủ nước nóng sinh hoạt liên tiếp cho cả gia đình.',
-        matched: findAristonProducts(['50', '80', '40']),
+        projectScope: 'DỰ ÁN CHUNG CƯ, NOXH (≥ 5 NGƯỜI)',
+        metricLabel: 'Dung tích bình đề xuất',
+        capacityLabel: '80L – 100L',
+        lineSuggest: 'Ariston PRO R 80 V/H (80L) · PRO R 100 V/H (100L)',
+        insulationSuggest: 'M-Flex',
+        advice: 'Gia đình từ 5 người trở lên hoặc căn hộ có bồn tắm cần chọn bình nước nóng dung tích 80L – 100L để cấp đủ nước nóng liên tục, kết hợp bảo ôn M-Flex.',
+        matched: findAristonProducts(['80', '100']),
     };
 });
 
 const kflexRecommendation = computed(() => {
+    // Tự động tính độ dày theo ứng dụng, môi trường lắp đặt và nhiệt độ môi chất
     let thickness = '13mm – 19mm';
+
     if (pipeApplication.value === 'chiller') {
-        thickness = installEnv.value === 'indoor' ? '25mm – 32mm' : '32mm – 50mm';
+        if (pipeTemp.value === 'deep') {
+            thickness = installEnv.value === 'indoor' ? '32mm – 40mm' : '40mm – 50mm';
+        } else {
+            thickness = installEnv.value === 'indoor' ? '25mm – 32mm' : '32mm – 50mm';
+        }
     } else if (pipeApplication.value === 'duct') {
-        thickness = installEnv.value === 'outdoor' ? '25mm (Có phủ bạc Alu)' : '13mm – 19mm (Bảo ôn tấm)';
-    } else if (installEnv.value === 'humid' || installEnv.value === 'outdoor' || pipeTemp.value === 'deep') {
-        thickness = '19mm – 25mm';
+        if (installEnv.value === 'outdoor') {
+            thickness = '25mm – 32mm (Tấm phủ bạc Alu)';
+        } else if (installEnv.value === 'humid' || pipeTemp.value === 'deep') {
+            thickness = '19mm – 25mm (Bảo ôn tấm)';
+        } else {
+            thickness = '13mm – 19mm (Bảo ôn tấm)';
+        }
+    } else {
+        // Ống đồng điều hòa VRV/VRF & ống nước nóng
+        if (installEnv.value === 'outdoor' || pipeTemp.value === 'deep') {
+            thickness = '19mm – 25mm';
+        } else if (installEnv.value === 'humid') {
+            thickness = '19mm';
+        } else {
+            thickness = '13mm – 19mm';
+        }
     }
 
-    // Nhóm 2: Văn phòng, Khách sạn -> Bảo ôn loại xịn K-FLEX ST, K-Protect (+ Heatpump)
-    if (buildingType.value === 'hotel_office') {
-        const appLabel =
-            pipeApplication.value === 'chiller'
-                ? 'Đường ống Chiller & trục nước nóng Heat Pump'
-                : pipeApplication.value === 'duct'
-                  ? 'Hệ thống ống gió cấp & hồi khách sạn / văn phòng'
-                  : 'Hệ thống ống đồng VRV/VRF & đường ống Heat Pump';
+    const materialInfoMap: Record<
+        InsulationMaterial,
+        { label: string; note: string; keywords: string[] }
+    > = {
+        mflex: {
+            label: 'M-Flex (Cao su lưu hóa NBR)',
+            note: 'Dòng bảo ôn M-Flex tối ưu hiệu quả cách nhiệt, chống đọng sương và chi phí đầu tư, là lựa chọn tiêu chuẩn cho dự án Chung cư, NOXH và Khu công nghiệp.',
+            keywords: ['m-flex', 'mflex', 'k-flex', 'kflex'],
+        },
+        st_kprotect: {
+            label: 'ST, K-Protect (Cao su lưu hóa NBR cao cấp chống cháy)',
+            note: 'Bộ đôi bảo ôn cao cấp K-FLEX ST và K-Protect đáp ứng tiêu chuẩn chống cháy lan Class 0, FM Approved, ít sinh khói, chuyên dùng cho dự án Khách sạn phối hợp cùng hệ thống Heatpump.',
+            keywords: ['st', 'k-protect', 'kprotect', 'kflex'],
+        },
+        st: {
+            label: 'K-FLEX ST (Cao su lưu hóa NBR cao cấp Class 0)',
+            note: 'Dòng bảo ôn K-FLEX ST có hệ số dẫn nhiệt thấp, kháng ẩm vượt trội và chứng chỉ chống cháy quốc tế, phù hợp cho hệ thống Chiller, VRV/VRF và đường ống Heatpump khách sạn.',
+            keywords: ['st', 'kflex'],
+        },
+        kprotect: {
+            label: 'K-FLEX K-Protect (Bảo ôn an toàn cháy nổ cao cấp)',
+            note: 'Dòng bảo ôn K-Protect tăng cường khả năng chống cháy và kiểm soát khói nghiêm ngặt cho các trục kỹ thuật, phòng máy và công trình khách sạn cao tầng.',
+            keywords: ['k-protect', 'kprotect', 'st', 'kflex'],
+        },
+    };
 
-        return {
-            projectScope: 'Văn phòng & Khách sạn (Hạng mục: Heat Pump & Bảo ôn cao cấp)',
-            thickness,
-            productLine: 'K-FLEX ST / K-FLEX K-Protect (Dòng bảo ôn cao cấp)',
-            companionSuggest: `Ứng dụng: ${appLabel} · Kết hợp hệ Heat Pump Ariston`,
-            technicalNote:
-                'Khách sạn và tòa nhà văn phòng yêu cầu tiêu chuẩn chống cháy lan, ít khói và thẩm mỹ kỹ thuật khắt khe nên dùng dòng bảo ôn cao cấp K-FLEX ST hoặc K-Protect (Class 0, FM Approved, UL94) kết hợp hệ thống bơm nhiệt Heat Pump.',
-            matched: findKflexProducts(['st', 'k-protect', 'kprotect', 'kflex']),
-        };
-    }
+    const projectInfoMap: Record<ProjectType, { scope: string; defaultInsulation: string; waterHeaterCompanion: string }> = {
+        apartment: {
+            scope: 'DỰ ÁN CHUNG CƯ, NOXH',
+            defaultInsulation: 'M-Flex',
+            waterHeaterCompanion: 'Bình nước nóng Ariston (15–20L / 30–56L / 80–100L / ≥100L)',
+        },
+        hotel: {
+            scope: 'DỰ ÁN KHÁCH SẠN',
+            defaultInsulation: 'ST, K-Protect',
+            waterHeaterCompanion: 'Heatpump – Heatpump hồ bơi',
+        },
+        industrial: {
+            scope: 'DỰ ÁN KHU CÔNG NGHIỆP',
+            defaultInsulation: 'M-Flex',
+            waterHeaterCompanion: 'Heatpump công nghiệp',
+        },
+    };
 
-    // Nhóm 3: Khu công nghiệp & Bệnh viện -> Dùng M-Flex
-    if (buildingType.value === 'industrial_hospital') {
-        const appLabel =
-            pipeApplication.value === 'chiller'
-                ? 'Đường ống nước lạnh Chiller / AHU / FCU nhà máy & bệnh viện'
-                : pipeApplication.value === 'duct'
-                  ? 'Hệ thống ống gió HVAC khu công nghiệp & bệnh viện'
-                  : 'Hệ thống ống đồng & đường ống kỹ thuật công nghiệp';
+    const currentMaterial = materialInfoMap[materialType.value];
+    const currentProject = projectInfoMap[buildingType.value];
 
-        return {
-            projectScope: 'Khu công nghiệp & Bệnh viện (Hạng mục chuyên dụng: Bảo ôn)',
-            thickness,
-            productLine: 'K-FLEX M-Flex (Bảo ôn chuyên dụng Bệnh viện & KCN)',
-            companionSuggest: `Ứng dụng: ${appLabel}`,
-            technicalNote:
-                'Đối với dự án bệnh viện, nhà máy và khu công nghiệp, khuyến nghị sử dụng dòng bảo ôn M-Flex giúp kiểm soát ngưng tụ ổn định và tối ưu chi phí đầu tư trên khối lượng tuyến ống lớn.',
-            matched: findKflexProducts(['m-flex', 'mflex', 'kflex', 'k-flex']),
-        };
-    }
-
-    // Nhóm 1: Chung cư thương mại & NOXH -> Bình nước nóng + Bảo ôn K-FLEX (ST / M-Flex)
     return {
-        projectScope: 'Chung cư thương mại & NOXH (Hạng mục: Bình nước nóng & Bảo ôn)',
+        projectScope: `${currentProject.scope} · BẢO ÔN ĐỀ XUẤT: ${currentProject.defaultInsulation}`,
         thickness,
-        productLine: 'Bảo ôn K-FLEX ST / M-Flex (Ống & tấm cách nhiệt căn hộ)',
-        companionSuggest: 'Đồng bộ cùng bình nước nóng gián tiếp Ariston (30L / 50L+ / 80L+)',
-        technicalNote:
-            'Dự án chung cư thương mại & NOXH sử dụng đồng bộ bảo ôn K-FLEX cho tuyến ống đồng điều hòa Multi/Split và ống cấp nước nóng căn hộ, ngăn đọng sương trần thạch cao và giảm thất thoát nhiệt.',
-        matched: findKflexProducts(['k-flex', 'kflex', 'st', 'm-flex']),
+        productLine: currentMaterial.label,
+        companionSuggest: `Thiết bị đồng bộ: ${currentProject.waterHeaterCompanion}`,
+        technicalNote: currentMaterial.note,
+        matched: findKflexProducts(currentMaterial.keywords),
     };
 });
 
@@ -269,7 +314,7 @@ const formatPrice = (price: number): string =>
                         :class="{ active: activeTab === 'ariston' }"
                         @click="activeTab = 'ariston'"
                     >
-                        Bình nước nóng &amp; Heat Pump Ariston
+                        Bình nước nóng &amp; Heatpump
                     </button>
                     <button
                         type="button"
@@ -278,7 +323,7 @@ const formatPrice = (price: number): string =>
                         :class="{ active: activeTab === 'kflex' }"
                         @click="activeTab = 'kflex'"
                     >
-                        Bảo ôn K-FLEX (ST / K-Protect / M-Flex)
+                        Bảo ôn (M-Flex / ST / K-Protect)
                     </button>
                 </div>
 
@@ -286,12 +331,12 @@ const formatPrice = (price: number): string =>
                     <div class="kb-calc-grid">
                         <div class="kb-calc-inputs">
                             <div class="field">
-                                <label for="calcBuilding">LOẠI DỰ ÁN / CÔNG TRÌNH</label>
+                                <label for="calcBuilding">LOẠI CÔNG TRÌNH</label>
                                 <div class="kb-adv-select-shell">
                                     <select id="calcBuilding" v-model="buildingType">
-                                        <option value="apartment">Chung cư thương mại &amp; NOXH</option>
-                                        <option value="hotel_office">Văn phòng &amp; Khách sạn</option>
-                                        <option value="industrial_hospital">Khu công nghiệp &amp; Bệnh viện</option>
+                                        <option value="apartment">Chung cư, NOXH</option>
+                                        <option value="hotel">Khách sạn</option>
+                                        <option value="industrial">Khu công nghiệp</option>
                                     </select>
                                     <svg class="kb-adv-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
                                         <path d="m6 9 6 6 6-6" />
@@ -299,13 +344,13 @@ const formatPrice = (price: number): string =>
                                 </div>
                             </div>
 
-                            <div class="field">
-                                <label for="calcUsage">NHU CẦU SỬ DỤNG NƯỚC NÓNG</label>
+                            <div v-if="buildingType === 'apartment'" class="field">
+                                <label for="calcUsage">NHU CẦU SỬ DỤNG</label>
                                 <div class="kb-adv-select-shell">
                                     <select id="calcUsage" v-model="usageStyle">
-                                        <option value="shower">Hộ gia đình tắm vòi sen tiêu chuẩn (3 người: 30L · ≥4 người: ≥50L)</option>
-                                        <option value="bathtub">Căn hộ có bồn tắm nằm / Sen lưu lượng lớn (Từ 80L trở lên)</option>
-                                        <option value="public_business">Khu công cộng / Cơ sở kinh doanh dịch vụ (Từ 100L trở lên)</option>
+                                        <option value="shower">Tắm vòi sen tiêu chuẩn (Tính theo số người)</option>
+                                        <option value="bathtub">Căn hộ có bồn tắm (80L – 100L)</option>
+                                        <option value="public">Khu công cộng (100L trở lên)</option>
                                     </select>
                                     <svg class="kb-adv-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
                                         <path d="m6 9 6 6 6-6" />
@@ -314,7 +359,7 @@ const formatPrice = (price: number): string =>
                             </div>
 
                             <div v-if="buildingType === 'apartment' && usageStyle === 'shower'" class="field">
-                                <label for="calcPeople">QUY MÔ HỘ GIA ĐÌNH ({{ peopleCount }} người)</label>
+                                <label for="calcPeople">SỐ NGƯỜI SỬ DỤNG ({{ peopleCount }} người)</label>
                                 <input
                                     id="calcPeople"
                                     v-model.number="peopleCount"
@@ -324,9 +369,23 @@ const formatPrice = (price: number): string =>
                                     step="1"
                                 >
                                 <div class="kb-calc-scale">
-                                    <span>1–2 người</span>
-                                    <span>3 người (30L)</span>
-                                    <span>≥ 4 người (≥ 50L)</span>
+                                    <span>&le; 2 người (15–20L)</span>
+                                    <span>3–4 người (30–56L)</span>
+                                    <span>&ge; 5 người (80–100L)</span>
+                                </div>
+                            </div>
+
+                            <div v-if="buildingType === 'hotel'" class="field">
+                                <label for="calcHotelSystem">HẠNG MỤC CẤP NHIỆT KHÁCH SẠN</label>
+                                <div class="kb-adv-select-shell">
+                                    <select id="calcHotelSystem" v-model="hotelSystemType">
+                                        <option value="both">Heatpump – Heatpump hồ bơi</option>
+                                        <option value="central">Heatpump nước nóng trung tâm</option>
+                                        <option value="pool">Heatpump gia nhiệt hồ bơi</option>
+                                    </select>
+                                    <svg class="kb-adv-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                                        <path d="m6 9 6 6 6-6" />
+                                    </svg>
                                 </div>
                             </div>
                         </div>
@@ -334,15 +393,15 @@ const formatPrice = (price: number): string =>
                         <div class="kb-calc-result">
                             <span class="kb-calc-badge">{{ aristonRecommendation.projectScope }}</span>
                             <div class="kb-calc-metric">
-                                <span>Công suất / Dung tích đề xuất</span>
+                                <span>{{ aristonRecommendation.metricLabel }}</span>
                                 <strong>{{ aristonRecommendation.capacityLabel }}</strong>
                             </div>
                             <div class="kb-calc-line">
-                                <span>Thiết bị nước nóng khuyến nghị:</span>
+                                <span>Dòng thiết bị phù hợp:</span>
                                 <b>{{ aristonRecommendation.lineSuggest }}</b>
                             </div>
                             <div class="kb-calc-line">
-                                <span>Hạng mục bảo ôn đi kèm:</span>
+                                <span>Bảo ôn đề xuất:</span>
                                 <b>{{ aristonRecommendation.insulationSuggest }}</b>
                             </div>
                             <p class="kb-calc-note">{{ aristonRecommendation.advice }}</p>
@@ -377,12 +436,27 @@ const formatPrice = (price: number): string =>
                     <div class="kb-calc-grid">
                         <div class="kb-calc-inputs">
                             <div class="field">
-                                <label for="calcKflexProject">LOẠI DỰ ÁN / CÔNG TRÌNH</label>
+                                <label for="calcKflexProject">LOẠI CÔNG TRÌNH</label>
                                 <div class="kb-adv-select-shell">
                                     <select id="calcKflexProject" v-model="buildingType">
-                                        <option value="apartment">Chung cư thương mại &amp; NOXH</option>
-                                        <option value="hotel_office">Văn phòng &amp; Khách sạn</option>
-                                        <option value="industrial_hospital">Khu công nghiệp &amp; Bệnh viện</option>
+                                        <option value="apartment">Chung cư, NOXH</option>
+                                        <option value="hotel">Khách sạn</option>
+                                        <option value="industrial">Khu công nghiệp</option>
+                                    </select>
+                                    <svg class="kb-adv-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                                        <path d="m6 9 6 6 6-6" />
+                                    </svg>
+                                </div>
+                            </div>
+
+                            <div class="field">
+                                <label for="calcMaterial">LOẠI VẬT LIỆU BẢO ÔN</label>
+                                <div class="kb-adv-select-shell">
+                                    <select id="calcMaterial" v-model="materialType">
+                                        <option value="mflex">M-Flex (Đề xuất cho Chung cư, NOXH &amp; KCN)</option>
+                                        <option value="st_kprotect">ST, K-Protect (Đề xuất cho Khách sạn)</option>
+                                        <option value="st">K-FLEX ST (Cao su lưu hóa NBR Class 0)</option>
+                                        <option value="kprotect">K-FLEX K-Protect (Chống cháy cao cấp)</option>
                                     </select>
                                     <svg class="kb-adv-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
                                         <path d="m6 9 6 6 6-6" />
@@ -394,8 +468,8 @@ const formatPrice = (price: number): string =>
                                 <label for="calcPipeApp">HỆ THỐNG ĐƯỜNG ỐNG / ỨNG DỤNG</label>
                                 <div class="kb-adv-select-shell">
                                     <select id="calcPipeApp" v-model="pipeApplication">
-                                        <option value="vrv">Ống đồng điều hòa (Split / Multi / VRV / VRF) &amp; Ống nước nóng</option>
-                                        <option value="chiller">Đường ống nước lạnh Chiller / AHU / FCU / Heat Pump</option>
+                                        <option value="vrv">Ống đồng điều hòa (Split / Multi / VRV) &amp; Ống nước nóng</option>
+                                        <option value="chiller">Đường ống nước lạnh Chiller / AHU / FCU / Heatpump</option>
                                         <option value="duct">Hệ thống ống gió cấp &amp; hồi HVAC</option>
                                     </select>
                                     <svg class="kb-adv-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
@@ -435,15 +509,15 @@ const formatPrice = (price: number): string =>
                         <div class="kb-calc-result">
                             <span class="kb-calc-badge">{{ kflexRecommendation.projectScope }}</span>
                             <div class="kb-calc-metric">
-                                <span>Độ dày bảo ôn đề xuất</span>
+                                <span>Độ dày bảo ôn tự tính</span>
                                 <strong>{{ kflexRecommendation.thickness }}</strong>
                             </div>
                             <div class="kb-calc-line">
-                                <span>Dòng bảo ôn khuyến nghị:</span>
+                                <span>Vật liệu bảo ôn đề xuất:</span>
                                 <b>{{ kflexRecommendation.productLine }}</b>
                             </div>
                             <div class="kb-calc-line">
-                                <span>Phạm vi &amp; giải pháp đồng bộ:</span>
+                                <span>Giải pháp cấp nhiệt đi kèm:</span>
                                 <b>{{ kflexRecommendation.companionSuggest }}</b>
                             </div>
                             <p class="kb-calc-note">{{ kflexRecommendation.technicalNote }}</p>
