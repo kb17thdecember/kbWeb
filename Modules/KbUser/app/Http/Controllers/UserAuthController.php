@@ -5,6 +5,7 @@ namespace Modules\KbUser\Http\Controllers;
 use App\Actions\Teams\CreateTeam;
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -158,7 +159,7 @@ class UserAuthController extends Controller
             );
         }
 
-        $tokenResponse = Http::asForm()->post('https://oauth2.googleapis.com/token', [
+        $tokenResponse = $this->googleHttpClient()->asForm()->post('https://oauth2.googleapis.com/token', [
             'client_id' => (string) config('services.google.client_id', ''),
             'client_secret' => (string) config('services.google.client_secret', ''),
             'redirect_uri' => $this->resolveGoogleRedirectUri(),
@@ -173,7 +174,7 @@ class UserAuthController extends Controller
             );
         }
 
-        $profileResponse = Http::withToken($tokenResponse->json('access_token'))
+        $profileResponse = $this->googleHttpClient()->withToken($tokenResponse->json('access_token'))
             ->get('https://www.googleapis.com/oauth2/v3/userinfo');
 
         $googleId = $profileResponse->json('sub');
@@ -236,5 +237,18 @@ class UserAuthController extends Controller
         }
 
         return url($configured);
+    }
+
+    private function googleHttpClient(): PendingRequest
+    {
+        if (app()->environment('local')) {
+            $gitCaBundle = 'C:/Program Files/Git/mingw64/etc/ssl/certs/ca-bundle.crt';
+
+            return is_file($gitCaBundle)
+                ? Http::withOptions(['verify' => $gitCaBundle])
+                : Http::withoutVerifying();
+        }
+
+        return Http::createPendingRequest();
     }
 }
