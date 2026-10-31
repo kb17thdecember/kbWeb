@@ -483,7 +483,7 @@ class ProductSeeder extends Seeder
                 ],
             ],
             [
-                'name' => 'KFlex M-FLex',
+                'name' => 'KFlex M-Flex',
                 'category' => 'K-FLEX',
                 'subcategory' => 'Cao su lưu hóa NBR',
                 'product_title' => 'Dòng sản phẩm bảo ôn cao cấp phù hợp cho chung cư và khu công nghiệp .',
