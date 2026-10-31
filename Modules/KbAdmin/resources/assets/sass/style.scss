@@ -1325,14 +1325,16 @@ button {
   gap: 8px;
 }
 
+.field input.auth-otp,
 .auth-otp {
   width: 100%;
   min-width: 0;
   aspect-ratio: 1 / 1.15;
   padding: 0;
   text-align: center;
-  font-size: 24px;
+  font-size: 26px;
   font-weight: 700;
+  line-height: 1;
 }
 
 .auth-back {
