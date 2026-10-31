@@ -44,7 +44,8 @@ test('a user can sign in with email and password and sign out', function () {
     $this->post(route('kbuser.login.store'), [
         'email' => 'khachhang@example.com',
         'password' => 'user-pass-123',
-    ])->assertRedirect(route('kbuser.home'));
+    ])->assertRedirect(route('kbuser.home'))
+        ->assertSessionHas('kbuser_login_method', 'account');
 
     $this->assertAuthenticatedAs($user);
 
@@ -96,7 +97,8 @@ test('google oauth redirects and creates or signs in the user on callback', func
         'state' => $state,
     ]));
 
-    $callbackResponse->assertRedirect(route('kbuser.home'));
+    $callbackResponse->assertRedirect(route('kbuser.home'))
+        ->assertSessionHas('kbuser_login_method', 'google');
     $this->assertAuthenticated();
 
     $this->assertDatabaseHas('users', [

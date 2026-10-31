@@ -46,14 +46,20 @@ const props = defineProps<{
     activePage?: string;
 }>();
 
-const page = usePage<{ auth?: { user?: AuthUser | null; googleError?: string | null; wishlistIds?: number[] } }>();
+const page = usePage<{ auth?: { user?: AuthUser | null; loginMethod?: string | null; googleError?: string | null; wishlistIds?: number[] } }>();
 const authUser = computed<AuthUser | null>(() => page.props.auth?.user ?? null);
+const loginMethod = computed<string>(() => page.props.auth?.loginMethod ?? 'account');
 const googleError = computed<string | null>(() => page.props.auth?.googleError ?? null);
 const wishlistIds = computed<number[]>(() => page.props.auth?.wishlistIds ?? []);
 const userInitial = computed(() => {
     const raw = authUser.value?.name?.trim() ?? '';
 
     return raw ? raw.charAt(0).toUpperCase() : 'U';
+});
+const userShortName = computed(() => {
+    const parts = (authUser.value?.name ?? '').trim().split(/\s+/).filter(Boolean);
+
+    return parts[parts.length - 1] ?? '';
 });
 const avatarFailed = ref(false);
 
@@ -752,7 +758,7 @@ onUnmounted(() => {
                 @click="toggleUserMenu"
             >
                 <img
-                    v-if="authUser.avatar && !avatarFailed"
+                    v-if="loginMethod === 'google' && authUser.avatar && !avatarFailed"
                     :src="authUser.avatar"
                     alt=""
                     referrerpolicy="no-referrer"
@@ -760,7 +766,7 @@ onUnmounted(() => {
                     @error="avatarFailed = true"
                 >
                 <span v-else class="kb-user-initial">{{ userInitial }}</span>
-                <span class="kb-user-name">{{ authUser.name }}</span>
+                <span class="kb-user-name">{{ userShortName }}</span>
             </button>
 
             <div v-if="isUserMenuOpen" class="kb-user-dropdown" role="menu">

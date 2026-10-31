@@ -20,6 +20,8 @@ class UserAuthController extends Controller
 {
     private const GOOGLE_STATE_SESSION_KEY = 'kbuser_google_oauth_state';
 
+    public const LOGIN_METHOD_SESSION_KEY = 'kbuser_login_method';
+
     public function __construct(private CreateTeam $createTeam) {}
 
     public function login(Request $request): RedirectResponse
@@ -55,6 +57,7 @@ class UserAuthController extends Controller
 
         RateLimiter::clear($throttleKey);
         $request->session()->regenerate();
+        $request->session()->put(self::LOGIN_METHOD_SESSION_KEY, 'account');
 
         return redirect()->intended(route('kbuser.home'));
     }
@@ -100,6 +103,7 @@ class UserAuthController extends Controller
 
         Auth::login($user);
         $request->session()->regenerate();
+        $request->session()->put(self::LOGIN_METHOD_SESSION_KEY, 'account');
 
         return redirect()->intended(route('kbuser.home'));
     }
@@ -127,7 +131,7 @@ class UserAuthController extends Controller
         $state = Str::random(40);
         $request->session()->put(self::GOOGLE_STATE_SESSION_KEY, $state);
 
-        $redirectUri = $this->resolveGoogleRedirectUri();
+        $redirectUri = $this->resolveGoogleRedirectUri($request);
 
         $query = http_build_query([
             'client_id' => $clientId,
@@ -162,7 +166,7 @@ class UserAuthController extends Controller
         $tokenResponse = $this->googleHttpClient()->asForm()->post('https://oauth2.googleapis.com/token', [
             'client_id' => (string) config('services.google.client_id', ''),
             'client_secret' => (string) config('services.google.client_secret', ''),
-            'redirect_uri' => $this->resolveGoogleRedirectUri(),
+            'redirect_uri' => $this->resolveGoogleRedirectUri($request),
             'grant_type' => 'authorization_code',
             'code' => $code,
         ]);
@@ -224,19 +228,17 @@ class UserAuthController extends Controller
 
         Auth::login($user, remember: true);
         $request->session()->regenerate();
+        $request->session()->put(self::LOGIN_METHOD_SESSION_KEY, 'google');
 
         return redirect()->intended(route('kbuser.home'));
     }
 
-    private function resolveGoogleRedirectUri(): string
+    private function resolveGoogleRedirectUri(Request $request): string
     {
-        $configured = (string) config('services.google.redirect', '/auth/google/callback');
+        $configured = trim((string) config('services.google.redirect', '/auth/google/callback'));
+        $path = parse_url($configured, PHP_URL_PATH) ?: '/auth/google/callback';
 
-        if (Str::startsWith($configured, ['http://', 'https://'])) {
-            return $configured;
-        }
-
-        return url($configured);
+        return rtrim($request->getSchemeAndHttpHost(), '/').'/'.ltrim($path, '/');
     }
 
     private function googleHttpClient(): PendingRequest

@@ -42,6 +42,7 @@ class HandleInertiaRequests extends Middleware
             'name' => config('app.name'),
             'auth' => [
                 'user' => $user,
+                'loginMethod' => fn () => $request->session()->get('kbuser_login_method', 'account'),
                 'googleError' => fn () => $request->session()->get('google_error'),
                 'wishlistIds' => fn () => $user ? $user->wishlists()->pluck('product_id')->all() : [],
             ],

@@ -44,12 +44,17 @@ button {
   min-height: 100vh;
 }
 .sidebar {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  align-self: start;
+  overflow: hidden;
   background: linear-gradient(165deg, var(--sidebar) 0%, var(--sidebar-deep) 100%);
   border-right: 1px solid var(--sidebar-line);
-  padding: 24px 15px;
+  padding: 18px 15px;
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 16px;
 }
 .brand {
   display: flex;
@@ -95,7 +100,7 @@ button {
 }
 .nav {
   display: grid;
-  gap: 5px;
+  gap: 4px;
 }
 .nav button {
   display: flex;
@@ -103,7 +108,7 @@ button {
   gap: 11px;
   border: 0;
   border-radius: 9px;
-  padding: 12px;
+  padding: 10px 12px;
   background: transparent;
   color: var(--sidebar-muted);
   text-align: left;
@@ -142,7 +147,7 @@ button {
   gap: 11px;
   border: 0;
   border-radius: 9px;
-  padding: 12px;
+  padding: 10px 12px;
   background: transparent;
   color: var(--sidebar-muted);
   text-align: left;
@@ -1135,6 +1140,9 @@ button {
     grid-template-columns: 1fr;
   }
   .sidebar {
+    position: static;
+    height: auto;
+    overflow: visible;
     padding: 12px;
     gap: 12px;
     border: 0;
