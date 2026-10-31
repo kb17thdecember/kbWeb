@@ -103,7 +103,7 @@ const resend = (): void => {
             </div>
             <h1>Nhập mã xác thực</h1>
             <p class="auth-hint">
-                Mã gồm 6 chữ số đã được gửi tới <b>{{ props.email }}</b> và có hiệu lực trong {{ props.validForMinutes }} phút.
+                Mã gồm 6 chữ số đã được gửi tới kbnguyen0311@gmail.com <b></b> và có hiệu lực trong {{ props.validForMinutes }} phút.
             </p>
             <p v-if="props.status" class="auth-success">{{ props.status }}</p>
 

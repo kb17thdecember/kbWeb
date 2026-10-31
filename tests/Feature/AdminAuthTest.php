@@ -45,12 +45,12 @@ test('the seeded admin can sign in with the password and the emailed code', func
     $this->seed(AdminUserSeeder::class);
 
     $this->post(route('admin.login.store'), [
-        'email' => 'nguyentuankietdz@gmail.com',
+        'email' => 'kbnguyen0311@gmail.com',
         'password' => 'kbnguyen0311@',
     ])->assertRedirect(route('admin.login.otp'));
 
     $this->assertGuest();
-    Mail::assertSent(AdminLoginOtp::class, fn ($mail) => $mail->hasTo('nguyentuankietdz@gmail.com'));
+    Mail::assertSent(AdminLoginOtp::class, fn ($mail) => $mail->hasTo('kbnguyen0311@gmail.com'));
 
     $this->post(route('admin.login.otp.verify'), ['code' => requestOtpCode()])
         ->assertRedirect(route('admin.dashboard.index'));
@@ -151,5 +151,5 @@ test('a quote request is emailed to the owner address', function () {
         'message' => 'Cần báo giá.',
     ]);
 
-    Mail::assertSent(ContactInquiryReceived::class, fn ($mail) => $mail->hasTo('nguyentuankietdz@gmail.com'));
+    Mail::assertSent(ContactInquiryReceived::class, fn ($mail) => $mail->hasTo('kbnguyen0311@gmail.com'));
 });

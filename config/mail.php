@@ -116,7 +116,7 @@ return [
     ],
 
     'to' => [
-        'address' => env('MAIL_TO_ADDRESS', 'nguyentuankietdz@gmail.com'),
+        'address' => env('MAIL_TO_ADDRESS', 'kbnguyen0311@gmail.com'),
     ],
 
 ];

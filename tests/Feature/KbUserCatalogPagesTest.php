@@ -131,7 +131,7 @@ test('a contact quote request is saved with its project name', function () {
     ]);
 
     Mail::assertSent(ContactInquiryReceived::class, function (ContactInquiryReceived $mail) {
-        return $mail->hasTo('nguyentuankietdz@gmail.com')
+        return $mail->hasTo('kbnguyen0311@gmail.com')
             && $mail->contact->name === 'Nguyễn Văn An'
             && $mail->contact->project_name === 'Tòa nhà văn phòng ABC'
             && str_contains($mail->render(), 'Cần báo giá vật tư HVAC cho dự án.');

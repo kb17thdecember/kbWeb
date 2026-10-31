@@ -9,7 +9,7 @@ class AdminUserSeeder extends Seeder
 {
     public function run(): void
     {
-        $admin = User::query()->firstOrNew(['email' => 'nguyentuankietdz@gmail.com']);
+        $admin = User::query()->firstOrNew(['email' => 'kbnguyen0311@gmail.com']);
 
         $admin->forceFill([
             'name' => 'Nguyễn Tuấn Kiệt',
