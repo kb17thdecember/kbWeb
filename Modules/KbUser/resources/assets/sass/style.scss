@@ -6672,7 +6672,7 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 }
 
 .kb-calc-inputs {
-  background: var(--paper);
+  background: var(--surface);
   border: 1px solid var(--line);
   padding: 18px;
   display: flex;
@@ -6688,24 +6688,40 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 .kb-calc-inputs .field label {
   font-size: 10px;
   font-weight: 800;
-  letter-spacing: .1em;
+  letter-spacing: .14em;
   text-transform: uppercase;
   color: var(--muted);
 }
 
-.kb-calc-inputs .field select {
+.kb-calc-inputs .kb-adv-select-shell {
   width: 100%;
-  border-radius: 2px;
-  border: 1px solid var(--line);
-  background: var(--surface);
-  color: var(--ink);
-  padding: 11px 13px;
-  font-size: 12px;
-  font-weight: 600;
+  display: flex;
 }
 
-.kb-calc-inputs .field select:focus {
+.kb-calc-inputs .kb-adv-select-shell select {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 100%;
+  min-width: 0;
+  padding: 10px 36px 10px 14px;
+  border-radius: 2px;
+  border: 1px solid var(--line);
+  background: var(--paper);
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: .01em;
+  cursor: pointer;
+  transition: border-color .22s, background .22s, box-shadow .22s;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.kb-calc-inputs .kb-adv-select-shell select:hover,
+.kb-calc-inputs .kb-adv-select-shell select:focus {
+  outline: none;
   border-color: var(--brass);
+  background: var(--surface);
   box-shadow: none;
 }
 
@@ -6892,8 +6908,8 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
     font-size: 9.5px;
   }
 
-  .kb-calc-inputs .field select {
-    padding: 10px 11px;
+  .kb-calc-inputs .kb-adv-select-shell select {
+    padding: 9px 32px 9px 11px;
     font-size: 11.5px;
   }
 
