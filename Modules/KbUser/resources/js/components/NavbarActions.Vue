@@ -819,9 +819,6 @@ onUnmounted(() => {
                     <small v-if="authUser.phone">{{ authUser.phone }}</small>
                 </div>
                 <div class="kb-user-dropdown-links">
-                    <a v-if="authUser.is_admin" href="/admin/dashboard" class="kb-user-dropdown-item">
-                        Trang quản trị
-                    </a>
                     <button type="button" class="kb-user-dropdown-item" @click="openAccountModal('profile')">
                         {{ loginMethod === 'google' ? 'Hồ sơ cá nhân' : 'Hồ sơ cá nhân & Đổi mật khẩu' }}
                     </button>
