@@ -277,17 +277,20 @@ const isCompared = (productId: number): boolean => compareIds.value.includes(pro
 const toggleCompare = (product: Product): void => {
     if (isCompared(product.id)) {
         compareIds.value = compareIds.value.filter((id) => id !== product.id);
+        if (compareIds.value.length === 0) {
+            isCompareModalOpen.value = false;
+        }
         notify(`Đã bỏ ${product.name} khỏi bảng so sánh.`);
         return;
     }
 
-    if (compareIds.value.length >= 3) {
-        notify('Bạn chỉ có thể so sánh tối đa 3 sản phẩm cùng lúc.');
+    if (compareIds.value.length >= 2) {
+        notify('Bạn chỉ có thể so sánh tối đa 2 sản phẩm cùng lúc.');
         return;
     }
 
     compareIds.value = [...compareIds.value, product.id];
-    notify(`Đã thêm ${product.name} vào danh sách so sánh (${compareIds.value.length}/3).`);
+    notify(`Đã thêm ${product.name} vào danh sách so sánh (${compareIds.value.length}/2).`);
 };
 
 const selectFilter = (filter: string): void => {
@@ -625,15 +628,17 @@ onUnmounted(() => {
             <div v-if="compareProducts.length > 0" class="kb-compare-bar" role="region" aria-label="Thanh so sánh sản phẩm">
                 <div class="wrap kb-compare-bar-inner">
                     <div class="kb-compare-bar-items">
-                        <strong>So sánh ({{ compareProducts.length }}/3):</strong>
-                        <span v-for="item in compareProducts" :key="item.id" class="kb-compare-chip">
-                            {{ item.name }}
-                            <button type="button" aria-label="Bỏ sản phẩm" @click="toggleCompare(item)">×</button>
-                        </span>
+                        <strong class="kb-compare-bar-title">So sánh ({{ compareProducts.length }}/2):</strong>
+                        <div class="kb-compare-chips-scroll">
+                            <span v-for="item in compareProducts" :key="item.id" class="kb-compare-chip">
+                                <span class="kb-compare-chip-text">{{ item.name }}</span>
+                                <button type="button" aria-label="Bỏ sản phẩm" @click="toggleCompare(item)">×</button>
+                            </span>
+                        </div>
                     </div>
                     <div class="kb-compare-bar-actions">
                         <button type="button" class="btn btn-outline kb-compare-clear-btn" @click="compareIds = []">Xóa hết</button>
-                        <button type="button" class="btn btn-primary" @click="isCompareModalOpen = true">
+                        <button type="button" class="btn btn-primary kb-compare-open-btn" @click="isCompareModalOpen = true">
                             Xem bảng so sánh
                         </button>
                     </div>
@@ -643,66 +648,188 @@ onUnmounted(() => {
             <Transition name="kb-modal">
                 <div
                     v-if="isCompareModalOpen && compareProducts.length > 0"
-                    class="modal-wrap open"
+                    class="modal-wrap open kb-compare-modal-wrap"
                     role="presentation"
                     @click.self="isCompareModalOpen = false"
                 >
                     <section class="modal kb-compare-modal" role="dialog" aria-modal="true" aria-label="So sánh thông số sản phẩm">
-                        <div class="kb-auth-modal-head">
-                            <div>
+                        <div class="kb-auth-modal-head kb-compare-modal-head">
+                            <div class="kb-compare-modal-title-group">
                                 <span class="eyebrow"><span class="dot"></span> PRODUCT COMPARISON</span>
                                 <h3>So sánh chi tiết sản phẩm ({{ compareProducts.length }} thiết bị)</h3>
                             </div>
-                            <button class="close-btn" type="button" aria-label="Đóng bảng so sánh" @click="isCompareModalOpen = false">×</button>
+                            <div class="kb-compare-modal-head-actions">
+                                <button
+                                    v-if="compareProducts.length > 1"
+                                    type="button"
+                                    class="kb-compare-reset-link"
+                                    @click="compareIds = []; isCompareModalOpen = false"
+                                >
+                                    Xóa tất cả
+                                </button>
+                                <button class="close-btn" type="button" aria-label="Đóng bảng so sánh" @click="isCompareModalOpen = false">×</button>
+                            </div>
                         </div>
 
-                        <div class="kb-compare-table-wrap">
-                            <table class="kb-compare-table">
-                                <thead>
-                                    <tr>
-                                        <th>Tiêu chí kỹ thuật</th>
-                                        <th v-for="item in compareProducts" :key="item.id">
-                                            <div class="kb-compare-col-head">
+                        <div class="kb-compare-modal-body">
+                            <!-- Desktop & Tablet Table View -->
+                            <div class="kb-compare-table-wrap">
+                                <table class="kb-compare-table" :class="`cols-${compareProducts.length}`">
+                                    <thead>
+                                        <tr>
+                                            <th>Tiêu chí kỹ thuật</th>
+                                            <th v-for="(item, idx) in compareProducts" :key="item.id">
+                                                <div class="kb-compare-col-head">
+                                                    <div class="kb-compare-col-top">
+                                                        <span class="kb-compare-index-badge">0{{ idx + 1 }}</span>
+                                                        <button
+                                                            type="button"
+                                                            class="kb-compare-remove-btn"
+                                                            :aria-label="`Bỏ ${item.name} khỏi bảng so sánh`"
+                                                            @click="toggleCompare(item)"
+                                                        >
+                                                            × Bỏ
+                                                        </button>
+                                                    </div>
+                                                    <div class="kb-compare-col-media">
+                                                        <img v-if="imageUrl(item)" :src="imageUrl(item) ?? undefined" :alt="item.name">
+                                                        <span v-else class="kb-compare-col-placeholder">{{ item.category?.name ?? 'HVAC' }}</span>
+                                                    </div>
+                                                    <span class="kb-compare-col-cat">{{ item.category?.name ?? 'Sản phẩm kỹ thuật' }}</span>
+                                                    <strong class="kb-compare-col-name">{{ item.name }}</strong>
+                                                </div>
+                                            </th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr>
+                                            <td>Tên thương mại</td>
+                                            <td v-for="item in compareProducts" :key="item.id">
+                                                <span class="kb-compare-title-text">{{ item.product_title || item.name }}</span>
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <td>Danh mục</td>
+                                            <td v-for="item in compareProducts" :key="item.id">{{ item.category?.name ?? '—' }}</td>
+                                        </tr>
+                                        <tr>
+                                            <td>Dòng sản phẩm</td>
+                                            <td v-for="item in compareProducts" :key="item.id">{{ item.subcategory?.name ?? '—' }}</td>
+                                        </tr>
+                                        <tr>
+                                            <td>Giá tham khảo</td>
+                                            <td v-for="item in compareProducts" :key="item.id">
+                                                <strong class="kb-compare-price">{{ formatPrice(item.price) }}</strong>
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <td>Mô tả &amp; thông số</td>
+                                            <td v-for="item in compareProducts" :key="item.id">
+                                                <div class="kb-compare-desc-cell">{{ item.description || 'Đang cập nhật thông số kỹ thuật.' }}</div>
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <td>Thao tác</td>
+                                            <td v-for="item in compareProducts" :key="item.id">
+                                                <div class="kb-compare-cell-actions">
+                                                    <button type="button" class="btn btn-primary" @click="addToCart(item)">+ Giỏ báo giá</button>
+                                                    <Link :href="`/products/${item.id}`" class="btn btn-outline">Xem chi tiết</Link>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            <!-- Mobile Responsive View -->
+                            <div class="kb-compare-mobile">
+                                <div class="kb-compare-mobile-cards">
+                                    <article
+                                        v-for="(item, idx) in compareProducts"
+                                        :key="item.id"
+                                        class="kb-compare-mobile-card"
+                                    >
+                                        <div class="kb-compare-mobile-card-top">
+                                            <div class="kb-compare-mobile-thumb">
                                                 <img v-if="imageUrl(item)" :src="imageUrl(item) ?? undefined" :alt="item.name">
-                                                <strong>{{ item.name }}</strong>
+                                                <span v-else class="kb-compare-col-placeholder">HVAC</span>
                                             </div>
-                                        </th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <tr>
-                                        <td>Tên thương mại</td>
-                                        <td v-for="item in compareProducts" :key="item.id">{{ item.product_title || item.name }}</td>
-                                    </tr>
-                                    <tr>
-                                        <td>Danh mục</td>
-                                        <td v-for="item in compareProducts" :key="item.id">{{ item.category?.name ?? '—' }}</td>
-                                    </tr>
-                                    <tr>
-                                        <td>Dòng sản phẩm</td>
-                                        <td v-for="item in compareProducts" :key="item.id">{{ item.subcategory?.name ?? '—' }}</td>
-                                    </tr>
-                                    <tr>
-                                        <td>Giá tham khảo</td>
-                                        <td v-for="item in compareProducts" :key="item.id">
-                                            <strong class="kb-compare-price">{{ formatPrice(item.price) }}</strong>
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td>Mô tả &amp; thông số</td>
-                                        <td v-for="item in compareProducts" :key="item.id">{{ item.description }}</td>
-                                    </tr>
-                                    <tr>
-                                        <td>Thao tác</td>
-                                        <td v-for="item in compareProducts" :key="item.id">
-                                            <div class="kb-compare-cell-actions">
-                                                <button type="button" class="btn btn-primary" @click="addToCart(item)">+ Giỏ báo giá</button>
-                                                <Link :href="`/products/${item.id}`" class="btn btn-outline">Xem chi tiết</Link>
+                                            <div class="kb-compare-mobile-meta">
+                                                <div class="kb-compare-mobile-badges">
+                                                    <span class="kb-compare-index-badge">0{{ idx + 1 }}</span>
+                                                    <span class="kb-compare-mobile-cat">{{ item.category?.name ?? 'Thiết bị' }}</span>
+                                                </div>
+                                                <h4 class="kb-compare-mobile-name">{{ item.name }}</h4>
+                                                <strong class="kb-compare-price">{{ formatPrice(item.price) }}</strong>
                                             </div>
-                                        </td>
-                                    </tr>
-                                </tbody>
-                            </table>
+                                            <button
+                                                type="button"
+                                                class="kb-compare-mobile-remove"
+                                                :aria-label="`Bỏ ${item.name} khỏi bảng so sánh`"
+                                                @click="toggleCompare(item)"
+                                            >
+                                                ×
+                                            </button>
+                                        </div>
+                                        <div class="kb-compare-mobile-card-actions">
+                                            <button type="button" class="btn btn-primary" @click="addToCart(item)">+ Giỏ báo giá</button>
+                                            <Link :href="`/products/${item.id}`" class="btn btn-outline">Xem chi tiết</Link>
+                                        </div>
+                                    </article>
+                                </div>
+
+                                <div class="kb-compare-mobile-specs">
+                                    <div class="kb-compare-spec-block">
+                                        <div class="kb-compare-spec-head">Giá tham khảo</div>
+                                        <div class="kb-compare-spec-list">
+                                            <div v-for="(item, idx) in compareProducts" :key="`price-${item.id}`" class="kb-compare-spec-row is-inline">
+                                                <span class="kb-compare-spec-prod">
+                                                    <b>0{{ idx + 1 }}</b> {{ item.name }}
+                                                </span>
+                                                <strong class="kb-compare-price">{{ formatPrice(item.price) }}</strong>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="kb-compare-spec-block">
+                                        <div class="kb-compare-spec-head">Danh mục &amp; Dòng sản phẩm</div>
+                                        <div class="kb-compare-spec-list">
+                                            <div v-for="(item, idx) in compareProducts" :key="`cat-${item.id}`" class="kb-compare-spec-row is-inline">
+                                                <span class="kb-compare-spec-prod">
+                                                    <b>0{{ idx + 1 }}</b> {{ item.name }}
+                                                </span>
+                                                <span class="kb-compare-spec-val">
+                                                    {{ item.category?.name ?? '—' }} · {{ item.subcategory?.name ?? '—' }}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="kb-compare-spec-block">
+                                        <div class="kb-compare-spec-head">Tên thương mại</div>
+                                        <div class="kb-compare-spec-list">
+                                            <div v-for="(item, idx) in compareProducts" :key="`title-${item.id}`" class="kb-compare-spec-row">
+                                                <span class="kb-compare-spec-prod">
+                                                    <b>0{{ idx + 1 }}</b> {{ item.name }}
+                                                </span>
+                                                <p class="kb-compare-spec-text">{{ item.product_title || item.name }}</p>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="kb-compare-spec-block">
+                                        <div class="kb-compare-spec-head">Mô tả &amp; thông số kỹ thuật</div>
+                                        <div class="kb-compare-spec-list">
+                                            <div v-for="(item, idx) in compareProducts" :key="`desc-${item.id}`" class="kb-compare-spec-row">
+                                                <span class="kb-compare-spec-prod">
+                                                    <b>0{{ idx + 1 }}</b> {{ item.name }}
+                                                </span>
+                                                <p class="kb-compare-spec-text is-desc">{{ item.description || 'Đang cập nhật thông số kỹ thuật.' }}</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </section>
                 </div>
