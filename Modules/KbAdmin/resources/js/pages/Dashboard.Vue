@@ -1,6 +1,6 @@
 <script setup lang="ts">
-    import { computed } from 'vue';
-    import { Link } from '@inertiajs/vue3';
+    import { computed, onMounted } from 'vue';
+    import { Link, router } from '@inertiajs/vue3';
     import AdminLayout from '../layout/AdminLayout.Vue';
 
     type AdminStat = {
@@ -20,24 +20,88 @@
         resolved: number;
     };
 
-    const props = defineProps<{
-        stats: AdminStat[];
-        openRequestsCount: number;
-        recentRequests: DailyRequestCount[];
-        requestStatuses: RequestStatuses;
-    }>();
+    type VisitOverview = {
+        total: number;
+        today: number;
+        lastSevenDays: number;
+        uniqueSessions: number;
+    };
+
+    const props = withDefaults(
+        defineProps<{
+            stats: AdminStat[];
+            openRequestsCount: number;
+            recentRequests: DailyRequestCount[];
+            requestStatuses: RequestStatuses;
+            recentVisits?: DailyRequestCount[];
+            visitOverview?: VisitOverview;
+        }>(),
+        {
+            recentVisits: () => [],
+            visitOverview: () => ({
+                total: 0,
+                today: 0,
+                lastSevenDays: 0,
+                uniqueSessions: 0,
+            }),
+        },
+    );
+
+    onMounted(() => {
+        if (props.recentVisits.length === 0) {
+            router.reload();
+        }
+    });
 
     const maxDailyRequests = computed(() => Math.max(1, ...props.recentRequests.map((day) => day.count)));
+    const maxDailyVisits = computed(() => Math.max(1, ...props.recentVisits.map((day) => day.count)));
     const requestStatuses = computed(() => [
         { label: 'Mới', description: 'Chờ tiếp nhận', color: '#18352e', count: props.requestStatuses.pending },
         { label: 'Đang xử lý', description: 'Đang theo dõi', color: '#b59a65', count: props.requestStatuses.processing },
         { label: 'Đã xử lý', description: 'Đã hoàn tất', color: '#66805a', count: props.requestStatuses.resolved },
+    ]);
+    const visitMetrics = computed(() => [
+        { label: 'Hôm nay', description: 'Lượt truy cập trong ngày', color: '#18352e', count: props.visitOverview?.today ?? 0 },
+        { label: '7 ngày gần nhất', description: 'Tổng lượt truy cập trong tuần', color: '#b59a65', count: props.visitOverview?.lastSevenDays ?? 0 },
+        { label: 'Thiết bị / Phiên duy nhất', description: 'Số khách truy cập khác nhau', color: '#66805a', count: props.visitOverview?.uniqueSessions ?? 0 },
+        { label: 'Tổng lượt truy cập', description: 'Toàn thời gian ghi nhận trên hệ thống', color: '#8e7443', count: props.visitOverview?.total ?? 0 },
     ]);
 </script>
 
 <template>
     <AdminLayout :stats="props.stats" :open-requests-count="props.openRequestsCount">
         <div class="cardgrid">
+            <div class="card">
+                <h3>Lượt truy cập website trong 7 ngày gần nhất</h3>
+                <p>Mỗi phiên truy cập từ một thiết bị trong khoảng thời gian hoạt động được tính là 1 lượt.</p>
+
+                <div class="chart">
+                    <div v-for="(day, index) in props.recentVisits" :key="`visit-${index}-${day.label}`" class="barcol">
+                        <span>{{ day.count }}</span>
+                        <div
+                            class="bar"
+                            :style="{ height: `${Math.max(4, (day.count / maxDailyVisits) * 100)}%` }"
+                            :title="`${day.count} lượt truy cập`"
+                        ></div>
+                        <span>{{ day.label }}</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3>Tổng quan lưu lượng truy cập</h3>
+                <p>Theo dõi lượng khách ghé thăm website HVAC Mart.</p>
+
+                <div v-for="metric in visitMetrics" :key="metric.label" class="statusline">
+                    <span class="dot" :style="{ background: metric.color }"></span>
+                    <div>
+                        <b>{{ metric.label }}</b>
+                        <small>{{ metric.description }}</small>
+                    </div>
+                    <strong>{{ metric.count }}</strong>
+                </div>
+            </div>
+
             <div class="card">
                 <h3>Yêu cầu tư vấn trong 7 ngày gần nhất</h3>
                 <p>Thống kê theo ngày tạo của từng yêu cầu.</p>

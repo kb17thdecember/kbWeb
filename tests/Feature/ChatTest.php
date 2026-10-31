@@ -121,6 +121,23 @@ it('lets an admin read and reply to a conversation', function () {
     expect($conversation->messages()->where('sender', 'admin')->value('body'))->toBe('Đã nhận');
 });
 
+it('uses the authenticated user details when sending a chat message without identity fields', function () {
+    $user = User::factory()->create([
+        'name' => 'Nguyễn Văn Minh',
+        'email' => 'minh@example.com',
+        'phone' => '0987654321',
+    ]);
+
+    $this->actingAs($user)
+        ->postJson('/chat/messages', ['body' => 'Tôi cần tư vấn báo giá'])
+        ->assertCreated();
+
+    $conversation = ChatConversation::query()->firstOrFail();
+    expect($conversation->visitor_name)->toBe('Nguyễn Văn Minh')
+        ->and($conversation->visitor_email)->toBe('minh@example.com')
+        ->and($conversation->visitor_phone)->toBe('0987654321');
+});
+
 it('lets an admin close and delete a conversation', function () {
     $conversation = ChatConversation::factory()->create();
     $this->actingAs(User::factory()->admin()->create());

@@ -4,6 +4,7 @@ namespace Modules\KbAdmin\Http\Controllers;
 
 use App\Http\Controllers\Controller;
 use App\Models\Contact;
+use App\Models\SiteVisit;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -21,6 +22,11 @@ class DashboardController extends Controller
             ->selectRaw('DATE(created_at) as request_date, COUNT(*) as request_count')
             ->groupByRaw('DATE(created_at)')
             ->pluck('request_count', 'request_date');
+        $visitsByDate = SiteVisit::query()
+            ->whereBetween('visited_date', [$firstDay->toDateString(), $now->toDateString()])
+            ->selectRaw('visited_date, COUNT(*) as visit_count')
+            ->groupBy('visited_date')
+            ->pluck('visit_count', 'visited_date');
 
         $weekdayLabels = [
             1 => 'T2',
@@ -32,12 +38,18 @@ class DashboardController extends Controller
             7 => 'CN',
         ];
         $recentRequests = [];
+        $recentVisits = [];
 
         for ($dayOffset = 0; $dayOffset < 7; $dayOffset++) {
             $date = $firstDay->addDays($dayOffset);
+            $dateString = $date->toDateString();
             $recentRequests[] = [
                 'label' => $weekdayLabels[$date->dayOfWeekIso],
-                'count' => (int) ($requestsByDate[$date->toDateString()] ?? 0),
+                'count' => (int) ($requestsByDate[$dateString] ?? 0),
+            ];
+            $recentVisits[] = [
+                'label' => $weekdayLabels[$date->dayOfWeekIso],
+                'count' => (int) ($visitsByDate[$dateString] ?? 0),
             ];
         }
 
@@ -47,6 +59,14 @@ class DashboardController extends Controller
             ->groupBy('status')
             ->pluck('aggregate', 'status');
 
+        $totalVisits = SiteVisit::query()->count();
+        $todayVisits = (int) ($visitsByDate[$now->toDateString()] ?? 0);
+        $lastSevenDaysVisits = array_sum(array_column($recentVisits, 'count'));
+        $uniqueVisitors = SiteVisit::query()
+            ->whereNotNull('session_id')
+            ->distinct()
+            ->count('session_id');
+
         return Inertia::render('Dashboard', [
             ...$dashboardStats->summary(),
             'recentRequests' => $recentRequests,
@@ -54,6 +74,13 @@ class DashboardController extends Controller
                 'pending' => (int) ($requestStatusCounts['pending'] ?? 0),
                 'processing' => (int) ($requestStatusCounts['processing'] ?? 0),
                 'resolved' => (int) ($requestStatusCounts['resolved'] ?? 0),
+            ],
+            'recentVisits' => $recentVisits,
+            'visitOverview' => [
+                'total' => $totalVisits,
+                'today' => $todayVisits,
+                'lastSevenDays' => $lastSevenDaysVisits,
+                'uniqueSessions' => $uniqueVisitors,
             ],
         ]);
     }

@@ -4,6 +4,7 @@ use App\Models\Category;
 use App\Models\Contact;
 use App\Models\FeaturedProject;
 use App\Models\Product;
+use App\Models\SiteVisit;
 use App\Models\User;
 use Carbon\CarbonImmutable;
 use Inertia\Testing\AssertableInertia as Assert;
@@ -71,6 +72,15 @@ test('admin dashboard displays database statistics, recent requests, and request
         'updated_at' => now()->subDays(8),
     ])->save();
 
+    SiteVisit::factory()->count(2)->create([
+        'session_id' => 'session-a',
+        'visited_date' => now()->toDateString(),
+    ]);
+    SiteVisit::factory()->create([
+        'session_id' => 'session-b',
+        'visited_date' => now()->subDays(2)->toDateString(),
+    ]);
+
     $this->get(route('admin.dashboard.index'))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
@@ -79,12 +89,20 @@ test('admin dashboard displays database statistics, recent requests, and request
             ->where('stats.1.count', 1)
             ->where('stats.2.count', 1)
             ->where('stats.3.count', 3)
+            ->where('stats.4.count', 3)
+            ->where('stats.4.description', 'Hôm nay: 2 lượt')
             ->where('openRequestsCount', 3)
             ->where('requestStatuses.pending', 2)
             ->where('requestStatuses.processing', 1)
             ->where('requestStatuses.resolved', 1)
             ->where('recentRequests.2.count', 1)
-            ->where('recentRequests.6.count', 2),
+            ->where('recentRequests.6.count', 2)
+            ->where('recentVisits.4.count', 1)
+            ->where('recentVisits.6.count', 2)
+            ->where('visitOverview.total', 3)
+            ->where('visitOverview.today', 2)
+            ->where('visitOverview.lastSevenDays', 3)
+            ->where('visitOverview.uniqueSessions', 2),
         );
 });
 
@@ -97,6 +115,7 @@ test('all admin pages display the same current database statistics', function ()
         ['label' => 'Dự án tiêu biểu', 'count' => 0, 'description' => 'Hồ sơ dự án'],
         ['label' => 'Danh mục', 'count' => 2, 'description' => 'Nhóm chính'],
         ['label' => 'Yêu cầu cần xử lý', 'count' => 0, 'description' => 'Chưa hoàn tất'],
+        ['label' => 'Lượt truy cập', 'count' => 0, 'description' => 'Hôm nay: 0 lượt'],
     ];
 
     foreach ([
@@ -111,4 +130,20 @@ test('all admin pages display the same current database statistics', function ()
                 ->where('stats', $expectedStats),
             );
     }
+});
+
+test('browsing multiple pages within the active window counts as one visit and returning later counts as a new visit', function () {
+    $this->get(route('kbuser.home'))->assertOk();
+    $this->get(route('kbuser.products'))->assertOk();
+    $this->get(route('kbuser.categories'))->assertOk();
+    $this->getJson(route('kbuser.chat.messages'))->assertOk();
+
+    expect(SiteVisit::query()->count())->toBe(1);
+
+    $this->travel(31)->minutes();
+
+    $this->get(route('kbuser.home'))->assertOk();
+    $this->get(route('kbuser.products'))->assertOk();
+
+    expect(SiteVisit::query()->count())->toBe(2);
 });

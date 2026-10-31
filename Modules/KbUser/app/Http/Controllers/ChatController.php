@@ -53,22 +53,27 @@ class ChatController extends Controller
             'phone' => ['nullable', 'string', 'regex:/^[0-9+().\-\s]{8,30}$/'],
         ]);
 
+        $user = $request->user();
+        $visitorName = $user?->name ?: ($validated['name'] ?? null);
+        $visitorEmail = $user?->email ?: ($validated['email'] ?? null);
+        $visitorPhone = $user?->phone ?: ($validated['phone'] ?? null);
+
         $conversation = $this->currentConversation($request);
 
         if ($conversation === null) {
             $conversation = ChatConversation::create([
                 'token' => Str::random(40),
-                'visitor_name' => $validated['name'] ?? null,
-                'visitor_email' => $validated['email'] ?? null,
-                'visitor_phone' => $validated['phone'] ?? null,
+                'visitor_name' => $visitorName,
+                'visitor_email' => $visitorEmail,
+                'visitor_phone' => $visitorPhone,
             ]);
 
             $request->session()->put(self::SESSION_KEY, $conversation->token);
         } else {
             $conversation->fill(array_filter([
-                'visitor_name' => $validated['name'] ?? null,
-                'visitor_email' => $validated['email'] ?? null,
-                'visitor_phone' => $validated['phone'] ?? null,
+                'visitor_name' => $visitorName,
+                'visitor_email' => $visitorEmail,
+                'visitor_phone' => $visitorPhone,
             ]));
         }
 

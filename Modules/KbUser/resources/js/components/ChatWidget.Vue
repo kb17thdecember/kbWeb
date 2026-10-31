@@ -71,15 +71,9 @@ try {
 
 watch(authUser, (user) => {
     if (user) {
-        if (!name.value && user.name) {
-            name.value = user.name;
-        }
-        if (!email.value && user.email) {
-            email.value = user.email;
-        }
-        if (!phone.value && user.phone) {
-            phone.value = user.phone;
-        }
+        name.value = user.name ?? name.value;
+        email.value = user.email ?? email.value;
+        phone.value = user.phone ?? phone.value;
     }
 });
 
@@ -195,12 +189,16 @@ const send = async (): Promise<void> => {
                 'Content-Type': 'application/json',
                 'X-XSRF-TOKEN': csrfToken(),
             },
-            body: JSON.stringify({
-                body,
-                name: name.value.trim() || null,
-                email: email.value.trim() || null,
-                phone: phone.value.trim() || null,
-            }),
+            body: JSON.stringify(
+                authUser.value
+                    ? { body }
+                    : {
+                        body,
+                        name: name.value.trim() || null,
+                        email: email.value.trim() || null,
+                        phone: phone.value.trim() || null,
+                    },
+            ),
         });
 
         if (response.status === 422) {
@@ -295,7 +293,7 @@ onBeforeUnmount(() => {
             </div>
 
             <form class="chat-form" @submit.prevent="send">
-                <div class="chat-identity">
+                <div v-if="!authUser" class="chat-identity">
                     <input v-model="name" type="text" maxlength="255" placeholder="Tên của bạn" autocomplete="name" @change="saveIdentity">
                     <input v-model="phone" type="tel" maxlength="30" pattern="[0-9+().\-\s]{8,30}" placeholder="Số điện thoại" autocomplete="tel" @change="saveIdentity">
                     <input v-model="email" type="email" maxlength="255" placeholder="Email" autocomplete="email" @change="saveIdentity">
