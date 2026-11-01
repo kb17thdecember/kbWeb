@@ -190,13 +190,22 @@
         }
     }
 
-    async function loadMessages(): Promise<void> {
+    async function loadMessages(background = false): Promise<void> {
         if (activeId.value === null) {
             return;
         }
 
         const id = activeId.value;
-        const response = await request(`/admin/chats/${id}/messages?after=${lastId}`);
+        const response = await request(
+            `/admin/chats/${id}/messages?after=${lastId}`,
+            background ? { headers: { 'X-Background-Poll': '1' } } : {},
+        );
+
+        if (response.status === 401) {
+            window.location.href = '/admin/login';
+
+            return;
+        }
 
         if (!response.ok || id !== activeId.value) {
             return;
@@ -212,8 +221,17 @@
         }
     }
 
-    async function loadConversations(): Promise<void> {
-        const response = await request('/admin/chats/list');
+    async function loadConversations(background = false): Promise<void> {
+        const response = await request(
+            '/admin/chats/list',
+            background ? { headers: { 'X-Background-Poll': '1' } } : {},
+        );
+
+        if (response.status === 401) {
+            window.location.href = '/admin/login';
+
+            return;
+        }
 
         if (response.ok) {
             const data = await response.json() as { conversations: Conversation[] };
@@ -223,8 +241,8 @@
 
     async function poll(): Promise<void> {
         try {
-            await loadMessages();
-            await loadConversations();
+            await loadMessages(true);
+            await loadConversations(true);
         } catch {
             // Retried on the next poll.
         }

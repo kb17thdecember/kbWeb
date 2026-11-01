@@ -66,7 +66,7 @@ class UserAuthController extends Controller
         $request->session()->regenerate();
         $request->session()->put(self::LOGIN_METHOD_SESSION_KEY, 'account');
 
-        return redirect()->intended(route('kbuser.home'));
+        return redirect()->intended(route('kbuser.home'))->with('toast', 'Đăng nhập thành công.');
     }
 
     public function register(Request $request): RedirectResponse
@@ -112,7 +112,7 @@ class UserAuthController extends Controller
         $request->session()->regenerate();
         $request->session()->put(self::LOGIN_METHOD_SESSION_KEY, 'account');
 
-        return redirect()->intended(route('kbuser.home'));
+        return redirect()->intended(route('kbuser.home'))->with('toast', 'Đăng ký và đăng nhập thành công.');
     }
 
     public function logout(Request $request): RedirectResponse
@@ -121,7 +121,7 @@ class UserAuthController extends Controller
         $request->session()->invalidate();
         $request->session()->regenerateToken();
 
-        return to_route('kbuser.home');
+        return to_route('kbuser.home')->with('toast', 'Đã đăng xuất tài khoản.');
     }
 
     public function sendResetCode(Request $request): RedirectResponse
@@ -223,7 +223,9 @@ class UserAuthController extends Controller
         $request->session()->regenerate();
         $request->session()->put(self::LOGIN_METHOD_SESSION_KEY, 'account');
 
-        return back()->with('status', 'Đặt lại mật khẩu thành công.');
+        return back()
+            ->with('status', 'Đặt lại mật khẩu thành công.')
+            ->with('toast', 'Đặt lại mật khẩu và đăng nhập thành công.');
     }
 
     public function updateProfile(Request $request): RedirectResponse
@@ -397,7 +399,7 @@ class UserAuthController extends Controller
         $request->session()->regenerate();
         $request->session()->put(self::LOGIN_METHOD_SESSION_KEY, 'google');
 
-        return redirect()->intended(route('kbuser.home'));
+        return redirect()->intended(route('kbuser.home'))->with('toast', 'Đăng nhập bằng Google thành công.');
     }
 
     private function resolveGoogleRedirectUri(Request $request): string

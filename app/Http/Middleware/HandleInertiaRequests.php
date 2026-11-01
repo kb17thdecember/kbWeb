@@ -40,6 +40,7 @@ class HandleInertiaRequests extends Middleware
         return [
             ...parent::share($request),
             'name' => config('app.name'),
+            'toast' => fn () => $request->session()->get('toast'),
             'auth' => [
                 'user' => $user,
                 'loginMethod' => fn () => $request->session()->get('kbuser_login_method', 'account'),

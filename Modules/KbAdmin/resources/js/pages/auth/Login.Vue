@@ -1,6 +1,12 @@
 <script setup lang="ts">
-import { Head, useForm } from '@inertiajs/vue3';
-import { ref } from 'vue';
+import { Head, useForm, usePage } from '@inertiajs/vue3';
+import { onBeforeUnmount, ref, watch } from 'vue';
+
+const props = defineProps<{
+    status?: string | null;
+}>();
+
+const page = usePage<{ toast?: string | null }>();
 
 const form = useForm({
     email: '',
@@ -8,6 +14,38 @@ const form = useForm({
 });
 
 const showPassword = ref(false);
+const isToastVisible = ref(false);
+const toastMessage = ref('');
+let toastTimeout: ReturnType<typeof setTimeout> | undefined;
+
+function showToast(message: string): void {
+    if (toastTimeout) {
+        clearTimeout(toastTimeout);
+    }
+
+    toastMessage.value = message;
+    isToastVisible.value = true;
+    toastTimeout = setTimeout(() => {
+        isToastVisible.value = false;
+        toastTimeout = undefined;
+    }, 3500);
+}
+
+watch(
+    () => page.props.toast || props.status,
+    (message) => {
+        if (message) {
+            showToast(message);
+        }
+    },
+    { immediate: true },
+);
+
+onBeforeUnmount(() => {
+    if (toastTimeout) {
+        clearTimeout(toastTimeout);
+    }
+});
 
 const submit = (): void => {
     form.post('/admin/login', {
@@ -27,6 +65,7 @@ const submit = (): void => {
             </div>
             <h1>Đăng nhập quản trị</h1>
             <p class="auth-hint">Nhập email và mật khẩu, sau đó chúng tôi sẽ gửi mã xác thực qua email.</p>
+            <p v-if="props.status" class="auth-error">{{ props.status }}</p>
 
             <div class="field">
                 <label for="adminEmail">Email</label>
@@ -60,5 +99,6 @@ const submit = (): void => {
                 {{ form.processing ? 'Đang kiểm tra...' : 'Tiếp tục' }} <FontAwesomeIcon :icon="['fas', 'arrow-right']" class="icon-ne" />
             </button>
         </form>
+        <div class="toast" :class="{ show: isToastVisible }" role="status" aria-live="polite">{{ toastMessage }}</div>
     </div>
 </template>

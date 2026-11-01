@@ -15,6 +15,7 @@ use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
+use Modules\KbAdmin\Http\Middleware\EnsureAdminAuthenticated;
 
 class AdminAuthController extends Controller
 {
@@ -24,9 +25,11 @@ class AdminAuthController extends Controller
 
     private const OTP_MAX_ATTEMPTS = 5;
 
-    public function showLogin(): Response
+    public function showLogin(Request $request): Response
     {
-        return Inertia::render('auth/Login');
+        return Inertia::render('auth/Login', [
+            'status' => $request->session()->get('status'),
+        ]);
     }
 
     public function login(Request $request): RedirectResponse
@@ -57,7 +60,7 @@ class AdminAuthController extends Controller
         RateLimiter::clear($throttleKey);
         $this->sendOtp($request, $user);
 
-        return to_route('admin.login.otp');
+        return to_route('admin.login.otp')->with('toast', 'Đã gửi mã xác thực 6 chữ số tới email của bạn.');
     }
 
     public function showOtp(Request $request): Response|RedirectResponse
@@ -117,8 +120,10 @@ class AdminAuthController extends Controller
         $request->session()->forget(self::OTP_SESSION_KEY);
         Auth::login($user);
         $request->session()->regenerate();
+        $request->session()->put(EnsureAdminAuthenticated::LAST_ACTIVE_SESSION_KEY, now()->timestamp);
 
-        return redirect()->intended(route('admin.dashboard.index'));
+        return redirect()->intended(route('admin.dashboard.index'))
+            ->with('toast', 'Đăng nhập quản trị thành công.');
     }
 
     public function resendOtp(Request $request): RedirectResponse
@@ -141,7 +146,9 @@ class AdminAuthController extends Controller
         RateLimiter::hit($throttleKey, 600);
         $this->sendOtp($request, $user);
 
-        return to_route('admin.login.otp')->with('status', 'Đã gửi lại mã xác thực.');
+        return to_route('admin.login.otp')
+            ->with('status', 'Đã gửi lại mã xác thực.')
+            ->with('toast', 'Đã gửi lại mã xác thực.');
     }
 
     public function logout(Request $request): RedirectResponse
@@ -150,7 +157,7 @@ class AdminAuthController extends Controller
         $request->session()->invalidate();
         $request->session()->regenerateToken();
 
-        return to_route('admin.login');
+        return to_route('admin.login')->with('toast', 'Đã đăng xuất khỏi trang quản trị.');
     }
 
     private function sendOtp(Request $request, User $user): void

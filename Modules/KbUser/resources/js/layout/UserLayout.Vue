@@ -18,8 +18,35 @@ const props = defineProps<{
     activePage?: 'home' | 'categories' | 'products' | 'projects' | 'news' | 'about' | 'contact';
 }>();
 
-const page = usePage<{ auth?: { user?: AuthUser | null } }>();
+const page = usePage<{ auth?: { user?: AuthUser | null }; toast?: string | null }>();
 const authUser = computed<AuthUser | null>(() => page.props.auth?.user ?? null);
+
+const isToastVisible = ref(false);
+const toastMessage = ref('');
+let toastTimeout: ReturnType<typeof setTimeout> | undefined;
+
+const showToast = (message: string): void => {
+    if (toastTimeout) {
+        clearTimeout(toastTimeout);
+    }
+
+    toastMessage.value = message;
+    isToastVisible.value = true;
+    toastTimeout = setTimeout(() => {
+        isToastVisible.value = false;
+        toastTimeout = undefined;
+    }, 3500);
+};
+
+watch(
+    () => page.props.toast,
+    (message) => {
+        if (message) {
+            showToast(message);
+        }
+    },
+    { immediate: true },
+);
 
 const isMenuOpen = ref(false);
 let releaseMenuScrollLock: (() => void) | null = null;
@@ -54,12 +81,25 @@ watch(isMenuOpen, (open) => {
     releaseMenuScrollLock = null;
 });
 
+let removeSuccessListener: (() => void) | undefined;
+
 onMounted(() => {
     window.addEventListener('keydown', onEscapeKey);
+    removeSuccessListener = router.on('success', (event) => {
+        const flashedToast = (event.detail.page.props as { toast?: string | null }).toast;
+
+        if (flashedToast) {
+            showToast(flashedToast);
+        }
+    });
 });
 
 onUnmounted(() => {
+    removeSuccessListener?.();
     window.removeEventListener('keydown', onEscapeKey);
+    if (toastTimeout) {
+        clearTimeout(toastTimeout);
+    }
     releaseMenuScrollLock?.();
     releaseMenuScrollLock = null;
 });
@@ -247,5 +287,9 @@ onUnmounted(() => {
         </footer>
 
         <ChatWidget />
+
+        <div class="toast" :class="{ show: isToastVisible }" role="status" aria-live="polite">
+            <span class="toast-dot"></span>{{ toastMessage }}
+        </div>
     </div>
 </template>

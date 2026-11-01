@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Head, router, useForm } from '@inertiajs/vue3';
+import { Head, router, useForm, usePage } from '@inertiajs/vue3';
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue';
 
 const props = defineProps<{
@@ -7,6 +7,34 @@ const props = defineProps<{
     validForMinutes: number;
     status: string | null;
 }>();
+
+const page = usePage<{ toast?: string | null }>();
+const isToastVisible = ref(false);
+const toastMessage = ref('');
+let toastTimeout: ReturnType<typeof setTimeout> | undefined;
+
+function showToast(message: string): void {
+    if (toastTimeout) {
+        clearTimeout(toastTimeout);
+    }
+
+    toastMessage.value = message;
+    isToastVisible.value = true;
+    toastTimeout = setTimeout(() => {
+        isToastVisible.value = false;
+        toastTimeout = undefined;
+    }, 3500);
+}
+
+watch(
+    () => page.props.toast || props.status,
+    (message) => {
+        if (message) {
+            showToast(message);
+        }
+    },
+    { immediate: true },
+);
 
 const OTP_LENGTH = 6;
 
@@ -218,6 +246,10 @@ onBeforeUnmount(() => {
     if (focusTimer !== null) {
         clearTimeout(focusTimer);
     }
+
+    if (toastTimeout) {
+        clearTimeout(toastTimeout);
+    }
 });
 
 const resend = (): void => {
@@ -270,5 +302,6 @@ const resend = (): void => {
             <button class="btn" type="button" @click="resend">Gửi lại mã</button>
             <a class="auth-back" href="/admin/login"><FontAwesomeIcon :icon="['fas', 'arrow-left']" /> Quay lại</a>
         </form>
+        <div class="toast" :class="{ show: isToastVisible }" role="status" aria-live="polite">{{ toastMessage }}</div>
     </div>
 </template>

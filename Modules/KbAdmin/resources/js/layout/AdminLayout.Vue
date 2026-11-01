@@ -1,9 +1,13 @@
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref, watch } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { Link, router, usePage } from '@inertiajs/vue3';
 
-const page = usePage<{ auth: { user: { name: string } | null } }>();
+const page = usePage<{
+    auth: { user: { name: string } | null };
+    adminSessionTimeoutMinutes?: number;
+    toast?: string | null;
+}>();
 const currentUrl = computed(() => page.url.split('?')[0]);
 
 type AdminStat = {
@@ -51,10 +55,65 @@ function showToast(message: string): void {
     }, 3500);
 }
 
+watch(
+    () => page.props.toast,
+    (message) => {
+        if (message) {
+            showToast(message);
+        }
+    },
+    { immediate: true },
+);
+
+const ACTIVITY_EVENTS = ['mousemove', 'mousedown', 'keydown', 'scroll', 'touchstart', 'click'] as const;
+let inactivityTimer: ReturnType<typeof setTimeout> | undefined;
+
+function resetInactivityTimer(): void {
+    if (inactivityTimer) {
+        clearTimeout(inactivityTimer);
+    }
+
+    const timeoutMs = (page.props.adminSessionTimeoutMinutes ?? 30) * 60 * 1000;
+    inactivityTimer = setTimeout(() => {
+        router.post('/admin/logout');
+    }, timeoutMs);
+}
+
+let removeSuccessListener: (() => void) | undefined;
+
+onMounted(() => {
+    if (page.props.toast) {
+        showToast(page.props.toast);
+    }
+
+    removeSuccessListener = router.on('success', (event) => {
+        const flashedToast = (event.detail.page.props as { toast?: string | null }).toast;
+
+        if (flashedToast) {
+            showToast(flashedToast);
+        }
+    });
+
+    resetInactivityTimer();
+    ACTIVITY_EVENTS.forEach((eventName) => {
+        window.addEventListener(eventName, resetInactivityTimer, { passive: true });
+    });
+});
+
 onBeforeUnmount(() => {
+    removeSuccessListener?.();
+
     if (toastTimeout) {
         clearTimeout(toastTimeout);
     }
+
+    if (inactivityTimer) {
+        clearTimeout(inactivityTimer);
+    }
+
+    ACTIVITY_EVENTS.forEach((eventName) => {
+        window.removeEventListener(eventName, resetInactivityTimer);
+    });
 
     window.clearInterval(chatUnreadTimer);
 });
@@ -72,8 +131,18 @@ watch(
 async function refreshChatUnread(): Promise<void> {
     try {
         const response = await fetch('/admin/chats/list', {
-            headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+            headers: {
+                Accept: 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-Background-Poll': '1',
+            },
         });
+
+        if (response.status === 401) {
+            window.location.href = '/admin/login';
+
+            return;
+        }
 
         if (!response.ok) {
             return;

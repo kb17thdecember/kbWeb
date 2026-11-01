@@ -53,7 +53,8 @@ test('the seeded admin can sign in with the password and the emailed code', func
     Mail::assertSent(AdminLoginOtp::class, fn ($mail) => $mail->hasTo('kbnguyen0311@gmail.com'));
 
     $this->post(route('admin.login.otp.verify'), ['code' => requestOtpCode()])
-        ->assertRedirect(route('admin.dashboard.index'));
+        ->assertRedirect(route('admin.dashboard.index'))
+        ->assertSessionHas('toast', 'Đăng nhập quản trị thành công.');
 
     $this->assertAuthenticated();
 });
@@ -103,7 +104,54 @@ test('an expired code is rejected', function () {
 test('admins can sign out', function () {
     $this->actingAs(User::factory()->admin()->create())
         ->post(route('admin.logout'))
-        ->assertRedirect(route('admin.login'));
+        ->assertRedirect(route('admin.login'))
+        ->assertSessionHas('toast', 'Đã đăng xuất khỏi trang quản trị.');
+
+    $this->assertGuest();
+});
+
+test('an inactive admin is automatically signed out after the configured timeout', function () {
+    $admin = User::factory()->admin()->create();
+
+    $this->actingAs($admin)
+        ->get(route('admin.dashboard.index'))
+        ->assertOk();
+
+    $this->travel(20)->minutes();
+
+    $this->get(route('admin.dashboard.index'))
+        ->assertOk();
+
+    $this->travel(20)->minutes();
+
+    $this->get(route('admin.dashboard.index'))
+        ->assertOk();
+
+    $this->travel(31)->minutes();
+
+    $this->get(route('admin.dashboard.index'))
+        ->assertRedirect(route('admin.login'))
+        ->assertSessionHas('status');
+
+    $this->assertGuest();
+});
+
+test('background polling does not extend admin inactivity timeout and returns 401 when expired', function () {
+    $admin = User::factory()->admin()->create();
+
+    $this->actingAs($admin)
+        ->get(route('admin.dashboard.index'))
+        ->assertOk();
+
+    $this->travel(20)->minutes();
+
+    $this->getJson(route('admin.chats.list'), ['X-Background-Poll' => '1'])
+        ->assertOk();
+
+    $this->travel(11)->minutes();
+
+    $this->getJson(route('admin.chats.list'), ['X-Background-Poll' => '1'])
+        ->assertUnauthorized();
 
     $this->assertGuest();
 });
