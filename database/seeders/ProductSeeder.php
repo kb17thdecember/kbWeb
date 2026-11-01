@@ -450,7 +450,7 @@ class ProductSeeder extends Seeder
                 'product_title' => 'Dòng sản phẩm bảo ôn cao cấp phù hợp cho văn phòng khách sạn .',
                 'image' => 'ST.png',
                 'description' => [
-                    '- vật liệu: Cao su lưu hóa NBR',
+                    '-Vật liệu: Cao su lưu hóa NBR',
                     '-Tỷ trọng: 48-70kg/m3',
                     '- Phạm vi nhiệt độ: -200°C~116°C',
                     '- Hệ số kháng ẩm: >10.000 (ASTM C209, EN 12086, EN 13469)',
@@ -470,7 +470,7 @@ class ProductSeeder extends Seeder
                 'product_title' => 'Dòng sản phẩm bảo ôn cao cấp phù hợp cho văn phòng khách sạn .',
                 'image' => 'KPROTECT.png',
                 'description' => [
-                    '- vật liệu: Polyolefin XLPE',
+                    '-Vật liệu: Polyolefin XLPE',
                     '-Tỷ trọng: 30kg/m3',
                     '- Phạm vi nhiệt độ: -40°C~115°C',
                     '- Hệ số kháng ẩm: >20.000 (EN 12086)',
@@ -489,7 +489,7 @@ class ProductSeeder extends Seeder
                 'product_title' => 'Dòng sản phẩm bảo ôn cao cấp phù hợp cho chung cư và khu công nghiệp .',
                 'image' => 'MFLEX.png',
                 'description' => [
-                    '- vật liệu: Cao su lưu hóa NBR',
+                    '-Vật liệu: Cao su lưu hóa NBR',
                     '-Tỷ trọng: 46-60kg/m3',
                     '- Phạm vi nhiệt độ: -45°C~105°C',
                     '- Hệ số kháng ẩm: >10.000 (ASTM C209, EN 12086, EN 13469)',
