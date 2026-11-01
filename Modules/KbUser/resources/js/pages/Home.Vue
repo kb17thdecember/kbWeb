@@ -646,18 +646,109 @@ onUnmounted(() => {
               </div>
               <div class="hero-art" role="img" aria-label="Hình minh họa thiết bị kỹ thuật">
                 <div class="orb"></div>
-                <div class="art-tag">Technical supply · Since 2019</div>
-                <div class="tank">
-                  <img src="../../assets/images/ariston_water_heater.svg" alt="Bình nước nóng Ariston">
+                <div class="hero-orb-secondary" aria-hidden="true"></div>
+
+                <svg class="hero-art-waves" viewBox="0 0 600 600" fill="none" aria-hidden="true" preserveAspectRatio="none">
+                  <path d="M-60 140 C 120 40, 280 260, 460 120 C 540 60, 620 110, 680 80" stroke="url(#heroWaveGold)" stroke-width="1.4" stroke-dasharray="4 6" />
+                  <path d="M-80 340 C 90 210, 260 450, 450 290 C 540 210, 610 260, 670 230" stroke="url(#heroWaveGold)" stroke-width="1.2" />
+                  <path d="M-40 490 C 150 380, 320 560, 510 420 C 580 370, 630 400, 680 380" stroke="url(#heroWaveSoft)" stroke-width="1" />
+                  <circle cx="450" cy="290" r="4" fill="#dfcda9" fill-opacity="0.7" />
+                  <circle cx="175" cy="145" r="3" fill="#b79a63" fill-opacity="0.6" />
+                  <defs>
+                    <linearGradient id="heroWaveGold" x1="0" y1="0" x2="600" y2="0" gradientUnits="userSpaceOnUse">
+                      <stop offset="0%" stop-color="#dfcda9" stop-opacity="0" />
+                      <stop offset="35%" stop-color="#dfcda9" stop-opacity="0.32" />
+                      <stop offset="70%" stop-color="#b79a63" stop-opacity="0.22" />
+                      <stop offset="100%" stop-color="#dfcda9" stop-opacity="0" />
+                    </linearGradient>
+                    <linearGradient id="heroWaveSoft" x1="0" y1="0" x2="600" y2="0" gradientUnits="userSpaceOnUse">
+                      <stop offset="0%" stop-color="#b79a63" stop-opacity="0" />
+                      <stop offset="50%" stop-color="#b79a63" stop-opacity="0.18" />
+                      <stop offset="100%" stop-color="#b79a63" stop-opacity="0" />
+                    </linearGradient>
+                  </defs>
+                </svg>
+
+                <div class="hero-art-head">
+                  <div class="art-tag">Phân phối chính hãng · Ariston &amp; K-FLEX</div>
+                  <span class="hero-art-badge">CO / CQ · MEP SUPPLY</span>
                 </div>
-                <div class="coil">
-                   <img src="../../assets/images/foam.png" alt="Bảo ôn K-FLEX" class="">
-                  <span class="coil-label">K·FLEX INSULATION</span>
+
+                <div class="hero-art-showcase">
+                  <article class="hero-art-card is-ariston">
+                    <div class="hero-art-card-glow" aria-hidden="true"></div>
+                    <div class="hero-art-card-top">
+                      <span class="hero-art-brand">ARISTON</span>
+                      <small>15L – 150L · HEATPUMP</small>
+                    </div>
+                    <div class="hero-art-visual">
+                      <div class="hero-art-halo" aria-hidden="true"></div>
+                      <img src="../../assets/images/ariston_water_heater.svg" alt="Bình nước nóng Ariston">
+                      <span class="hero-art-spec-pill">75°C MAX · ITALIAN DESIGN</span>
+                    </div>
+                    <div class="hero-art-card-foot">
+                      <div class="hero-art-card-copy">
+                        <strong>Bình nước nóng &amp; Bơm nhiệt</strong>
+                        <span>Giải pháp nhiệt dân dụng &amp; công nghiệp</span>
+                      </div>
+                      <Link href="/products" class="hero-art-card-arrow" aria-label="Khám phá sản phẩm Ariston">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M7 17 17 7M9 7h8v8"/></svg>
+                      </Link>
+                    </div>
+                  </article>
+
+                  <div class="hero-art-bridge" aria-hidden="true">
+                    <div class="hero-art-bridge-ring"></div>
+                    <div class="hero-art-bridge-core">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+                        <path d="M12 3c2.8 3.2 4.2 5.8 4.2 8.2a4.2 4.2 0 1 1-8.4 0C7.8 8.8 9.2 6.2 12 3Z"/>
+                        <path d="M4 18c2.2-1.4 4.8-1.4 7 0s4.8 1.4 7 0"/>
+                      </svg>
+                      <small>THERMAL FLOW</small>
+                    </div>
+                  </div>
+
+                  <article class="hero-art-card is-kflex">
+                    <div class="hero-art-card-glow" aria-hidden="true"></div>
+                    <div class="hero-art-card-top">
+                      <span class="hero-art-brand">K·FLEX</span>
+                      <small>CLASS 0 · CLASS 1</small>
+                    </div>
+                    <div class="hero-art-visual">
+                      <div class="hero-art-halo" aria-hidden="true"></div>
+                      <img src="../../assets/images/foam.png" alt="Bảo ôn K-FLEX">
+                      <span class="hero-art-spec-pill">λ ≤ 0.032 W/m·K · NBR/PVC</span>
+                    </div>
+                    <div class="hero-art-card-foot">
+                      <div class="hero-art-card-copy">
+                        <strong>Bảo ôn cách nhiệt K-FLEX</strong>
+                        <span>Ống định hình, tấm cuộn &amp; phụ kiện</span>
+                      </div>
+                      <Link href="/products" class="hero-art-card-arrow" aria-label="Khám phá sản phẩm K-FLEX">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M7 17 17 7M9 7h8v8"/></svg>
+                      </Link>
+                    </div>
+                  </article>
                 </div>
-                <div class="floating-card"><small>ENGINEERED FOR EVERY PROJECT</small><strong>Built to perform.</strong><span>Chất lượng trong từng chi tiết</span>
-                  <div class="tinyline"></div>
-                </div>
-                <div class="art-caption"><strong>Engineered for life.</strong><span>SMARTER MATERIALS · BETTER BUILDS</span>
+
+                <div class="hero-art-footer">
+                  <div class="floating-card">
+                    <div class="floating-card-head">
+                      <span class="floating-card-icon" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m12 3 8 4v5c0 5-3.5 7.8-8 9-4.5-1.2-8-4-8-9V7z"/><path d="m8.5 12 2.2 2.2 4.8-5"/></svg>
+                      </span>
+                      <div>
+                        <small>TIÊU CHUẨN CUNG ỨNG DỰ ÁN</small>
+                        <strong>Hồ sơ kỹ thuật &amp; Submittal đồng bộ</strong>
+                      </div>
+                    </div>
+                    <span>Đáp ứng tiến độ nhà thầu cơ điện MEP</span>
+                    <div class="tinyline"></div>
+                  </div>
+                  <div class="art-caption">
+                    <strong>Engineered for life.</strong>
+                    <span>SMARTER MATERIALS · BETTER BUILDS</span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -757,15 +848,10 @@ onUnmounted(() => {
                     {{ filter.label }}
                 </button>
               </div>
-              <div class="kb-home-toolbar-right">
-                <button type="button" class="btn btn-outline kb-calc-trigger-btn" @click="openCalculatorFromHome">
-                  Công cụ tính chọn thiết bị
-                </button>
-                <label class="searchbox">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="10.8" cy="10.8" r="6.8"/><path d="m16 16 5 5"/></svg>
-                  <input v-model="searchQuery" id="productSearch" type="search" placeholder="Tìm sản phẩm, mã hàng..." aria-label="Tìm sản phẩm">
-                </label>
-              </div>
+              <label class="searchbox">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="10.8" cy="10.8" r="6.8"/><path d="m16 16 5 5"/></svg>
+                <input v-model="searchQuery" id="productSearch" type="search" placeholder="Tìm sản phẩm, mã hàng..." aria-label="Tìm sản phẩm">
+              </label>
             </div>
             <div v-if="selectedCategory?.children.length" class="subcategory-filters">
               <span class="subcat-filter-label">Lọc theo dòng</span>
