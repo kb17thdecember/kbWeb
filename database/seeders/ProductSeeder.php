@@ -444,7 +444,7 @@ class ProductSeeder extends Seeder
                 ],
             ],
             [
-                'name' => 'KFlex ST',
+                'name' => 'K-Flex ST',
                 'category' => 'K-FLEX',
                 'subcategory' => 'Cao su lưu hóa NBR',
                 'product_title' => 'Dòng sản phẩm bảo ôn cao cấp phù hợp cho văn phòng khách sạn .',
@@ -464,7 +464,7 @@ class ProductSeeder extends Seeder
                 ],
             ],
             [
-                'name' => 'KFlex K-Protect',
+                'name' => 'K-Flex K-Protect',
                 'category' => 'K-FLEX',
                 'subcategory' => 'Polyolefin XLPE',
                 'product_title' => 'Dòng sản phẩm bảo ôn cao cấp phù hợp cho văn phòng khách sạn .',
@@ -483,7 +483,7 @@ class ProductSeeder extends Seeder
                 ],
             ],
             [
-                'name' => 'KFlex M-Flex',
+                'name' => 'K-Flex M-Flex',
                 'category' => 'K-FLEX',
                 'subcategory' => 'Cao su lưu hóa NBR',
                 'product_title' => 'Dòng sản phẩm bảo ôn cao cấp phù hợp cho chung cư và khu công nghiệp .',
