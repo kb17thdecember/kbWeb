@@ -51,37 +51,130 @@ watch(buildingType, (newType) => {
     }
 });
 
-const findAristonProducts = (keywords: string[], onlyHeatPump = false): CalculatorProduct[] => {
-    const aristonPool = props.products.filter((product) => {
-        const haystack = `${product.name} ${product.product_title ?? ''} ${product.category?.name ?? ''} ${product.subcategory?.name ?? ''}`.toLowerCase();
-        return (
-            haystack.includes('ariston') ||
-            haystack.includes('nước nóng') ||
-            haystack.includes('bơm nhiệt') ||
-            haystack.includes('slim') ||
-            haystack.includes('pro r') ||
-            haystack.includes('an3') ||
-            haystack.includes('ari ')
-        );
-    });
-
-    const filtered = aristonPool.filter((product) => {
-        const text = `${product.name} ${product.product_title ?? ''} ${product.subcategory?.name ?? ''}`.toLowerCase();
-        const isHeatPump = text.includes('bơm nhiệt') || text.includes('ptp') || text.includes('ar-40') || text.includes('ar-80');
-        if (onlyHeatPump) {
-            return isHeatPump;
-        }
-        return !isHeatPump && keywords.some((kw) => text.includes(kw));
-    });
-
-    if (filtered.length > 0) {
-        return filtered.slice(0, 3);
-    }
-
-    return (aristonPool.length > 0 ? aristonPool : props.products).slice(0, 3);
+const isAristonProduct = (product: CalculatorProduct): boolean => {
+    const haystack = `${product.name} ${product.product_title ?? ''} ${product.category?.name ?? ''} ${product.subcategory?.name ?? ''}`.toLowerCase();
+    return (
+        haystack.includes('ariston') ||
+        haystack.includes('nước nóng') ||
+        haystack.includes('bơm nhiệt') ||
+        haystack.includes('slim') ||
+        haystack.includes('pro r') ||
+        haystack.includes('an3') ||
+        haystack.includes('ari ')
+    );
 };
 
-const findKflexProducts = (keywords: string[]): CalculatorProduct[] => {
+const getHeatPumpType = (product: CalculatorProduct): 'pool' | 'central' | null => {
+    const text = `${product.name} ${product.product_title ?? ''} ${product.subcategory?.name ?? ''}`.toLowerCase();
+    const isHeatPump =
+        text.includes('bơm nhiệt') ||
+        text.includes('heatpump') ||
+        /\b(stp|ptp)\b/i.test(product.name) ||
+        /\bar-(20|40|50|80)/i.test(product.name);
+
+    if (!isHeatPump) {
+        return null;
+    }
+
+    if (/\bstp\b/i.test(product.name) || text.includes('bể bơi') || text.includes('hồ bơi')) {
+        return 'pool';
+    }
+
+    return 'central';
+};
+
+const extractWaterHeaterLiters = (product: CalculatorProduct): number | null => {
+    if (getHeatPumpType(product) !== null) {
+        return null;
+    }
+
+    const specText = `${product.product_title ?? ''}\n${product.description ?? ''}`;
+    const explicitMatch = specText.match(/dung\s*tích\s*:?\s*(\d+)\s*l\b/i) ?? specText.match(/\b(15|20|30|40|50|80|100|150)\s*l\b/i);
+    if (explicitMatch) {
+        return Number(explicitMatch[1]);
+    }
+
+    const nameMatch = product.name.match(/\b(15|20|30|40|50|80|100|150)(?:b|\b)/i);
+    return nameMatch ? Number(nameMatch[1]) : null;
+};
+
+const findAristonHeatPumps = (mode: 'pool' | 'central' | 'both'): CalculatorProduct[] => {
+    const aristonPool = props.products.filter(isAristonProduct);
+
+    const matched = aristonPool.filter((product) => {
+        const hpType = getHeatPumpType(product);
+        if (hpType === null) {
+            return false;
+        }
+        if (mode === 'both') {
+            return true;
+        }
+        return hpType === mode;
+    });
+
+    // Sắp xếp theo mã công suất tăng dần (AR-20 -> AR-40 -> AR-50 -> AR-80)
+    matched.sort((a, b) => {
+        const numA = Number(a.name.match(/\d+/)?.[0] ?? 0);
+        const numB = Number(b.name.match(/\d+/)?.[0] ?? 0);
+        return numA - numB;
+    });
+
+    return matched;
+};
+
+const findAristonByLiters = (minLiters: number, maxLiters: number, preferredLiters: number[] = []): CalculatorProduct[] => {
+    const aristonPool = props.products
+        .filter(isAristonProduct)
+        .filter((product) => {
+            const liters = extractWaterHeaterLiters(product);
+            return liters !== null && liters >= minLiters && liters <= maxLiters;
+        })
+        .sort((a, b) => a.id - b.id);
+
+    if (preferredLiters.length === 0) {
+        return aristonPool.slice(0, 4);
+    }
+
+    // Phân bổ đều đại diện từng mức dung tích theo thứ tự ưu tiên
+    const buckets = new Map<number, CalculatorProduct[]>();
+    for (const cap of preferredLiters) {
+        buckets.set(cap, []);
+    }
+
+    const others: CalculatorProduct[] = [];
+    for (const product of aristonPool) {
+        const liters = extractWaterHeaterLiters(product);
+        if (liters !== null && buckets.has(liters)) {
+            buckets.get(liters)!.push(product);
+        } else {
+            others.push(product);
+        }
+    }
+
+    const result: CalculatorProduct[] = [];
+    let added = true;
+    while (added && result.length < 4) {
+        added = false;
+        for (const cap of preferredLiters) {
+            const group = buckets.get(cap);
+            if (group && group.length > 0 && result.length < 4) {
+                result.push(group.shift()!);
+                added = true;
+            }
+        }
+    }
+
+    for (const item of others) {
+        if (result.length >= 4) {
+            break;
+        }
+        result.push(item);
+    }
+
+    return result;
+};
+
+const findKflexProducts = (material: InsulationMaterial): CalculatorProduct[] => {
     const kflexPool = props.products.filter((product) => {
         const haystack = `${product.name} ${product.product_title ?? ''} ${product.category?.name ?? ''} ${product.subcategory?.name ?? ''}`.toLowerCase();
         return (
@@ -95,15 +188,31 @@ const findKflexProducts = (keywords: string[]): CalculatorProduct[] => {
     });
 
     const filtered = kflexPool.filter((product) => {
-        const text = `${product.name} ${product.product_title ?? ''} ${product.description ?? ''}`.toLowerCase();
-        return keywords.some((kw) => text.includes(kw));
+        const nameText = `${product.name} ${product.product_title ?? ''}`;
+        const isMflex = /\bm-?flex\b/i.test(nameText);
+        const isKprotect = /\bk-?protect\b/i.test(nameText);
+        const isSt = /\bst\b/i.test(product.name);
+
+        if (material === 'mflex') {
+            return isMflex;
+        }
+        if (material === 'st') {
+            return isSt;
+        }
+        if (material === 'kprotect') {
+            return isKprotect;
+        }
+        // st_kprotect
+        return isSt || isKprotect;
     });
 
+    filtered.sort((a, b) => a.id - b.id);
+
     if (filtered.length > 0) {
-        return filtered.slice(0, 3);
+        return filtered;
     }
 
-    return (kflexPool.length > 0 ? kflexPool : props.products).slice(0, 3);
+    return kflexPool.slice(0, 3);
 };
 
 const aristonRecommendation = computed(() => {
@@ -116,14 +225,21 @@ const aristonRecommendation = computed(() => {
                   ? 'Heatpump trung tâm'
                   : 'Heatpump – Heatpump hồ bơi';
 
+        const lineSuggest =
+            hotelSystemType.value === 'pool'
+                ? 'Bơm nhiệt bể bơi Ariston AR-20STP HX (24kW) · AR-50STP HX (47kW)'
+                : hotelSystemType.value === 'central'
+                  ? 'Bơm nhiệt trung tâm Ariston AR-40 PTP HX (48kW) · AR-80PTP HX (80kW)'
+                  : 'Heatpump trung tâm (AR-40 PTP HX / AR-80PTP HX) & Heatpump hồ bơi (AR-20STP HX / AR-50STP HX)';
+
         return {
             projectScope: 'DỰ ÁN KHÁCH SẠN',
             metricLabel: 'Thiết bị đề xuất',
             capacityLabel: systemLabel,
-            lineSuggest: 'Bơm nhiệt Ariston AR-40 PTP HX (48kW) / AR-80PTP HX (80kW) & Heatpump hồ bơi',
+            lineSuggest,
             insulationSuggest: 'ST, K-Protect',
             advice: 'Khách sạn sử dụng hệ thống bơm nhiệt nước nóng trung tâm (Heatpump) và Heatpump gia nhiệt hồ bơi giúp tiết kiệm điện năng vận hành, kết hợp bảo ôn cao cấp K-FLEX ST, K-Protect.',
-            matched: findAristonProducts(['ar-40', 'ar-80', 'ptp'], true),
+            matched: findAristonHeatPumps(hotelSystemType.value),
         };
     }
 
@@ -136,7 +252,7 @@ const aristonRecommendation = computed(() => {
             lineSuggest: 'Bơm nhiệt công nghiệp Ariston AR-40 PTP HX (48kW) / AR-80PTP HX (80kW)',
             insulationSuggest: 'M-Flex',
             advice: 'Khu công nghiệp sử dụng hệ thống bơm nhiệt công suất lớn (Heatpump) phục vụ nhu cầu nước nóng tập trung và dây chuyền sản xuất, kết hợp vật tư bảo ôn M-Flex.',
-            matched: findAristonProducts(['ar-40', 'ar-80', 'ptp'], true),
+            matched: findAristonHeatPumps('central'),
         };
     }
 
@@ -149,7 +265,7 @@ const aristonRecommendation = computed(() => {
             lineSuggest: 'Ariston PRO R 100 V/H (100L) · ARI 150 HORB (150L)',
             insulationSuggest: 'M-Flex',
             advice: 'Khu vực công cộng, phòng sinh hoạt cộng đồng hoặc tiện ích thương mại tại chung cư sử dụng bình nước nóng dung tích từ 100L trở lên, đi kèm bảo ôn M-Flex.',
-            matched: findAristonProducts(['100', '150']),
+            matched: findAristonByLiters(100, 200, [100, 150]),
         };
     }
 
@@ -161,7 +277,7 @@ const aristonRecommendation = computed(() => {
             lineSuggest: 'Ariston PRO R 80 V/H (80L) · PRO R 100 V/H (100L)',
             insulationSuggest: 'M-Flex',
             advice: 'Căn hộ có lắp đặt bồn tắm hoặc gia đình từ 5 người trở lên cần sử dụng bình dung tích 80L – 100L để đảm bảo đủ lưu lượng nước nóng, đi kèm bảo ôn M-Flex.',
-            matched: findAristonProducts(['80', '100']),
+            matched: findAristonByLiters(80, 100, [80, 100]),
         };
     }
 
@@ -175,7 +291,7 @@ const aristonRecommendation = computed(() => {
             lineSuggest: 'Ariston AN3 15 B VN (15L) · SLIM3 20B VN (20L)',
             insulationSuggest: 'M-Flex',
             advice: 'Căn hộ chung cư, NOXH có từ 1–2 người sử dụng phù hợp với dòng bình nước nóng gián tiếp 15L – 20L nhỏ gọn, kết hợp bảo ôn M-Flex.',
-            matched: findAristonProducts(['15', '20']),
+            matched: findAristonByLiters(15, 20, peopleCount.value === 1 ? [15, 20] : [20, 15]),
         };
     }
 
@@ -188,7 +304,7 @@ const aristonRecommendation = computed(() => {
             lineSuggest: 'Ariston SLIM3 30B / AN3 30B (30L) · PRO R S 40 SH (40L) · PRO R 50 V/SH (50L)',
             insulationSuggest: 'M-Flex',
             advice: 'Căn hộ chung cư, NOXH cho gia đình 3–4 người sử dụng dòng bình dung tích 30L – 56L (phổ biến 30L, 40L, 50L), kết hợp bảo ôn M-Flex.',
-            matched: findAristonProducts(['30', '40', '50']),
+            matched: findAristonByLiters(30, 56, peopleCount.value === 3 ? [30, 40, 50] : [40, 50, 30]),
         };
     }
 
@@ -200,7 +316,7 @@ const aristonRecommendation = computed(() => {
         lineSuggest: 'Ariston PRO R 80 V/H (80L) · PRO R 100 V/H (100L)',
         insulationSuggest: 'M-Flex',
         advice: 'Gia đình từ 5 người trở lên hoặc căn hộ có bồn tắm cần chọn bình nước nóng dung tích 80L – 100L để cấp đủ nước nóng liên tục, kết hợp bảo ôn M-Flex.',
-        matched: findAristonProducts(['80', '100']),
+        matched: findAristonByLiters(80, 100, peopleCount.value === 5 ? [80, 100] : [100, 80]),
     };
 });
 
@@ -235,27 +351,23 @@ const kflexRecommendation = computed(() => {
 
     const materialInfoMap: Record<
         InsulationMaterial,
-        { label: string; note: string; keywords: string[] }
+        { label: string; note: string }
     > = {
         mflex: {
             label: 'M-Flex (Cao su lưu hóa NBR)',
             note: 'Dòng bảo ôn M-Flex tối ưu hiệu quả cách nhiệt, chống đọng sương và chi phí đầu tư, là lựa chọn tiêu chuẩn cho dự án Chung cư, NOXH và Khu công nghiệp.',
-            keywords: ['m-flex', 'mflex', 'k-flex', 'kflex'],
         },
         st_kprotect: {
-            label: 'ST, K-Protect (Cao su lưu hóa NBR cao cấp chống cháy)',
+            label: 'ST, K-Protect (Cao su lưu hóa NBR & Polyolefin XLPE chống cháy)',
             note: 'Bộ đôi bảo ôn cao cấp K-FLEX ST và K-Protect đáp ứng tiêu chuẩn chống cháy lan Class 0, FM Approved, ít sinh khói, chuyên dùng cho dự án Khách sạn phối hợp cùng hệ thống Heatpump.',
-            keywords: ['st', 'k-protect', 'kprotect', 'kflex'],
         },
         st: {
             label: 'K-FLEX ST (Cao su lưu hóa NBR cao cấp Class 0)',
             note: 'Dòng bảo ôn K-FLEX ST có hệ số dẫn nhiệt thấp, kháng ẩm vượt trội và chứng chỉ chống cháy quốc tế, phù hợp cho hệ thống Chiller, VRV/VRF và đường ống Heatpump khách sạn.',
-            keywords: ['st', 'kflex'],
         },
         kprotect: {
-            label: 'K-FLEX K-Protect (Bảo ôn an toàn cháy nổ cao cấp)',
+            label: 'K-FLEX K-Protect (Polyolefin XLPE an toàn cháy nổ cao cấp)',
             note: 'Dòng bảo ôn K-Protect tăng cường khả năng chống cháy và kiểm soát khói nghiêm ngặt cho các trục kỹ thuật, phòng máy và công trình khách sạn cao tầng.',
-            keywords: ['k-protect', 'kprotect', 'st', 'kflex'],
         },
     };
 
@@ -286,7 +398,7 @@ const kflexRecommendation = computed(() => {
         productLine: currentMaterial.label,
         companionSuggest: `Thiết bị đồng bộ: ${currentProject.waterHeaterCompanion}`,
         technicalNote: currentMaterial.note,
-        matched: findKflexProducts(currentMaterial.keywords),
+        matched: findKflexProducts(materialType.value),
     };
 });
 
