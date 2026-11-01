@@ -147,3 +147,34 @@ test('browsing multiple pages within the active window counts as one visit and r
 
     expect(SiteVisit::query()->count())->toBe(2);
 });
+
+test('admin quotations page loads ariston products for pdf quotation builder', function () {
+    $aristonCategory = Category::factory()->create(['name' => 'Ariston', 'parent_id' => null]);
+    $subCategory = Category::factory()->create(['name' => 'Bình nước nóng gián tiếp', 'parent_id' => $aristonCategory->id]);
+    $otherCategory = Category::factory()->create(['name' => 'K-FLEX', 'parent_id' => null]);
+
+    Product::query()->create([
+        'name' => 'SLIM3 20B VN',
+        'category_id' => $aristonCategory->id,
+        'subcategory_id' => $subCategory->id,
+        'description' => '- Dung tích: 20L',
+        'price' => 2386000,
+        'quantity' => 10,
+    ]);
+
+    Product::query()->create([
+        'name' => 'K-Flex ST',
+        'category_id' => $otherCategory->id,
+        'description' => 'Bảo ôn NBR',
+        'price' => 100000,
+        'quantity' => 5,
+    ]);
+
+    $this->get(route('admin.quotations.index'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('quotations/Index')
+            ->has('aristonProducts', 1)
+            ->where('aristonProducts.0.name', 'SLIM3 20B VN'),
+        );
+});

@@ -54,6 +54,7 @@ const menuItems = [
     { label: 'Yêu Cầu Tư Vấn', icon: 'fa-solid fa-headset', href: '/admin/consultations' },
     { label: 'Chat Cùng Khách', icon: ['fas', 'comments'], href: '/admin/chats' },
     { label: 'Báo Cáo Dự Án', icon: 'fa-solid fa-chart-line', href: '/admin/project-reports' },
+    { label: 'Tạo Báo Giá PDF', icon: 'fa-solid fa-file-invoice-dollar', href: '/admin/quotations' },
     { label: 'Cài Đặt Hệ Thống', icon: 'fa-solid fa-gear', href: '/admin/settings' },
 ];
 

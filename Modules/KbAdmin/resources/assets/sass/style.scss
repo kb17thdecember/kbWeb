@@ -2335,3 +2335,620 @@ body::-webkit-scrollbar-thumb:hover {
     grid-template-columns: 1fr;
   }
 }
+
+/* Admin Quotation Builder & Live Print Preview */
+.kb-quote-type-tabs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin-bottom: 18px;
+}
+
+.kb-quote-tab-btn {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  padding: 14px 18px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--ink);
+  text-align: left;
+  transition: all .2s ease;
+}
+
+.kb-quote-tab-btn:hover {
+  border-color: var(--gold);
+}
+
+.kb-quote-tab-btn.active {
+  background: linear-gradient(135deg, #18352e 0%, #23473b 100%);
+  border-color: #18352e;
+  color: #f5f1e8;
+  box-shadow: 0 10px 24px rgba(24, 53, 46, .16);
+}
+
+.kb-quote-tab-badge {
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  display: grid;
+  place-items: center;
+  font-weight: 800;
+  font-size: 12px;
+  background: var(--blue2);
+  color: #5b4b2a;
+  flex-shrink: 0;
+}
+
+.kb-quote-tab-btn.active .kb-quote-tab-badge {
+  background: var(--gold);
+  color: #171714;
+}
+
+.kb-quote-tab-btn strong {
+  display: block;
+  font-size: 14px;
+  margin-bottom: 2px;
+}
+
+.kb-quote-tab-btn small {
+  display: block;
+  font-size: 11.5px;
+  color: var(--muted);
+}
+
+.kb-quote-tab-btn.active small {
+  color: #c8d8ce;
+}
+
+.kb-quote-builder-card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 20px;
+  margin-bottom: 18px;
+}
+
+.kb-quote-section-title {
+  font-weight: 800;
+  font-size: 15px;
+  color: var(--ink);
+  margin-bottom: 14px;
+}
+
+.kb-quote-form-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.kb-quote-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.kb-quote-field > span {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+
+.kb-quote-field input,
+.kb-quote-field select,
+.kb-quote-field textarea {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #ffffff;
+  color: var(--ink);
+  padding: 9px 12px;
+  font-size: 13px;
+  outline: none;
+  transition: border-color .2s ease, box-shadow .2s ease;
+}
+
+.kb-quote-field input:focus,
+.kb-quote-field select:focus,
+.kb-quote-field textarea:focus {
+  border-color: var(--gold);
+  box-shadow: 0 0 0 3px rgba(181, 154, 101, .16);
+}
+
+.kb-quote-items-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+
+.kb-quote-items-head .kb-quote-section-title {
+  margin-bottom: 2px;
+}
+
+.kb-quote-section-sub {
+  display: block;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.kb-quote-catalog-search {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 12.5px;
+  background: #ffffff;
+  color: var(--ink);
+  min-width: 200px;
+}
+
+.kb-quote-catalog-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 10px;
+  margin-bottom: 18px;
+  padding: 12px;
+  border-radius: 12px;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  max-height: 250px;
+  overflow-y: auto;
+}
+
+.kb-quote-catalog-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: #ffffff;
+  text-align: left;
+  transition: all .18s ease;
+}
+
+.kb-quote-catalog-card:hover {
+  border-color: var(--gold);
+}
+
+.kb-quote-catalog-card.selected {
+  border-color: #18352e;
+  background: #eef4f1;
+  box-shadow: 0 4px 12px rgba(24, 53, 46, .08);
+}
+
+.kb-quote-catalog-check {
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  border: 1px solid var(--line);
+  background: var(--bg);
+  color: var(--muted);
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+  font-weight: 800;
+  flex-shrink: 0;
+}
+
+.kb-quote-catalog-card.selected .kb-quote-catalog-check {
+  background: #18352e;
+  border-color: #18352e;
+  color: #ffffff;
+}
+
+.kb-quote-catalog-thumb {
+  width: 38px;
+  height: 32px;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+.kb-quote-catalog-meta {
+  min-width: 0;
+  flex: 1;
+}
+
+.kb-quote-catalog-meta strong {
+  display: block;
+  font-size: 12.5px;
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.kb-quote-catalog-meta small {
+  display: block;
+  font-size: 11px;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.kb-quote-item-compact-row {
+  display: grid;
+  grid-template-columns: 34px 46px 1.3fr 1.2fr 0.9fr 0.7fr 1fr auto;
+  gap: 10px;
+  align-items: end;
+}
+
+.kb-quote-item-index {
+  height: 39px;
+  display: grid;
+  place-items: center;
+  font-weight: 800;
+  font-size: 12px;
+  color: var(--muted);
+  background: #ffffff;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.kb-quote-compact-btns {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 39px;
+}
+
+.kb-quote-item-expanded {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--line);
+}
+
+.kb-quote-items-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.kb-quote-items-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.kb-quote-item-box {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--bg);
+  padding: 16px;
+}
+
+.kb-quote-item-box-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px dashed var(--line);
+}
+
+.kb-quote-item-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.kb-quote-span-2 {
+  grid-column: span 2;
+}
+
+.kb-quote-span-full {
+  grid-column: 1 / -1;
+}
+
+.kb-quote-computed-amount {
+  height: 39px;
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  border-radius: 8px;
+  border: 1px solid #d5c7a9;
+  background: #f8f2e4;
+  font-weight: 800;
+  color: #413418;
+  font-size: 13.5px;
+}
+
+.kb-quote-img-picker {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 39px;
+}
+
+.kb-quote-thumb-preview {
+  width: 46px;
+  height: 38px;
+  object-fit: contain;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #ffffff;
+  padding: 2px;
+}
+
+.kb-quote-no-img {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.kb-quote-upload-btn {
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+}
+
+.kb-quote-preview-wrap {
+  background: #e6e2d8;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 18px;
+  overflow-x: auto;
+}
+
+.kb-quote-preview-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+
+.kb-quote-paper {
+  width: 1080px;
+  min-width: 1080px;
+  margin: 0 auto;
+  background: #ffffff;
+  color: #000000;
+  padding: 26px 38px;
+  box-shadow: 0 14px 36px rgba(0, 0, 0, .12);
+  font-family: "Times New Roman", Times, serif;
+  font-size: 13px;
+  line-height: 1.3;
+  transition: width .22s ease;
+}
+
+.kb-quote-paper.is-portrait {
+  width: 820px;
+  min-width: 820px;
+  padding: 28px 26px;
+}
+
+.qp-header {
+  display: grid;
+  grid-template-columns: 210px 1fr 220px;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
+.qp-logo-left {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  padding-left: 18px;
+}
+
+.qp-starlight-logo {
+  width: 115px;
+  height: auto;
+  object-fit: contain;
+  display: block;
+}
+
+.qp-company-center {
+  text-align: center;
+  line-height: 1.28;
+}
+
+.qp-company-center h1 {
+  margin: 0 0 2px;
+  font-size: 17px;
+  font-weight: 700;
+  text-transform: uppercase;
+  font-family: "Times New Roman", Times, serif;
+}
+
+.qp-company-center p {
+  margin: 0;
+  font-size: 14.5px;
+}
+
+.qp-logo-right {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding-right: 10px;
+}
+
+.qp-ariston-logo {
+  width: 192px;
+  height: auto;
+  object-fit: contain;
+  display: block;
+}
+
+.qp-title {
+  text-align: center;
+  font-size: 18px;
+  font-weight: 700;
+  text-decoration: underline;
+  text-transform: uppercase;
+  margin: 10px 0 10px;
+}
+
+.qp-meta {
+  width: 100%;
+  margin-bottom: 5px;
+  font-size: 13px;
+}
+
+.qp-meta-row {
+  display: grid;
+  grid-template-columns: 9.5% 1fr;
+  margin-bottom: 3px;
+  align-items: baseline;
+}
+
+.qp-meta-label-kinhgui {
+  font-weight: 700;
+  font-style: italic;
+  text-decoration: underline;
+}
+
+.qp-meta-val-kinhgui {
+  text-transform: uppercase;
+}
+
+.qp-meta-label-italic {
+  font-style: italic;
+  padding-left: 3px;
+}
+
+.qp-meta-val-italic {
+  font-style: italic;
+}
+
+.qp-meta-label-project {
+  font-weight: 700;
+  font-style: italic;
+}
+
+.qp-intro {
+  text-align: center;
+  font-style: italic;
+  font-size: 12.8px;
+  margin: 5px 0 5px;
+}
+
+.qp-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  font-size: 12px;
+}
+
+.qp-table th,
+.qp-table td {
+  border: 1px solid #000000;
+  padding: 5px 6px;
+  vertical-align: middle;
+  word-wrap: break-word;
+}
+
+.qp-table thead th {
+  text-align: center;
+  font-weight: 700;
+  font-size: 12px;
+  line-height: 1.22;
+  padding: 6px 4px;
+}
+
+.qp-table thead th em {
+  display: block;
+  font-style: italic;
+  font-weight: 400;
+}
+
+.qp-center {
+  text-align: center;
+}
+
+.qp-bold {
+  font-weight: 700;
+}
+
+.qp-preline {
+  white-space: pre-line;
+}
+
+.qp-spec {
+  text-align: left;
+  vertical-align: middle;
+  font-size: 13.5px;
+  line-height: 1.3;
+  padding: 6px 8px;
+}
+
+.qp-prod-img {
+  width: 98%;
+  max-width: 100%;
+  height: 178px;
+  max-height: 188px;
+  object-fit: contain;
+  display: block;
+  margin: 0 auto;
+}
+
+.qp-summary-row td {
+  font-weight: 700;
+  padding: 4.5px 6px;
+  font-size: 12px;
+}
+
+.qp-summary-label {
+  text-align: center;
+}
+
+.qp-summary-label em {
+  font-style: italic;
+  font-weight: 700;
+}
+
+.qp-terms {
+  margin-top: 5px;
+  font-size: 11.5px;
+  line-height: 1.3;
+  font-weight: 700;
+}
+
+.qp-terms-head {
+  text-decoration: underline;
+  margin-bottom: 1px;
+}
+
+.qp-terms p {
+  margin: 1px 0;
+}
+
+.qp-sign {
+  margin-top: 10px;
+  font-size: 11.8px;
+  line-height: 1.3;
+  font-weight: 700;
+  font-style: italic;
+}
+
+.qp-sign p {
+  margin: 1px 0;
+}
+
+@media (max-width: 1100px) {
+  .kb-quote-form-grid,
+  .kb-quote-item-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 680px) {
+  .kb-quote-type-tabs,
+  .kb-quote-form-grid,
+  .kb-quote-item-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .kb-quote-span-2 {
+    grid-column: span 1;
+  }
+}

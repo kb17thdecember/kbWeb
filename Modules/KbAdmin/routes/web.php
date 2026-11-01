@@ -13,6 +13,7 @@ use Modules\KbAdmin\Http\Controllers\FeaturedProjectController;
 use Modules\KbAdmin\Http\Controllers\NotificationController;
 use Modules\KbAdmin\Http\Controllers\ProductController;
 use Modules\KbAdmin\Http\Controllers\ProjectReportController;
+use Modules\KbAdmin\Http\Controllers\QuotationController;
 use Modules\KbAdmin\Http\Controllers\SiteSettingController;
 use Modules\KbAdmin\Http\Middleware\EnsureAdminAuthenticated;
 use Modules\KbAdmin\Http\Middleware\UseKbAdminRootView;
@@ -91,6 +92,9 @@ Route::middleware([UseKbAdminRootView::class, EnsureAdminAuthenticated::class])
 
         Route::get('/project-reports', [ProjectReportController::class, 'index'])
             ->name('admin.project-reports.index');
+
+        Route::get('/quotations', [QuotationController::class, 'index'])
+            ->name('admin.quotations.index');
 
         Route::get('/project-reports/export', [ProjectReportController::class, 'export'])
             ->name('admin.project-reports.export');
