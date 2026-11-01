@@ -74,13 +74,27 @@ function submitComment(): void {
 
         <UserLayout :cart-count="0" active-page="news">
             <main>
-                <article class="section">
+                <article class="section news-article-section">
                     <div class="wrap news-article">
-                        <Link class="page-home-link" href="/news"><FontAwesomeIcon :icon="['fas', 'arrow-left']" /> Tất cả tin tức</Link>
-                        <time v-if="article.published_at">{{ formatDate(article.published_at) }}</time>
-                        <h1>{{ article.title }}</h1>
-                        <p class="news-lead">{{ article.excerpt }}</p>
-                        <img v-if="article.image_url" class="news-cover" :src="article.image_url" :alt="article.title">
+                        <div class="news-article-topbar">
+                            <Link class="page-home-link" href="/news">
+                                <FontAwesomeIcon :icon="['fas', 'arrow-left']" /> Tất cả tin tức
+                            </Link>
+                            <div class="news-article-meta">
+                                <span class="news-article-badge">CHUYÊN ĐỀ KỸ THUẬT</span>
+                                <time v-if="article.published_at">{{ formatDate(article.published_at) }}</time>
+                            </div>
+                        </div>
+
+                        <header class="news-article-header">
+                            <h1>{{ article.title }}</h1>
+                            <p v-if="article.excerpt" class="news-lead">{{ article.excerpt }}</p>
+                        </header>
+
+                        <figure v-if="article.image_url" class="news-cover-stage">
+                            <img class="news-cover" :src="article.image_url" :alt="article.title">
+                        </figure>
+
                         <div class="news-content" v-html="article.content"></div>
 
                         <section class="kb-article-comments">
@@ -117,7 +131,7 @@ function submitComment(): void {
                                 </button>
                             </div>
 
-                            <div class="kb-discussion-list" style="margin-top: 20px;">
+                            <div class="kb-discussion-list">
                                 <div v-if="!article.comments?.length" class="empty-state">
                                     Chưa có bình luận nào cho bài viết này.
                                 </div>
@@ -137,10 +151,18 @@ function submitComment(): void {
                     </div>
                 </article>
 
-                <section v-if="related.length" class="section">
+                <section v-if="related.length" class="section news-related-section">
                     <div class="wrap">
-                        <h2 class="section-title">Bài viết khác</h2>
-                        <div class="news-grid">
+                        <div class="section-head news-related-head">
+                            <div>
+                                <div class="eyebrow"><span class="dot"></span> TIN TỨC LIÊN QUAN</div>
+                                <h2 class="section-title">Bài viết khác</h2>
+                            </div>
+                            <Link class="page-home-link" href="/news">
+                                Xem tất cả <FontAwesomeIcon :icon="['fas', 'arrow-right']" />
+                            </Link>
+                        </div>
+                        <div class="news-grid is-related">
                             <Link v-for="item in related" :key="item.id" :href="`/news/${item.slug}`" class="news-card">
                                 <div class="news-thumb">
                                     <img v-if="item.image_url" :src="item.image_url" :alt="item.title" loading="lazy">
@@ -150,6 +172,7 @@ function submitComment(): void {
                                     <time v-if="item.published_at">{{ formatDate(item.published_at) }}</time>
                                     <h3>{{ item.title }}</h3>
                                     <p>{{ item.excerpt }}</p>
+                                    <span class="news-more">Đọc tiếp →</span>
                                 </div>
                             </Link>
                         </div>
