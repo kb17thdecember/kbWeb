@@ -8795,49 +8795,58 @@ body::-webkit-scrollbar-thumb:hover {
   position: sticky;
   top: 78px;
   z-index: 35;
-  background: light-dark(rgba(246, 244, 239, .92), rgba(17, 17, 15, .92));
+  background: light-dark(rgba(246, 244, 239, .95), rgba(17, 17, 15, .95));
   backdrop-filter: blur(14px);
   border-bottom: 1px solid var(--line);
-  padding: 10px 0;
+  padding: 12px 0;
 }
 
 .kb-about-subnav {
-  display: flex;
-  align-items: center;
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
   gap: 8px;
-  overflow-x: auto;
-  scrollbar-width: none;
-  -webkit-overflow-scrolling: touch;
-}
-
-.kb-about-subnav::-webkit-scrollbar {
-  display: none;
+  align-items: stretch;
 }
 
 .kb-about-subnav-btn {
-  flex: 1 1 auto;
-  display: inline-flex;
+  min-width: 0;
+  width: 100%;
+  display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 11px 16px;
+  justify-content: flex-start;
+  gap: 9px;
+  padding: 11px 13px;
   border: 1px solid var(--line);
-  border-radius: 2px;
+  border-radius: 3px;
   background: var(--surface);
   color: var(--muted);
   font-size: 11.5px;
   font-weight: 700;
-  letter-spacing: .03em;
-  white-space: nowrap;
-  transition: border-color .2s, background .2s, color .2s;
+  line-height: 1.3;
+  letter-spacing: .01em;
+  text-align: left;
+  transition: border-color .2s, background .2s, color .2s, box-shadow .2s;
 }
 
 .kb-about-subnav-btn small {
+  flex: 0 0 auto;
+  display: inline-grid;
+  place-items: center;
+  min-width: 24px;
+  height: 22px;
+  padding: 0 5px;
+  border: 1px solid rgba(183, 154, 99, .38);
+  border-radius: 2px;
+  background: rgba(183, 154, 99, .1);
   font-size: 10px;
   font-weight: 800;
-  letter-spacing: .08em;
+  letter-spacing: .06em;
   color: var(--brass);
-  opacity: .85;
+}
+
+.kb-about-subnav-btn span {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .kb-about-subnav-btn:hover {
@@ -8849,11 +8858,13 @@ body::-webkit-scrollbar-thumb:hover {
   border-color: var(--brass);
   background: var(--dark);
   color: var(--champ);
+  box-shadow: 0 8px 20px rgba(23, 23, 20, .12);
 }
 
 .kb-about-subnav-btn.active small {
-  color: var(--brass);
-  opacity: 1;
+  border-color: var(--brass);
+  background: var(--brass);
+  color: var(--dark);
 }
 
 .kb-about-section {
@@ -9786,6 +9797,12 @@ body::-webkit-scrollbar-thumb:hover {
 }
 
 /* Responsive Breakpoints for About Us Page */
+@media (max-width: 1180px) {
+  .kb-about-subnav {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
 @media (max-width: 1050px) {
   .kb-about-overview-grid,
   .kb-about-cap-layout,
@@ -9802,11 +9819,30 @@ body::-webkit-scrollbar-thumb:hover {
 
 @media (max-width: 1020px) {
   .kb-about-subnav-wrap {
-    top: 68px;
+    position: relative;
+    top: auto;
+    padding: 12px 0;
   }
 }
 
 @media (max-width: 760px) {
+  .kb-about-subnav {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 7px;
+  }
+
+  .kb-about-subnav-btn {
+    padding: 10px 11px;
+    gap: 8px;
+    font-size: 11px;
+  }
+
+  .kb-about-subnav-btn small {
+    min-width: 22px;
+    height: 20px;
+    font-size: 9.5px;
+  }
+
   .kb-about-brands-grid,
   .kb-about-tracks-grid,
   .kb-about-cap-specs {
@@ -9837,6 +9873,29 @@ body::-webkit-scrollbar-thumb:hover {
 }
 
 @media (max-width: 540px) {
+  .kb-about-subnav-wrap {
+    padding: 10px 0;
+  }
+
+  .kb-about-subnav {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+  }
+
+  .kb-about-subnav-btn {
+    padding: 9px 9px;
+    gap: 6px;
+    font-size: 10.5px;
+    line-height: 1.25;
+  }
+
+  .kb-about-subnav-btn small {
+    min-width: 20px;
+    height: 18px;
+    padding: 0 4px;
+    font-size: 9px;
+  }
+
   .kb-about-metrics-grid,
   .kb-about-compliance-grid,
   .kb-about-timeline {
@@ -9863,6 +9922,12 @@ body::-webkit-scrollbar-thumb:hover {
   .kb-about-faq-contact-box .btn {
     width: 100%;
     justify-content: center;
+  }
+}
+
+@media (max-width: 360px) {
+  .kb-about-subnav {
+    grid-template-columns: 1fr;
   }
 }
 

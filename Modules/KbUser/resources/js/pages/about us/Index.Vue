@@ -810,7 +810,7 @@ const toggleFaq = (index: number): void => {
                             <div class="kb-about-cta-info">
                                 <div class="kb-about-info-row">
                                     <span>ĐỊA CHỈ VĂN PHÒNG</span>
-                                    <strong>Số 15 đường Nguyễn Cản Dị, phường Định Công, TP. Hà Nội</strong>
+                                    <strong>Tầng 2 Tòa nhà Ngôi Sao, Số 15 Nguyễn Cảnh Dị, phường Định Công, TP. Hà Nội</strong>
                                 </div>
                                 <div class="kb-about-info-row">
                                     <span>HOTLINE TƯ VẤN DỰ ÁN &amp; BÁO GIÁ</span>
