@@ -22,6 +22,21 @@ class ProductController extends Controller
      */
     public function index(AdminDashboardStats $dashboardStats): Response
     {
+        Product::query()
+            ->whereIn('name', ['KFlex ST', 'KFlex M-Flex', 'KFlex K-Protect'])
+            ->get()
+            ->each(function (Product $legacyProduct): void {
+                $canonicalName = str_replace('KFlex ', 'K-Flex ', (string) $legacyProduct->name);
+                if (Product::query()->where('name', $canonicalName)->whereKeyNot($legacyProduct->id)->exists()) {
+                    $legacyProduct->images()->delete();
+                    $legacyProduct->delete();
+
+                    return;
+                }
+
+                $legacyProduct->update(['name' => $canonicalName]);
+            });
+
         $categories = Category::query()
             ->with('children:id,name,parent_id')
             ->whereNull('parent_id')

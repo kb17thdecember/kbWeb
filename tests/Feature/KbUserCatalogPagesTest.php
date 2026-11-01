@@ -64,7 +64,7 @@ test('the user featured projects page provides project details and image URLs', 
                 '/storage/featured-projects/office.png',
                 '/storage/featured-projects/office-detail.png',
             ])
-            ->where('projects.0.related_products.0.name', 'KFlex ST'),
+            ->where('projects.0.related_products.0.name', 'K-Flex ST'),
         );
 });
 

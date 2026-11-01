@@ -502,6 +502,14 @@ class ProductSeeder extends Seeder
             ],
         ];
 
+        Product::query()
+            ->whereIn('name', ['KFlex ST', 'KFlex K-Protect', 'KFlex M-Flex'])
+            ->get()
+            ->each(function (Product $legacyProduct): void {
+                $legacyProduct->images()->delete();
+                $legacyProduct->delete();
+            });
+
         foreach ($products as $productData) {
             $imagePath = base_path("Modules/KbAdmin/resources/assets/images/products/{$productData['image']}");
             $imageContents = file_get_contents($imagePath);

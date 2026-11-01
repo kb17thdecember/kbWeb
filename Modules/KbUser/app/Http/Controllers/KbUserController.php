@@ -31,6 +31,8 @@ class KbUserController extends Controller
      */
     public function index(): InertiaResponse
     {
+        $this->deduplicateLegacyKflexProducts();
+
         $categories = Category::query()
             ->with(['images', 'children:id,name,parent_id'])
             ->whereNull('parent_id')
@@ -63,6 +65,8 @@ class KbUserController extends Controller
 
     public function categories(Request $request): InertiaResponse
     {
+        $this->deduplicateLegacyKflexProducts();
+
         $categories = Category::query()
             ->whereNull('parent_id')
             ->with([
@@ -87,6 +91,8 @@ class KbUserController extends Controller
 
     public function products(): InertiaResponse
     {
+        $this->deduplicateLegacyKflexProducts();
+
         $categories = Category::query()
             ->with(['images', 'children:id,name,parent_id'])
             ->whereNull('parent_id')
@@ -245,6 +251,8 @@ class KbUserController extends Controller
 
     public function featuredProjects(): InertiaResponse
     {
+        $this->deduplicateLegacyKflexProducts();
+
         $allProducts = Product::query()
             ->with(['category:id,name', 'subcategory:id,name', 'images'])
             ->get([
@@ -385,6 +393,53 @@ class KbUserController extends Controller
         return preg_replace('/[^a-z0-9]+/', '', $ascii) ?? '';
     }
 
+    private function deduplicateLegacyKflexProducts(): void
+    {
+        $canonicalNames = [
+            'kflexst' => 'K-Flex ST',
+            'kflexmflex' => 'K-Flex M-Flex',
+            'kflexkprotect' => 'K-Flex K-Protect',
+        ];
+
+        $kflexCandidates = Product::query()
+            ->with('images')
+            ->where(function ($query): void {
+                $query->whereIn('name', [
+                    'KFlex ST',
+                    'K-Flex ST',
+                    'KFlex M-Flex',
+                    'K-Flex M-Flex',
+                    'KFlex K-Protect',
+                    'K-Flex K-Protect',
+                ])->orWhere('name', 'like', '%KFlex%')
+                    ->orWhere('name', 'like', '%K-Flex%');
+            })
+            ->orderByDesc('id')
+            ->get();
+
+        foreach ($canonicalNames as $normalizedKey => $canonicalName) {
+            $matches = $kflexCandidates
+                ->filter(fn (Product $product): bool => $this->normalizeProductKey((string) $product->name) === $normalizedKey)
+                ->sortByDesc(fn (Product $product): int => ($product->name === $canonicalName ? 10 : 0) + ($product->images->isNotEmpty() ? 5 : 0))
+                ->values();
+
+            if ($matches->isEmpty()) {
+                continue;
+            }
+
+            /** @var Product $keeper */
+            $keeper = $matches->first();
+            if ($keeper->name !== $canonicalName) {
+                $keeper->update(['name' => $canonicalName]);
+            }
+
+            foreach ($matches->slice(1) as $duplicate) {
+                $duplicate->images()->delete();
+                $duplicate->delete();
+            }
+        }
+    }
+
     private function ensureSeededProductExists(string $reference, FeaturedProject $project): ?Product
     {
         $trimmedRef = trim($reference);
@@ -395,7 +450,7 @@ class KbUserController extends Controller
         $refKey = $this->normalizeProductKey($trimmedRef);
         $presets = [
             'kflexmflex' => [
-                'name' => 'KFlex M-Flex',
+                'name' => 'K-Flex M-Flex',
                 'category' => 'K-FLEX',
                 'subcategory' => 'Cao su lưu hóa NBR',
                 'product_title' => 'Dòng sản phẩm bảo ôn cao cấp phù hợp cho chung cư và khu công nghiệp .',
@@ -412,7 +467,7 @@ class KbUserController extends Controller
                 ]),
             ],
             'kflexst' => [
-                'name' => 'KFlex ST',
+                'name' => 'K-Flex ST',
                 'category' => 'K-FLEX',
                 'subcategory' => 'Cao su lưu hóa NBR',
                 'product_title' => 'Dòng sản phẩm bảo ôn cao cấp phù hợp cho văn phòng khách sạn .',
@@ -431,7 +486,7 @@ class KbUserController extends Controller
                 ]),
             ],
             'kflexkprotect' => [
-                'name' => 'KFlex K-Protect',
+                'name' => 'K-Flex K-Protect',
                 'category' => 'K-FLEX',
                 'subcategory' => 'Polyolefin XLPE',
                 'product_title' => 'Dòng sản phẩm bảo ôn cao cấp phù hợp cho văn phòng khách sạn .',
