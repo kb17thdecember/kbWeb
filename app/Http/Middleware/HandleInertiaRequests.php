@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\SiteSetting;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 
@@ -41,6 +42,7 @@ class HandleInertiaRequests extends Middleware
             ...parent::share($request),
             'name' => config('app.name'),
             'toast' => fn () => $request->session()->get('toast'),
+            'siteSettings' => fn () => SiteSetting::allSettings(),
             'auth' => [
                 'user' => $user,
                 'loginMethod' => fn () => $request->session()->get('kbuser_login_method', 'account'),

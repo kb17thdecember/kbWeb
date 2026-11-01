@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { router, Link, useForm, usePage } from '@inertiajs/vue3';
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
+import { downloadCartExcelWorkbook } from '../utils/cartExcelExporter';
 import { lockPageScroll } from '../utils/pageScrollLock';
 import UserAuthPanel from './UserAuthPanel.Vue';
 
@@ -46,8 +47,12 @@ const props = defineProps<{
     activePage?: string;
 }>();
 
-const page = usePage<{ auth?: { user?: AuthUser | null; loginMethod?: string | null; googleError?: string | null; wishlistIds?: number[] } }>();
+const page = usePage<{
+    auth?: { user?: AuthUser | null; loginMethod?: string | null; googleError?: string | null; wishlistIds?: number[] };
+    siteSettings?: Record<string, string>;
+}>();
 const authUser = computed<AuthUser | null>(() => page.props.auth?.user ?? null);
+const siteSettings = computed<Record<string, string>>(() => page.props.siteSettings ?? {});
 const loginMethod = computed<string>(() => page.props.auth?.loginMethod ?? 'account');
 const googleError = computed<string | null>(() => page.props.auth?.googleError ?? null);
 const wishlistIds = computed<number[]>(() => page.props.auth?.wishlistIds ?? []);
@@ -514,27 +519,21 @@ const exportCartCsv = (): void => {
         return;
     }
 
-    const headers = ['STT', 'Ten san pham', 'Danh muc', 'So luong', 'Don gia tham khao (VND)', 'Thanh tien (VND)'];
-    const rows = cartItems.value.map(({ product, quantity }, idx) => [
-        String(idx + 1),
-        `"${product.name.replace(/"/g, '""')}"`,
-        `"${(product.category?.name ?? 'Vat tu HVAC').replace(/"/g, '""')}"`,
-        String(quantity),
-        String(product.price),
-        String(product.price * quantity),
-    ]);
-    rows.push(['', '"TONG CONG THAM KHAO"', '', String(cartCount.value), '', String(cartTotal.value)]);
+    const rows = cartItems.value.map(({ product, quantity }, idx) => ({
+        index: idx + 1,
+        name: product.name,
+        category: product.category?.name ?? 'Vật tư HVAC',
+        quantity,
+        unitPrice: Number(product.price) || 0,
+        lineTotal: (Number(product.price) || 0) * quantity,
+    }));
 
-    const csvContent = '\uFEFF' + [headers.join(','), ...rows.map((r) => r.join(','))].join('\r\n');
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `bang-du-toan-hvac-mart-${new Date().toISOString().slice(0, 10)}.csv`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+    downloadCartExcelWorkbook(
+        rows,
+        cartCount.value,
+        cartTotal.value,
+        `bang-du-toan-hvac-mart-${new Date().toISOString().slice(0, 10)}.xlsx`,
+    );
 };
 
 const printCartQuote = (): void => {
@@ -547,15 +546,19 @@ const printCartQuote = (): void => {
         return;
     }
 
+    const brandName = siteSettings.value.company_name || 'HVAC Mart';
+    const hotline = siteSettings.value.hotline || '0979.807.234';
+    const contactEmail = siteSettings.value.contact_email || 'kbnguyen0311@gmail.com';
+
     const rowsHtml = cartItems.value
         .map(
             ({ product, quantity }, index) => `
             <tr>
-                <td style="padding:8px;border:1px solid #ccc;text-align:center;">${index + 1}</td>
-                <td style="padding:8px;border:1px solid #ccc;"><strong>${product.name}</strong><br><small>${product.category?.name ?? ''}</small></td>
-                <td style="padding:8px;border:1px solid #ccc;text-align:center;">${quantity}</td>
-                <td style="padding:8px;border:1px solid #ccc;text-align:right;">${formatPrice(product.price)}</td>
-                <td style="padding:8px;border:1px solid #ccc;text-align:right;"><strong>${formatPrice(product.price * quantity)}</strong></td>
+                <td>${index + 1}</td>
+                <td><strong>${product.name}</strong><br><small>${product.category?.name ?? 'Vật tư HVAC'}</small></td>
+                <td>${quantity}</td>
+                <td>${formatPrice(product.price)}</td>
+                <td><strong>${formatPrice(product.price * quantity)}</strong></td>
             </tr>`,
         )
         .join('');
@@ -564,41 +567,42 @@ const printCartQuote = (): void => {
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
-    <title>Bảng dự toán vật tư HVAC Mart</title>
+    <title>Bảng dự toán vật tư ${brandName}</title>
     <style>
-        body { font-family: Arial, sans-serif; color: #1a211b; padding: 32px; }
-        h1 { margin: 0 0 6px; font-size: 22px; }
-        p { margin: 4px 0; font-size: 13px; color: #555; }
-        table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 14px; }
-        th { background: #1e3328; color: #fff; padding: 10px 8px; border: 1px solid #1e3328; text-align: left; }
-        .total-row td { font-weight: bold; background: #f4f1ea; padding: 10px 8px; border: 1px solid #ccc; }
+        body { font-family: "Times New Roman", Times, serif; font-size: 14pt; color: #000; padding: 32px; }
+        h1 { margin: 0 0 6px; font-size: 18pt; text-align: center; }
+        p { margin: 4px 0; font-size: 14pt; text-align: center; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; font-family: "Times New Roman", Times, serif; font-size: 14pt; }
+        th, td { border: 1px solid #000; padding: 10px 8px; vertical-align: middle; text-align: center; }
+        th { background: #1e3328; color: #fff; font-weight: bold; }
+        .total-row td { font-weight: bold; background: #f4f1ea; }
     </style>
 </head>
 <body>
-    <h1>HVAC MART — BẢNG TỔNG HỢP DỰ TOÁN VẬT TƯ THAM KHẢO</h1>
-    <p>Hotline: 0979.807.234 · Email: kbnguyen0311@gmail.com · Ngày lập: ${new Date().toLocaleDateString('vi-VN')}</p>
+    <h1>${brandName.toUpperCase()} — BẢNG TỔNG HỢP DỰ TOÁN VẬT TƯ THAM KHẢO</h1>
+    <p>Hotline: ${hotline} · Email: ${contactEmail} · Ngày lập: ${new Date().toLocaleDateString('vi-VN')}</p>
     ${authUser.value ? `<p>Khách hàng: <strong>${authUser.value.name}</strong> (${authUser.value.email})</p>` : ''}
     <table>
         <thead>
             <tr>
-                <th style="width:48px;text-align:center;">STT</th>
+                <th style="width:56px;">STT</th>
                 <th>Tên thiết bị / Vật tư</th>
-                <th style="width:90px;text-align:center;">Số lượng</th>
-                <th style="width:140px;text-align:right;">Đơn giá</th>
-                <th style="width:150px;text-align:right;">Thành tiền</th>
+                <th style="width:100px;">Số lượng</th>
+                <th style="width:160px;">Đơn giá</th>
+                <th style="width:170px;">Thành tiền</th>
             </tr>
         </thead>
         <tbody>
             ${rowsHtml}
             <tr class="total-row">
                 <td colspan="2">TỔNG GIÁ TRỊ THAM KHẢO</td>
-                <td style="text-align:center;">${cartCount.value}</td>
+                <td>${cartCount.value}</td>
                 <td></td>
-                <td style="text-align:right;">${formatPrice(cartTotal.value)}</td>
+                <td>${formatPrice(cartTotal.value)}</td>
             </tr>
         </tbody>
     </table>
-    <p style="margin-top:18px;font-style:italic;">* Ghi chú: Đơn giá trên là giá tham khảo. Vui lòng gửi yêu cầu báo giá tại HVAC Mart để nhận chiết khấu chính thức theo khối lượng dự án.</p>
+    <p style="margin-top:18px;font-style:italic;text-align:left;">* Ghi chú: Đơn giá trên là giá tham khảo. Vui lòng gửi yêu cầu báo giá tại ${brandName} để nhận chiết khấu chính thức theo khối lượng dự án.</p>
 </body>
 </html>`);
     win.document.close();
@@ -906,7 +910,7 @@ onUnmounted(() => {
                             In / Lưu PDF dự toán
                         </button>
                         <button type="button" class="kb-export-btn" @click="exportCartCsv">
-                            Xuất file Excel (.csv)
+                            Xuất file Excel (.xlsx)
                         </button>
                     </div>
                     <div class="cart-hint">Giá hiển thị chỉ để tham khảo. Báo giá thực tế sẽ được xác nhận theo yêu cầu.</div>

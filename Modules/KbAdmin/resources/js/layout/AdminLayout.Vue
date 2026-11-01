@@ -1,11 +1,31 @@
-
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { Link, router, usePage } from '@inertiajs/vue3';
 
+type AdminNotificationItem = {
+    id: string;
+    type: 'consultation' | 'chat' | 'project' | string;
+    title: string;
+    subtitle: string;
+    badge: string;
+    href: string;
+    created_at: string | null;
+};
+
+type AdminNotificationsPayload = {
+    openRequestsCount: number;
+    pendingRequestsCount: number;
+    chatUnreadCount: number;
+    supportProjectsCount: number;
+    totalCount: number;
+    items: AdminNotificationItem[];
+};
+
 const page = usePage<{
     auth: { user: { name: string } | null };
     adminSessionTimeoutMinutes?: number;
+    adminNotifications?: AdminNotificationsPayload;
+    siteSettings?: Record<string, string>;
     toast?: string | null;
 }>();
 const currentUrl = computed(() => page.url.split('?')[0]);
@@ -20,9 +40,8 @@ const props = defineProps<{
     stats: AdminStat[];
     openRequestsCount: number;
     chatUnreadCount?: number;
+    supportProjectsCount?: number;
 }>();
-
-console.log(props.stats);
 
 const menuItems = [
     { label: 'Dashboard', icon: 'fa-solid fa-house', href: '/admin/dashboard' },
@@ -35,9 +54,11 @@ const menuItems = [
     { label: 'Yêu Cầu Tư Vấn', icon: 'fa-solid fa-headset', href: '/admin/consultations' },
     { label: 'Chat Cùng Khách', icon: ['fas', 'comments'], href: '/admin/chats' },
     { label: 'Báo Cáo Dự Án', icon: 'fa-solid fa-chart-line', href: '/admin/project-reports' },
+    { label: 'Cài Đặt Hệ Thống', icon: 'fa-solid fa-gear', href: '/admin/settings' },
 ];
 
 const visibleStats = computed(() => props.stats);
+const brandName = computed(() => page.props.siteSettings?.company_name || 'HVAC Mart');
 
 const isToastVisible = ref(false);
 const toastMessage = ref('');
@@ -80,6 +101,174 @@ function resetInactivityTimer(): void {
     }, timeoutMs);
 }
 
+const isNotificationOpen = ref(false);
+const notificationFilter = ref<'all' | 'consultation' | 'chat' | 'project'>('all');
+const notificationWrapRef = ref<HTMLElement | null>(null);
+const liveNotifications = ref<AdminNotificationsPayload | null>(null);
+
+const notificationsData = computed<AdminNotificationsPayload>(() => {
+    if (liveNotifications.value) {
+        return liveNotifications.value;
+    }
+
+    if (page.props.adminNotifications) {
+        return page.props.adminNotifications;
+    }
+
+    const openRequests = props.openRequestsCount ?? 0;
+    const chatUnread = props.chatUnreadCount ?? 0;
+    const supportProjects = props.supportProjectsCount ?? 0;
+
+    return {
+        openRequestsCount: openRequests,
+        pendingRequestsCount: openRequests,
+        chatUnreadCount: chatUnread,
+        supportProjectsCount: supportProjects,
+        totalCount: openRequests + chatUnread + supportProjects,
+        items: [],
+    };
+});
+
+const openRequestsBadge = computed(() => notificationsData.value.openRequestsCount);
+const chatUnreadCount = computed(() => notificationsData.value.chatUnreadCount);
+const supportProjectsBadge = computed(() => notificationsData.value.supportProjectsCount);
+const totalNotificationCount = computed(() => notificationsData.value.totalCount);
+
+const filteredNotifications = computed(() => {
+    const allItems = notificationsData.value.items;
+    if (notificationFilter.value === 'all') {
+        return allItems;
+    }
+
+    return allItems.filter((item) => item.type === notificationFilter.value);
+});
+
+watch(
+    () => [props.openRequestsCount, props.chatUnreadCount, page.props.adminNotifications],
+    () => {
+        liveNotifications.value = null;
+    },
+);
+
+async function refreshNotifications(): Promise<void> {
+    try {
+        const response = await fetch('/admin/notifications', {
+            headers: {
+                Accept: 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-Background-Poll': '1',
+            },
+        });
+
+        if (response.status === 401) {
+            window.location.href = '/admin/login';
+
+            return;
+        }
+
+        if (!response.ok) {
+            return;
+        }
+
+        liveNotifications.value = (await response.json()) as AdminNotificationsPayload;
+    } catch {
+        // Bỏ qua lỗi mạng tạm thời, lần polling sau sẽ thử lại.
+    }
+}
+
+function csrfToken(): string {
+    return decodeURIComponent(document.cookie.match(/(?:^|; )XSRF-TOKEN=([^;]*)/)?.[1] ?? '');
+}
+
+async function markAllChatsRead(): Promise<void> {
+    try {
+        const response = await fetch('/admin/notifications/read-chats', {
+            method: 'POST',
+            headers: {
+                Accept: 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-XSRF-TOKEN': csrfToken(),
+            },
+        });
+
+        if (response.ok) {
+            liveNotifications.value = (await response.json()) as AdminNotificationsPayload;
+            showToast('Đã đánh dấu đã đọc toàn bộ tin nhắn chat.');
+        }
+    } catch {
+        showToast('Không thể cập nhật trạng thái tin nhắn.');
+    }
+}
+
+function toggleNotificationDropdown(): void {
+    isNotificationOpen.value = !isNotificationOpen.value;
+    if (isNotificationOpen.value) {
+        void refreshNotifications();
+    }
+}
+
+function handleDocumentPointerDown(event: MouseEvent): void {
+    if (!isNotificationOpen.value) {
+        return;
+    }
+
+    const target = event.target as Node | null;
+    if (target && notificationWrapRef.value && !notificationWrapRef.value.contains(target)) {
+        isNotificationOpen.value = false;
+    }
+}
+
+function handleEscapeKey(event: KeyboardEvent): void {
+    if (event.key === 'Escape' && isNotificationOpen.value) {
+        isNotificationOpen.value = false;
+    }
+}
+
+function formatRelativeTime(isoDate: string | null): string {
+    if (!isoDate) {
+        return 'Vừa xong';
+    }
+
+    const time = new Date(isoDate).getTime();
+    if (Number.isNaN(time)) {
+        return '';
+    }
+
+    const diffMinutes = Math.max(0, Math.floor((Date.now() - time) / 60000));
+    if (diffMinutes < 1) {
+        return 'Vừa xong';
+    }
+    if (diffMinutes < 60) {
+        return `${diffMinutes} phút trước`;
+    }
+
+    const diffHours = Math.floor(diffMinutes / 60);
+    if (diffHours < 24) {
+        return `${diffHours} giờ trước`;
+    }
+
+    const diffDays = Math.floor(diffHours / 24);
+    if (diffDays < 7) {
+        return `${diffDays} ngày trước`;
+    }
+
+    return new Date(isoDate).toLocaleDateString('vi-VN');
+}
+
+function notificationIcon(type: string): string {
+    if (type === 'chat') {
+        return 'fa-solid fa-comments';
+    }
+    if (type === 'project') {
+        return 'fa-solid fa-chart-line';
+    }
+
+    return 'fa-solid fa-headset';
+}
+
+const notificationPollTimer = window.setInterval(refreshNotifications, 10000);
+void refreshNotifications();
+
 let removeSuccessListener: (() => void) | undefined;
 
 onMounted(() => {
@@ -99,6 +288,8 @@ onMounted(() => {
     ACTIVITY_EVENTS.forEach((eventName) => {
         window.addEventListener(eventName, resetInactivityTimer, { passive: true });
     });
+    document.addEventListener('mousedown', handleDocumentPointerDown);
+    document.addEventListener('keydown', handleEscapeKey);
 });
 
 onBeforeUnmount(() => {
@@ -115,50 +306,11 @@ onBeforeUnmount(() => {
     ACTIVITY_EVENTS.forEach((eventName) => {
         window.removeEventListener(eventName, resetInactivityTimer);
     });
+    document.removeEventListener('mousedown', handleDocumentPointerDown);
+    document.removeEventListener('keydown', handleEscapeKey);
 
-    window.clearInterval(chatUnreadTimer);
+    window.clearInterval(notificationPollTimer);
 });
-
-const liveChatUnread = ref<number | null>(null);
-const chatUnreadCount = computed(() => liveChatUnread.value ?? props.chatUnreadCount ?? 0);
-
-watch(
-    () => props.chatUnreadCount,
-    () => {
-        liveChatUnread.value = null;
-    },
-);
-
-async function refreshChatUnread(): Promise<void> {
-    try {
-        const response = await fetch('/admin/chats/list', {
-            headers: {
-                Accept: 'application/json',
-                'X-Requested-With': 'XMLHttpRequest',
-                'X-Background-Poll': '1',
-            },
-        });
-
-        if (response.status === 401) {
-            window.location.href = '/admin/login';
-
-            return;
-        }
-
-        if (!response.ok) {
-            return;
-        }
-
-        const data = (await response.json()) as { conversations: { unread_count: number }[] };
-        liveChatUnread.value = data.conversations.reduce((sum, item) => sum + item.unread_count, 0);
-    } catch {
-        // Bỏ qua lỗi mạng tạm thời, lần polling sau sẽ thử lại.
-    }
-}
-
-const chatUnreadTimer = window.setInterval(refreshChatUnread, 10000);
-void refreshChatUnread();
-
 
 async function exportProjectReports(): Promise<void> {
     try {
@@ -222,24 +374,38 @@ function importProjectReports(event: Event): void {
         <div class="brand">
           <span class="mark">HM</span>
           <div>
-            <b>HVAC Mart</b><small>ADMINISTRATION</small>
+            <b>{{ brandName }}</b><small>ADMINISTRATION</small>
           </div>
         </div>
         <div>
           <p class="navlabel">MENU QUẢN TRỊ</p>
           <nav class="nav" id="nav">
             <Link
-                    v-for="item in menuItems"
-                    :key="item.label"
-                    :href="item.href"
-                    :class="{ active: currentUrl === item.href }"
-                    :title="item.label"
-                >
-                    <span class="nav-icon"><FontAwesomeIcon :icon="item.icon" /></span>
-                    <span>{{ item.label }}</span>
-                    <span v-if="item.href === '/admin/consultations'" class="count count-alert">{{ props.openRequestsCount }}</span>
-                    <span v-if="item.href === '/admin/chats' && chatUnreadCount > 0" class="count count-alert">{{ chatUnreadCount }}</span>
-          </Link>
+                v-for="item in menuItems"
+                :key="item.label"
+                :href="item.href"
+                :class="{ active: currentUrl === item.href }"
+                :title="item.label"
+            >
+                <span class="nav-icon"><FontAwesomeIcon :icon="item.icon" /></span>
+                <span>{{ item.label }}</span>
+                <span
+                    v-if="item.href === '/admin/consultations'"
+                    class="count"
+                    :class="{ 'count-alert': openRequestsBadge > 0 }"
+                    :title="`${openRequestsBadge} yêu cầu tư vấn chưa hoàn tất`"
+                >{{ openRequestsBadge }}</span>
+                <span
+                    v-if="item.href === '/admin/chats' && chatUnreadCount > 0"
+                    class="count count-alert"
+                    :title="`${chatUnreadCount} tin nhắn khách hàng chưa đọc`"
+                >{{ chatUnreadCount }}</span>
+                <span
+                    v-if="item.href === '/admin/project-reports' && supportProjectsBadge > 0"
+                    class="count count-warn"
+                    :title="`${supportProjectsBadge} dự án đang cần hỗ trợ`"
+                >{{ supportProjectsBadge }}</span>
+            </Link>
           </nav>
         </div>
         <div class="side-note">
@@ -255,6 +421,108 @@ function importProjectReports(event: Event): void {
             <label class="global-search"><FontAwesomeIcon icon="fa-solid fa-magnifying-glass" /> <input id="globalSearch" type="search" placeholder="Tìm sản phẩm, dự án, khách hàng..."></label>
           </div>
           <div class="profile">
+            <div ref="notificationWrapRef" class="admin-notif">
+              <button
+                  id="adminNotificationBell"
+                  class="admin-notif-bell"
+                  :class="{ 'is-open': isNotificationOpen, 'has-unread': totalNotificationCount > 0 }"
+                  type="button"
+                  aria-label="Thông báo vận hành"
+                  :aria-expanded="isNotificationOpen"
+                  @click="toggleNotificationDropdown"
+              >
+                  <FontAwesomeIcon icon="fa-solid fa-bell" />
+                  <span v-if="totalNotificationCount > 0" class="admin-notif-badge">
+                      {{ totalNotificationCount > 99 ? '99+' : totalNotificationCount }}
+                  </span>
+              </button>
+
+              <div v-if="isNotificationOpen" class="admin-notif-dropdown" role="dialog" aria-label="Danh sách thông báo chưa xử lý">
+                  <div class="admin-notif-head">
+                      <div>
+                          <strong>Thông báo vận hành</strong>
+                          <small>{{ totalNotificationCount }} mục đang chờ xử lý</small>
+                      </div>
+                      <button
+                          v-if="chatUnreadCount > 0"
+                          type="button"
+                          class="admin-notif-mark-btn"
+                          @click="markAllChatsRead"
+                      >
+                          Đọc hết chat
+                      </button>
+                  </div>
+
+                  <div class="admin-notif-tabs" role="tablist">
+                      <button
+                          type="button"
+                          class="admin-notif-tab"
+                          :class="{ active: notificationFilter === 'all' }"
+                          @click="notificationFilter = 'all'"
+                      >
+                          Tất cả ({{ totalNotificationCount }})
+                      </button>
+                      <button
+                          type="button"
+                          class="admin-notif-tab"
+                          :class="{ active: notificationFilter === 'consultation' }"
+                          @click="notificationFilter = 'consultation'"
+                      >
+                          Tư vấn ({{ openRequestsBadge }})
+                      </button>
+                      <button
+                          type="button"
+                          class="admin-notif-tab"
+                          :class="{ active: notificationFilter === 'chat' }"
+                          @click="notificationFilter = 'chat'"
+                      >
+                          Chat ({{ chatUnreadCount }})
+                      </button>
+                      <button
+                          type="button"
+                          class="admin-notif-tab"
+                          :class="{ active: notificationFilter === 'project' }"
+                          @click="notificationFilter = 'project'"
+                      >
+                          Dự án ({{ supportProjectsBadge }})
+                      </button>
+                  </div>
+
+                  <div v-if="filteredNotifications.length > 0" class="admin-notif-list">
+                      <Link
+                          v-for="item in filteredNotifications"
+                          :key="item.id"
+                          :href="item.href"
+                          class="admin-notif-item"
+                          :class="`is-${item.type}`"
+                          @click="isNotificationOpen = false"
+                      >
+                          <span class="admin-notif-icon">
+                              <FontAwesomeIcon :icon="notificationIcon(item.type)" />
+                          </span>
+                          <div class="admin-notif-body">
+                              <div class="admin-notif-title-row">
+                                  <b>{{ item.title }}</b>
+                                  <span class="admin-notif-tag">{{ item.badge }}</span>
+                              </div>
+                              <p>{{ item.subtitle }}</p>
+                              <small>{{ formatRelativeTime(item.created_at) }}</small>
+                          </div>
+                      </Link>
+                  </div>
+                  <div v-else class="admin-notif-empty">
+                      <FontAwesomeIcon icon="fa-solid fa-circle-check" />
+                      <b>Không có mục tồn đọng</b>
+                      <span>Mọi yêu cầu tư vấn, tin nhắn và dự án đều đã được xử lý.</span>
+                  </div>
+
+                  <div class="admin-notif-foot">
+                      <Link href="/admin/consultations" @click="isNotificationOpen = false">Xem yêu cầu tư vấn</Link>
+                      <Link href="/admin/chats" @click="isNotificationOpen = false">Mở hộp thư chat</Link>
+                  </div>
+              </div>
+            </div>
+
             <span class="avatar">A</span>
             <div>
               <b>{{ page.props.auth.user?.name ?? 'Administrator' }}</b><small>Quản trị viên</small>
@@ -265,12 +533,12 @@ function importProjectReports(event: Event): void {
         <div class="content">
           <div class="welcome">
             <div>
-              <div class="eyebrow">HVAC MART / ADMIN CONTROL CENTER</div>
+              <div class="eyebrow">{{ brandName.toUpperCase() }} / ADMIN CONTROL CENTER</div>
               <h1>Quản trị vận hành.</h1>
               <p>Quản lý sản phẩm, hình ảnh, danh mục, dự án và yêu cầu tư vấn.</p>
             </div>
             <div class="subnote">
-              <b>Đồng bộ hệ thống trực tuyến</b><br>Mọi cập nhật về sản phẩm, danh mục, dự án, tin tức và báo cáo đều được lưu trên máy chủ cơ sở dữ liệu và hiển thị tức thời trên website HVAC Mart.</div>
+              <b>Đồng bộ hệ thống trực tuyến</b><br>Mọi cập nhật về sản phẩm, danh mục, dự án, tin tức và báo cáo đều được lưu trên máy chủ cơ sở dữ liệu và hiển thị tức thời trên website {{ brandName }}.</div>
           </div>
           <div class="stats" id="stats">
             <div class="stat" v-for="stat in visibleStats" :key="stat.label">

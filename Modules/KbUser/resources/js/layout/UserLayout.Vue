@@ -18,8 +18,13 @@ const props = defineProps<{
     activePage?: 'home' | 'categories' | 'products' | 'projects' | 'news' | 'about' | 'contact';
 }>();
 
-const page = usePage<{ auth?: { user?: AuthUser | null }; toast?: string | null }>();
+const page = usePage<{
+    auth?: { user?: AuthUser | null };
+    siteSettings?: Record<string, string>;
+    toast?: string | null;
+}>();
 const authUser = computed<AuthUser | null>(() => page.props.auth?.user ?? null);
+const siteSettings = computed<Record<string, string>>(() => page.props.siteSettings ?? {});
 
 const isToastVisible = ref(false);
 const toastMessage = ref('');
@@ -108,7 +113,7 @@ onUnmounted(() => {
 <template>
     <div>
         <div class="announcement">
-            Giải pháp vật tư &amp; thiết bị · Tư vấn đúng nhu cầu, đồng hành đến hoàn thiện
+            {{ siteSettings.announcement_text || 'Giải pháp vật tư & thiết bị · Tư vấn đúng nhu cầu, đồng hành đến hoàn thiện' }}
         </div>
 
         <header class="nav-shell">
@@ -116,8 +121,8 @@ onUnmounted(() => {
                 <Link href="/" class="brand" aria-label="HVAC Mart trang chủ">
                     <span class="brandmark">HM</span>
                     <span class="brandname">
-                        HVAC Mart
-                        <small>HVAC &amp; ENGINEERING SUPPLY</small>
+                        {{ siteSettings.company_name || 'HVAC Mart' }}
+                        <small>{{ siteSettings.company_tagline || 'HVAC & ENGINEERING SUPPLY' }}</small>
                     </span>
                 </Link>
 
@@ -242,12 +247,12 @@ onUnmounted(() => {
             <div class="wrap">
                 <div class="footer-grid">
                     <div>
-                        <Link href="/" class="brand"><span class="brandmark">HM</span><span class="brandname">HVAC Mart<small>HVAC &amp; ENGINEERING SUPPLY</small></span></Link>
-                        <p class="footer-desc">Đầu mối cung ứng thiết bị và vật tư kỹ thuật cho các công trình dân dụng, thương mại và công nghiệp.</p>
+                        <Link href="/" class="brand"><span class="brandmark">HM</span><span class="brandname">{{ siteSettings.company_name || 'HVAC Mart' }}<small>{{ siteSettings.company_tagline || 'HVAC & ENGINEERING SUPPLY' }}</small></span></Link>
+                        <p class="footer-desc">{{ siteSettings.footer_description || 'Đầu mối cung ứng thiết bị và vật tư kỹ thuật cho các công trình dân dụng, thương mại và công nghiệp.' }}</p>
                         <div class="socials">
-                            <Link href="/contacts" aria-label="Facebook">f</Link>
-                            <Link href="/contacts" aria-label="LinkedIn">in</Link>
-                            <Link href="/contacts" aria-label="Zalo">Z</Link>
+                            <a :href="siteSettings.facebook_url || '/contacts'" aria-label="Facebook">f</a>
+                            <a :href="siteSettings.linkedin_url || '/contacts'" aria-label="LinkedIn">in</a>
+                            <a :href="siteSettings.zalo_url || '/contacts'" aria-label="Zalo">Z</a>
                         </div>
                     </div>
                     <div>
@@ -272,15 +277,15 @@ onUnmounted(() => {
                     <div>
                         <h4>THÔNG TIN DOANH NGHIỆP</h4>
                         <div class="footer-links">
-                            <span>Hà Nội, Việt Nam</span>
-                            <span>kbnguyen0311@gmail.com</span>
-                            <span>0979.807.234</span>
-                            <span>Thứ 2 – Thứ 7 · 08:00–17:30</span>
+                            <span>{{ siteSettings.address || 'Hà Nội, Việt Nam' }}</span>
+                            <span>{{ siteSettings.contact_email || 'kbnguyen0311@gmail.com' }}</span>
+                            <span>{{ siteSettings.hotline || '0979.807.234' }}</span>
+                            <span>{{ siteSettings.working_hours || 'Thứ 2 – Thứ 7 · 08:00–17:30' }}</span>
                         </div>
                     </div>
                 </div>
                 <div class="footer-bottom">
-                    <span>© 2026 HVAC Mart. Bảo lưu mọi quyền.</span>
+                    <span>{{ siteSettings.copyright_text || '© 2026 HVAC Mart. Bảo lưu mọi quyền.' }}</span>
                     <span>Chất lượng trong từng chi tiết · Built with intention.</span>
                 </div>
             </div>

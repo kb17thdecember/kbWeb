@@ -13,8 +13,9 @@ const props = defineProps<{
     products: { id: number; name: string }[];
 }>();
 
-const page = usePage<{ auth?: { user?: AuthUser | null } }>();
+const page = usePage<{ auth?: { user?: AuthUser | null }; siteSettings?: Record<string, string> }>();
 const authUser = computed<AuthUser | null>(() => page.props.auth?.user ?? null);
+const siteSettings = computed<Record<string, string>>(() => page.props.siteSettings ?? {});
 
 const successMessage = ref('');
 const toastMessage = ref('');
@@ -182,20 +183,20 @@ onUnmounted(() => {
                                             <path d="M4 5h16v14H4z" />
                                             <path d="m4 7 8 6 8-6" />
                                         </svg>
-                                        <span>kbnguyen0311@gmail.com</span>
+                                        <span>{{ siteSettings.contact_email || 'kbnguyen0311@gmail.com' }}</span>
                                     </div>
                                     <div>
                                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
                                             <path d="M7 3h10v18H7zM10 6h4M10 18h4" />
                                         </svg>
-                                        <span>0979.807.234</span>
+                                        <span>{{ siteSettings.hotline || '0979.807.234' }}</span>
                                     </div>
                                     <div>
                                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
                                             <path d="M20 10c0 5-8 11-8 11S4 15 4 10a8 8 0 1 1 16 0Z" />
                                             <circle cx="12" cy="10" r="2.5" />
                                         </svg>
-                                        <span>Hà Nội, Việt Nam</span>
+                                        <span>{{ siteSettings.address || 'Hà Nội, Việt Nam' }}</span>
                                     </div>
                                 </div>
                             </div>

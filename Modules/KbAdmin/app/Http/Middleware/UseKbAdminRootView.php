@@ -5,6 +5,7 @@ namespace Modules\KbAdmin\Http\Middleware;
 use Closure;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
+use Modules\KbAdmin\Support\AdminDashboardStats;
 use Symfony\Component\HttpFoundation\Response;
 
 class UseKbAdminRootView
@@ -16,6 +17,7 @@ class UseKbAdminRootView
             1,
             (int) config('kbadmin.session_timeout_minutes', EnsureAdminAuthenticated::DEFAULT_TIMEOUT_MINUTES),
         ));
+        Inertia::share('adminNotifications', fn () => app(AdminDashboardStats::class)->notifications());
 
         return $next($request);
     }

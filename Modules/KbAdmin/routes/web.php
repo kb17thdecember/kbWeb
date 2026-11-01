@@ -10,8 +10,10 @@ use Modules\KbAdmin\Http\Controllers\ConsultationController;
 use Modules\KbAdmin\Http\Controllers\CustomerController;
 use Modules\KbAdmin\Http\Controllers\DashboardController;
 use Modules\KbAdmin\Http\Controllers\FeaturedProjectController;
+use Modules\KbAdmin\Http\Controllers\NotificationController;
 use Modules\KbAdmin\Http\Controllers\ProductController;
 use Modules\KbAdmin\Http\Controllers\ProjectReportController;
+use Modules\KbAdmin\Http\Controllers\SiteSettingController;
 use Modules\KbAdmin\Http\Middleware\EnsureAdminAuthenticated;
 use Modules\KbAdmin\Http\Middleware\UseKbAdminRootView;
 
@@ -37,6 +39,16 @@ Route::middleware([UseKbAdminRootView::class, EnsureAdminAuthenticated::class])
     ->group(function () {
         Route::get('/dashboard', [DashboardController::class, 'index'])
             ->name('admin.dashboard.index');
+
+        Route::get('/notifications', [NotificationController::class, 'index'])
+            ->name('admin.notifications.index');
+        Route::post('/notifications/read-chats', [NotificationController::class, 'markAllChatsRead'])
+            ->name('admin.notifications.read-chats');
+
+        Route::get('/settings', [SiteSettingController::class, 'index'])
+            ->name('admin.settings.index');
+        Route::put('/settings', [SiteSettingController::class, 'update'])
+            ->name('admin.settings.update');
 
         Route::get('/products', [ProductController::class, 'index'])
             ->name('admin.products.index');
