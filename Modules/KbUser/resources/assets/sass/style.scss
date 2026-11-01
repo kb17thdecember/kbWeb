@@ -6276,15 +6276,55 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
   flex: 0 0 auto;
 }
 
+.kb-compare-bar-actions .btn {
+  height: 38px;
+  padding: 0 15px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .04em;
+  border-radius: 4px;
+  white-space: nowrap;
+  transition: all .22s ease;
+}
+
+.kb-compare-bar-actions .btn svg {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 auto;
+}
+
 .kb-compare-clear-btn {
-  color: #f2efe5 !important;
-  border-color: rgba(255, 255, 255, .24) !important;
-  background: transparent !important;
+  color: rgba(242, 239, 229, .82) !important;
+  border: 1px solid rgba(255, 255, 255, .18) !important;
+  background: rgba(255, 255, 255, .05) !important;
 }
 
 .kb-compare-clear-btn:hover {
-  border-color: var(--brass) !important;
+  color: #ffd8d2 !important;
+  border-color: rgba(235, 106, 90, .55) !important;
+  background: rgba(214, 76, 60, .16) !important;
+}
+
+.kb-compare-pdf-btn {
   color: var(--champ) !important;
+  border: 1px solid rgba(183, 154, 99, .48) !important;
+  background: rgba(183, 154, 99, .12) !important;
+}
+
+.kb-compare-pdf-btn:hover {
+  color: #fff9ed !important;
+  border-color: var(--champ) !important;
+  background: rgba(183, 154, 99, .24) !important;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, .22) !important;
+}
+
+.kb-compare-open-btn {
+  padding: 0 18px !important;
+  box-shadow: 0 8px 20px rgba(183, 154, 99, .22);
 }
 
 .kb-calc-modal {
@@ -6573,12 +6613,13 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
   .kb-compare-bar-actions {
     width: 100%;
     display: grid;
-    grid-template-columns: auto 1fr;
+    grid-template-columns: auto auto 1fr;
     gap: 8px;
   }
 
   .kb-compare-bar-actions .btn {
-    padding: 10px 14px;
+    height: 36px;
+    padding: 0 12px;
     font-size: 11px;
     justify-content: center;
   }
@@ -10732,11 +10773,6 @@ body::-webkit-scrollbar-thumb:hover {
   padding: 8px 14px;
   font-size: 11px;
   border-radius: 3px;
-}
-
-.kb-compare-pdf-btn {
-  padding: 9px 14px;
-  font-size: 11px;
 }
 
 /* Technical Document & Catalogue Center */

@@ -569,7 +569,8 @@ const printCartQuote = (): void => {
     <meta charset="UTF-8">
     <title>Bảng dự toán vật tư ${brandName}</title>
     <style>
-        body { font-family: "Times New Roman", Times, serif; font-size: 14pt; color: #000; padding: 32px; }
+        @page { size: A4 portrait; margin: 0; }
+        body { font-family: "Times New Roman", Times, serif; font-size: 14pt; color: #000; padding: 14mm; margin: 0; }
         h1 { margin: 0 0 6px; font-size: 18pt; text-align: center; }
         p { margin: 4px 0; font-size: 14pt; text-align: center; }
         table { width: 100%; border-collapse: collapse; margin-top: 20px; font-family: "Times New Roman", Times, serif; font-size: 14pt; }

@@ -667,12 +667,21 @@ onUnmounted(() => {
                         </div>
                     </div>
                     <div class="kb-compare-bar-actions">
-                        <button type="button" class="btn btn-outline kb-compare-clear-btn" @click="compareIds = []">Xóa hết</button>
+                        <button type="button" class="btn btn-outline kb-compare-clear-btn" @click="compareIds = []">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                                <path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6h14Z" stroke-linecap="round" stroke-linejoin="round" />
+                            </svg>
+                            <span>Xóa hết</span>
+                        </button>
                         <button type="button" class="btn btn-outline kb-compare-pdf-btn" @click="exportComparisonToPdf">
-                            Xuất PDF
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" stroke-linecap="round" stroke-linejoin="round" />
+                                <path d="M14 2v6h6M12 18v-6M9.5 15.5 12 18l2.5-2.5" stroke-linecap="round" stroke-linejoin="round" />
+                            </svg>
+                            <span>Xuất PDF</span>
                         </button>
                         <button type="button" class="btn btn-primary kb-compare-open-btn" @click="isCompareModalOpen = true">
-                            Xem bảng so sánh
+                            <span>Xem bảng so sánh</span>
                         </button>
                     </div>
                 </div>

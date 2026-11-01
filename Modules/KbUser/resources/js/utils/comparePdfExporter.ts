@@ -103,10 +103,6 @@ export function exportProductComparisonPdf(
         .map((item) => `<td><strong>#SP-${item.id}</strong> · ${escapeHtml(item.name)}</td>`)
         .join('');
 
-    const titleCols = products
-        .map((item) => `<td>${escapeHtml(item.product_title || item.name)}</td>`)
-        .join('');
-
     const categoryCols = products
         .map((item) => `<td>${escapeHtml(item.category?.name ?? '—')}</td>`)
         .join('');
@@ -131,7 +127,7 @@ export function exportProductComparisonPdf(
     <style>
         @page {
             size: A4 portrait;
-            margin: 12mm;
+            margin: 0;
         }
         * {
             box-sizing: border-box;
@@ -360,7 +356,7 @@ export function exportProductComparisonPdf(
         }
         @media print {
             body {
-                padding: 0;
+                padding: 12mm;
             }
             .toolbar-no-print {
                 display: none !important;
@@ -411,10 +407,6 @@ export function exportProductComparisonPdf(
                 <tr>
                     <td>Mã &amp; Model</td>
                     ${codeCols}
-                </tr>
-                <tr>
-                    <td>Tên thương mại</td>
-                    ${titleCols}
                 </tr>
                 <tr>
                     <td>Thương hiệu / Danh mục</td>
