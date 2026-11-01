@@ -79,10 +79,10 @@ import UserLayout from '../../layout/UserLayout.Vue';
 
                     <div class="feature-copy reveal visible">
                         <div class="eyebrow"><span class="dot"></span> Chọn giải pháp, không chỉ chọn hàng</div>
-                        <h2 class="section-title">Từ bản vẽ đến<br><em>công trình thực tế.</em></h2>
+                        <h2 class="section-title">Uy tín tạo niềm tin,<br><em>chất lượng tạo giá trị.</em></h2>
                         <p>
-                            Chúng tôi hướng đến việc trở thành đầu mối cung ứng tin cậy cho nhà
-                            thầu, đơn vị cơ điện và chủ đầu tư — bằng danh mục rõ ràng, tư vấn phù
+                            Chúng tôi hướng đến việc trở thành đầu mối cung ứng tin cậy cho chủ đầu tư, nhà
+                            thầu và các đơn vị phụ trách đơn vị cơ điện — bằng danh mục rõ ràng, tư vấn phù
                             hợp và quy trình làm việc chuyên nghiệp.
                         </p>
                         <ul class="check-list">
