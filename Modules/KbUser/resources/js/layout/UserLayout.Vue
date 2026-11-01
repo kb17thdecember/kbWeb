@@ -2,6 +2,7 @@
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { Link, router, usePage } from '@inertiajs/vue3';
 import ChatWidget from '../components/ChatWidget.Vue';
+import HvacCalculatorModal from '../components/HvacCalculatorModal.Vue';
 import NavbarActions from '../components/NavbarActions.Vue';
 import { lockPageScroll } from '../utils/pageScrollLock';
 
@@ -15,7 +16,7 @@ type AuthUser = {
 
 const props = defineProps<{
     cartCount: number;
-    activePage?: 'home' | 'categories' | 'products' | 'projects' | 'news' | 'about' | 'contact';
+    activePage?: 'home' | 'categories' | 'products' | 'catalogues' | 'projects' | 'news' | 'about' | 'contact';
 }>();
 
 const page = usePage<{
@@ -69,10 +70,29 @@ watch(
 );
 
 const isMenuOpen = ref(false);
+const isGlobalCalculatorOpen = ref(false);
 let releaseMenuScrollLock: (() => void) | null = null;
 
 const closeMenu = (): void => {
     isMenuOpen.value = false;
+};
+
+const openGlobalCalculator = (): void => {
+    closeMenu();
+    isGlobalCalculatorOpen.value = true;
+};
+
+const addGlobalCalculatorProductToCart = (product: { id: number; name: string }): void => {
+    try {
+        const raw = sessionStorage.getItem('kbuser-cart');
+        const current = raw ? (JSON.parse(raw) as Record<number, number>) : {};
+        current[product.id] = (current[product.id] ?? 0) + 1;
+        sessionStorage.setItem('kbuser-cart', JSON.stringify(current));
+        window.dispatchEvent(new Event('kbuser-cart-updated'));
+        showToast(`Đã thêm ${product.name} vào giỏ báo giá.`);
+    } catch {
+        showToast('Không thể cập nhật giỏ hàng lúc này.');
+    }
 };
 
 const openAuthFromMenu = (mode: 'login' | 'register'): void => {
@@ -86,13 +106,18 @@ const logoutFromMenu = (): void => {
 };
 
 const onEscapeKey = (event: KeyboardEvent): void => {
-    if (event.key === 'Escape' && isMenuOpen.value) {
-        closeMenu();
+    if (event.key === 'Escape') {
+        if (isMenuOpen.value) {
+            closeMenu();
+        }
+        if (isGlobalCalculatorOpen.value) {
+            isGlobalCalculatorOpen.value = false;
+        }
     }
 };
 
-watch(isMenuOpen, (open) => {
-    if (open) {
+watch([isMenuOpen, isGlobalCalculatorOpen], ([menuOpen, calcOpen]) => {
+    if (menuOpen || calcOpen) {
         releaseMenuScrollLock ??= lockPageScroll();
         return;
     }
@@ -105,6 +130,7 @@ let removeSuccessListener: (() => void) | undefined;
 
 onMounted(() => {
     window.addEventListener('keydown', onEscapeKey);
+    window.addEventListener('kbuser-calculator-open', openGlobalCalculator);
     removeSuccessListener = router.on('success', (event) => {
         const flashedToast = (event.detail.page.props as { toast?: string | null }).toast;
 
@@ -117,6 +143,7 @@ onMounted(() => {
 onUnmounted(() => {
     removeSuccessListener?.();
     window.removeEventListener('keydown', onEscapeKey);
+    window.removeEventListener('kbuser-calculator-open', openGlobalCalculator);
     if (toastTimeout) {
         clearTimeout(toastTimeout);
     }
@@ -145,6 +172,7 @@ onUnmounted(() => {
                     <Link href="/" :aria-current="props.activePage === 'home' ? 'page' : undefined" @click="closeMenu">Trang chủ</Link>
                     <Link href="/categories" :aria-current="props.activePage === 'categories' ? 'page' : undefined" @click="closeMenu">Danh mục</Link>
                     <Link href="/products" :aria-current="props.activePage === 'products' ? 'page' : undefined" @click="closeMenu">Sản phẩm</Link>
+                    <Link href="/catalogues" :aria-current="props.activePage === 'catalogues' ? 'page' : undefined" @click="closeMenu">Catalogue</Link>
                     <Link href="/featured-projects" :aria-current="props.activePage === 'projects' ? 'page' : undefined" @click="closeMenu">Dự án tiêu biểu</Link>
                     <Link href="/news" :aria-current="props.activePage === 'news' ? 'page' : undefined" @click="closeMenu">Tin tức</Link>
                     <Link href="/about-us" :aria-current="props.activePage === 'about' ? 'page' : undefined" @click="closeMenu">Về chúng tôi</Link>
@@ -218,6 +246,10 @@ onUnmounted(() => {
                                 <span>Sản phẩm</span>
                                 <b aria-hidden="true">→</b>
                             </Link>
+                            <Link href="/catalogues" class="kb-mobile-nav-item" :class="{ active: props.activePage === 'catalogues' }" @click="closeMenu">
+                                <span>Thư viện Catalogue &amp; Tài liệu</span>
+                                <b aria-hidden="true">→</b>
+                            </Link>
                             <Link href="/featured-projects" class="kb-mobile-nav-item" :class="{ active: props.activePage === 'projects' }" @click="closeMenu">
                                 <span>Dự án tiêu biểu</span>
                                 <b aria-hidden="true">→</b>
@@ -237,6 +269,9 @@ onUnmounted(() => {
                         </nav>
 
                         <div class="kb-mobile-nav-footer">
+                            <button type="button" class="btn btn-outline kb-mobile-quote-btn" @click="openGlobalCalculator">
+                                Công cụ tính chọn thiết bị
+                            </button>
                             <Link class="btn btn-primary kb-mobile-quote-btn" href="/contacts" @click="closeMenu">
                                 Nhận báo giá công trình
                             </Link>
@@ -281,6 +316,9 @@ onUnmounted(() => {
                                 <strong>{{ siteSettings.hotline || '0979.807.234' }}</strong>
                             </span>
                         </a>
+                        <button type="button" class="btn btn-outline footer-calc-btn" @click="openGlobalCalculator">
+                            Tính chọn thiết bị
+                        </button>
                         <Link href="/contacts" class="btn btn-primary footer-quote-btn">
                             Gửi yêu cầu báo giá
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -357,6 +395,7 @@ onUnmounted(() => {
                             <Link href="/about-us">Về chúng tôi &amp; Năng lực</Link>
                             <Link href="/categories">Danh mục hệ thống</Link>
                             <Link href="/products">Sản phẩm &amp; Thiết bị</Link>
+                            <Link href="/catalogues">Thư viện Catalogue</Link>
                             <Link href="/featured-projects">Dự án tiêu biểu</Link>
                             <Link href="/news">Tin tức &amp; Kỹ thuật</Link>
                         </div>
@@ -365,11 +404,11 @@ onUnmounted(() => {
                     <div class="footer-nav-col">
                         <h4>DỊCH VỤ &amp; HỖ TRỢ B2B</h4>
                         <div class="footer-links">
+                            <button type="button" class="footer-link-btn" @click="openGlobalCalculator">Công cụ tính chọn thiết bị</button>
+                            <Link href="/catalogues">Tải Catalogue &amp; Datasheet</Link>
                             <Link href="/contacts">Yêu cầu báo giá dự án</Link>
                             <Link href="/contacts">Tư vấn giải pháp kỹ thuật</Link>
                             <Link href="/about-us">Hồ sơ năng lực &amp; CO/CQ</Link>
-                            <Link href="/contacts">Chính sách vận chuyển &amp; Bảo hành</Link>
-                            <Link href="/contacts">Hợp tác nhà thầu &amp; Đại lý</Link>
                         </div>
                     </div>
 
@@ -437,6 +476,7 @@ onUnmounted(() => {
                         <span>Cung ứng vật tư kỹ thuật HVAC, cấp thoát nước &amp; bảo ôn công trình.</span>
                     </div>
                     <div class="footer-bottom-right">
+                        <Link href="/catalogues">Thư viện Catalogue</Link>
                         <Link href="/about-us">Hồ sơ năng lực</Link>
                         <Link href="/products">Danh mục sản phẩm</Link>
                         <Link href="/contacts">Liên hệ báo giá</Link>
@@ -444,6 +484,12 @@ onUnmounted(() => {
                 </div>
             </div>
         </footer>
+
+        <HvacCalculatorModal
+            :open="isGlobalCalculatorOpen"
+            @close="isGlobalCalculatorOpen = false"
+            @add-to-cart="addGlobalCalculatorProductToCart"
+        />
 
         <ChatWidget />
 

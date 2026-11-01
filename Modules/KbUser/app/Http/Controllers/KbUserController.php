@@ -199,19 +199,47 @@ class KbUserController extends Controller
         return back();
     }
 
+    public function catalogues(): InertiaResponse
+    {
+        $catalogues = Catalogue::query()
+            ->published()
+            ->with('images')
+            ->latest()
+            ->get([
+                'id',
+                'title',
+                'description',
+                'file_path',
+                'file_name',
+                'file_size',
+                'created_at',
+            ]);
+
+        return Inertia::render('catalogues/Index', [
+            'catalogues' => $catalogues,
+        ]);
+    }
+
     public function searchProducts(Request $request): JsonResponse
     {
         $validated = $request->validate([
             'q' => ['nullable', 'string', 'max:100'],
             'ids' => ['sometimes', 'array', 'max:50'],
             'ids.*' => ['integer', 'distinct', 'min:1'],
+            'all' => ['sometimes', 'boolean'],
         ]);
+
+        $fetchAll = (bool) ($validated['all'] ?? false);
 
         $productQuery = Product::query()
             ->with(['category:id,name', 'subcategory:id,name', 'images'])
             ->when(array_key_exists('ids', $validated), function ($query) use ($validated): void {
                 $query->whereIn('id', $validated['ids']);
-            }, function ($query) use ($validated): void {
+            }, function ($query) use ($validated, $fetchAll): void {
+                if ($fetchAll) {
+                    return;
+                }
+
                 $search = trim($validated['q'] ?? '');
 
                 if (mb_strlen($search) < 2) {
@@ -232,7 +260,7 @@ class KbUserController extends Controller
             })
             ->orderByDesc('id');
 
-        if (! array_key_exists('ids', $validated)) {
+        if (! array_key_exists('ids', $validated) && ! $fetchAll) {
             $productQuery->limit(8);
         }
 

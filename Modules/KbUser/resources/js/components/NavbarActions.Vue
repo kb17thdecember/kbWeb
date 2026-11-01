@@ -618,6 +618,12 @@ const toggleUserMenu = (): void => {
     }
 };
 
+const openCalculatorFromNavbar = (): void => {
+    isSearchOpen.value = false;
+    isUserMenuOpen.value = false;
+    window.dispatchEvent(new CustomEvent('kbuser-calculator-open'));
+};
+
 const onDocumentPointerDown = (event: MouseEvent): void => {
     const target = event.target as Node | null;
     if (target && navbarToolsRef.value && !navbarToolsRef.value.contains(target)) {
@@ -716,6 +722,25 @@ onUnmounted(() => {
             </svg>
             <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
                 <path d="M21 12.8A8.5 8.5 0 1 1 11.2 3a6.8 6.8 0 0 0 9.8 9.8Z"></path>
+            </svg>
+        </button>
+
+        <button
+            class="icon-btn"
+            id="calculatorToggle"
+            type="button"
+            aria-label="Công cụ tính chọn thiết bị HVAC"
+            title="Công cụ tính chọn thiết bị"
+            @click="openCalculatorFromNavbar"
+        >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
+                <rect x="4" y="2" width="16" height="20" rx="2" />
+                <line x1="8" y1="6" x2="16" y2="6" />
+                <line x1="8" y1="11" x2="10" y2="11" />
+                <line x1="14" y1="11" x2="16" y2="11" />
+                <line x1="8" y1="15" x2="10" y2="15" />
+                <line x1="14" y1="15" x2="16" y2="15" />
+                <line x1="8" y1="19" x2="16" y2="19" />
             </svg>
         </button>
 

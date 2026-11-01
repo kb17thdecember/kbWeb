@@ -18,13 +18,51 @@ type InsulationMaterial = 'mflex' | 'st_kprotect' | 'st' | 'kprotect';
 
 const props = defineProps<{
     open: boolean;
-    products: CalculatorProduct[];
+    products?: CalculatorProduct[];
 }>();
 
 const emit = defineEmits<{
     (event: 'close'): void;
     (event: 'add-to-cart', product: CalculatorProduct): void;
 }>();
+
+const fetchedProducts = ref<CalculatorProduct[]>([]);
+const isFetchingProducts = ref(false);
+
+const availableProducts = computed<CalculatorProduct[]>(() =>
+    props.products && props.products.length > 0 ? props.products : fetchedProducts.value,
+);
+
+const ensureProductsLoaded = async (): Promise<void> => {
+    if ((props.products && props.products.length > 0) || fetchedProducts.value.length > 0 || isFetchingProducts.value) {
+        return;
+    }
+
+    isFetchingProducts.value = true;
+    try {
+        const response = await fetch('/products/search?all=1', {
+            headers: { Accept: 'application/json' },
+        });
+        if (response.ok) {
+            const data = (await response.json()) as { products?: CalculatorProduct[] };
+            fetchedProducts.value = data.products ?? [];
+        }
+    } catch {
+        // Bỏ qua lỗi mạng tạm thời
+    } finally {
+        isFetchingProducts.value = false;
+    }
+};
+
+watch(
+    () => props.open,
+    (isOpen) => {
+        if (isOpen) {
+            void ensureProductsLoaded();
+        }
+    },
+    { immediate: true },
+);
 
 const activeTab = ref<'ariston' | 'kflex'>('ariston');
 
@@ -99,7 +137,7 @@ const extractWaterHeaterLiters = (product: CalculatorProduct): number | null => 
 };
 
 const findAristonHeatPumps = (mode: 'pool' | 'central' | 'both'): CalculatorProduct[] => {
-    const aristonPool = props.products.filter(isAristonProduct);
+    const aristonPool = availableProducts.value.filter(isAristonProduct);
 
     const matched = aristonPool.filter((product) => {
         const hpType = getHeatPumpType(product);
@@ -123,7 +161,7 @@ const findAristonHeatPumps = (mode: 'pool' | 'central' | 'both'): CalculatorProd
 };
 
 const findAristonByLiters = (minLiters: number, maxLiters: number, preferredLiters: number[] = []): CalculatorProduct[] => {
-    const aristonPool = props.products
+    const aristonPool = availableProducts.value
         .filter(isAristonProduct)
         .filter((product) => {
             const liters = extractWaterHeaterLiters(product);
@@ -175,7 +213,7 @@ const findAristonByLiters = (minLiters: number, maxLiters: number, preferredLite
 };
 
 const findKflexProducts = (material: InsulationMaterial): CalculatorProduct[] => {
-    const kflexPool = props.products.filter((product) => {
+    const kflexPool = availableProducts.value.filter((product) => {
         const haystack = `${product.name} ${product.product_title ?? ''} ${product.category?.name ?? ''} ${product.subcategory?.name ?? ''}`.toLowerCase();
         return (
             haystack.includes('k-flex') ||

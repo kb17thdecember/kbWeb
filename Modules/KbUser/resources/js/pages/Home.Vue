@@ -460,6 +460,10 @@ const openProduct = (product: HomeProduct): void => {
     isProductModalOpen.value = true;
 };
 
+const openCalculatorFromHome = (): void => {
+    window.dispatchEvent(new CustomEvent('kbuser-calculator-open'));
+};
+
 const closeProduct = (): void => {
     isProductModalOpen.value = false;
     selectedProduct.value = null;
@@ -626,7 +630,10 @@ onUnmounted(() => {
                 <div class="eyebrow"><span class="dot"></span> Đối tác vật tư kỹ thuật đáng tin cậy</div>
                 <h1>HVAC Mart.<br><span>Vật tư HVAC cho công trình.</span></h1>
                 <p class="hero-lead">Khám phá thiết bị HVAC, vật tư bảo ôn K-FLEX và bình nước nóng Ariston. Nhận tư vấn kỹ thuật và báo giá sản phẩm phù hợp cho công trình.</p>
-                <div class="hero-ctas"><Link href="/products" class="btn btn-primary">Khám phá sản phẩm <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14m-6-6 6 6-6 6"/></svg></Link><Link href="/featured-projects" class="btn btn-outline">Xem dự án <FontAwesomeIcon :icon="['fas', 'arrow-right']" class="icon-ne" /></Link>
+                <div class="hero-ctas">
+                  <Link href="/products" class="btn btn-primary">Khám phá sản phẩm <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14m-6-6 6 6-6 6"/></svg></Link>
+                  <button type="button" class="btn btn-outline" @click="openCalculatorFromHome">Tính chọn thiết bị</button>
+                  <Link href="/featured-projects" class="btn btn-outline">Xem dự án <FontAwesomeIcon :icon="['fas', 'arrow-right']" class="icon-ne" /></Link>
                 </div>
                 <div class="hero-bottom">
                   <div class="mini-stat"><strong>MEP</strong><span>Giải pháp kỹ thuật</span>
@@ -750,10 +757,15 @@ onUnmounted(() => {
                     {{ filter.label }}
                 </button>
               </div>
-              <label class="searchbox">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="10.8" cy="10.8" r="6.8"/><path d="m16 16 5 5"/></svg>
-                <input v-model="searchQuery" id="productSearch" type="search" placeholder="Tìm sản phẩm, mã hàng..." aria-label="Tìm sản phẩm">
-              </label>
+              <div class="kb-home-toolbar-right">
+                <button type="button" class="btn btn-outline kb-calc-trigger-btn" @click="openCalculatorFromHome">
+                  Công cụ tính chọn thiết bị
+                </button>
+                <label class="searchbox">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="10.8" cy="10.8" r="6.8"/><path d="m16 16 5 5"/></svg>
+                  <input v-model="searchQuery" id="productSearch" type="search" placeholder="Tìm sản phẩm, mã hàng..." aria-label="Tìm sản phẩm">
+                </label>
+              </div>
             </div>
             <div v-if="selectedCategory?.children.length" class="subcategory-filters">
               <span class="subcat-filter-label">Lọc theo dòng</span>

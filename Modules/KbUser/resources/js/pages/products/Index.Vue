@@ -2,8 +2,11 @@
 import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import HvacCalculatorModal from '../../components/HvacCalculatorModal.Vue';
+import RecentlyViewedProducts from '../../components/RecentlyViewedProducts.Vue';
 import UserLayout from '../../layout/UserLayout.Vue';
+import { exportProductComparisonPdf } from '../../utils/comparePdfExporter';
 import { lockPageScroll } from '../../utils/pageScrollLock';
+import { recordRecentlyViewedProduct } from '../../utils/recentlyViewedProducts';
 
 type Product = {
     id: number;
@@ -31,9 +34,13 @@ const props = defineProps<{
     products: Product[];
 }>();
 
-const page = usePage<{ auth?: { user?: { id: number } | null; wishlistIds?: number[] } }>();
+const page = usePage<{
+    auth?: { user?: { id: number } | null; wishlistIds?: number[] };
+    siteSettings?: Record<string, string>;
+}>();
 const authUser = computed(() => page.props.auth?.user ?? null);
 const wishlistIds = computed<number[]>(() => page.props.auth?.wishlistIds ?? []);
+const siteSettings = computed<Record<string, string>>(() => page.props.siteSettings ?? {});
 
 const activeFilter = ref('all');
 const activeSubcategoryId = ref<number | null>(null);
@@ -307,6 +314,25 @@ const goToPage = (pageNum: number): void => {
 const openProduct = (product: Product): void => {
     selectedProduct.value = product;
     selectedImageIndex.value = 0;
+    recordRecentlyViewedProduct(product);
+};
+
+const exportComparisonToPdf = (): void => {
+    if (compareProducts.value.length === 0) {
+        return;
+    }
+
+    const ok = exportProductComparisonPdf(compareProducts.value, {
+        companyName: siteSettings.value.company_name || 'HVAC Mart',
+        tagline: siteSettings.value.company_tagline || 'HVAC & ENGINEERING SUPPLY',
+        hotline: siteSettings.value.hotline || '0979.807.234',
+        email: siteSettings.value.contact_email || 'kbnguyen0311@gmail.com',
+        address: siteSettings.value.address || 'Hà Nội, Việt Nam',
+    });
+
+    if (!ok) {
+        notify('Vui lòng cho phép mở cửa sổ bật lên (Pop-up) để xuất file PDF.');
+    }
 };
 
 const stepImage = (delta: number): void => {
@@ -621,6 +647,10 @@ onUnmounted(() => {
                             Giá và thông số hiển thị cần được xác nhận theo từng model, tồn kho và yêu
                             cầu thực tế của công trình.
                         </p>
+
+                        <RecentlyViewedProducts
+                            @add-to-cart="(item) => addToCart(item as unknown as Product)"
+                        />
                     </div>
                 </section>
             </main>
@@ -638,6 +668,9 @@ onUnmounted(() => {
                     </div>
                     <div class="kb-compare-bar-actions">
                         <button type="button" class="btn btn-outline kb-compare-clear-btn" @click="compareIds = []">Xóa hết</button>
+                        <button type="button" class="btn btn-outline kb-compare-pdf-btn" @click="exportComparisonToPdf">
+                            Xuất PDF
+                        </button>
                         <button type="button" class="btn btn-primary kb-compare-open-btn" @click="isCompareModalOpen = true">
                             Xem bảng so sánh
                         </button>
@@ -659,6 +692,13 @@ onUnmounted(() => {
                                 <h3>So sánh chi tiết sản phẩm ({{ compareProducts.length }} thiết bị)</h3>
                             </div>
                             <div class="kb-compare-modal-head-actions">
+                                <button
+                                    type="button"
+                                    class="btn btn-primary kb-compare-export-btn"
+                                    @click="exportComparisonToPdf"
+                                >
+                                    Xuất PDF So sánh
+                                </button>
                                 <button
                                     v-if="compareProducts.length > 1"
                                     type="button"

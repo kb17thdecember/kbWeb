@@ -8,7 +8,7 @@ use Modules\KbUser\Http\Controllers\UserAuthController;
 use Modules\KbUser\Http\Middleware\UseKbUserRootView;
 
 Route::get('/sitemap.xml', function () {
-    $paths = ['/', '/categories', '/products', '/featured-projects', '/news', '/about-us', '/contacts'];
+    $paths = ['/', '/categories', '/products', '/catalogues', '/featured-projects', '/news', '/about-us', '/contacts'];
     $urls = collect($paths)->map(fn (string $path): string => '<url><loc>'.e(url($path)).'</loc></url>')
         ->concat(Article::query()->published()->get(['slug'])->map(
             fn (Article $article): string => '<url><loc>'.e(url('/news/'.$article->slug)).'</loc></url>',
@@ -23,6 +23,7 @@ Route::middleware(UseKbUserRootView::class)->group(function () {
     Route::get('/categories', [KbUserController::class, 'categories'])->name('kbuser.categories');
     Route::get('/products/search', [KbUserController::class, 'searchProducts'])->name('kbuser.products.search');
     Route::get('/products', [KbUserController::class, 'products'])->name('kbuser.products');
+    Route::get('/catalogues', [KbUserController::class, 'catalogues'])->name('kbuser.catalogues');
     Route::get('/products/{product}', [KbUserController::class, 'showProduct'])->whereNumber('product')->name('kbuser.products.show');
     Route::post('/products/{product}/reviews', [KbUserController::class, 'storeProductReview'])->whereNumber('product')->middleware('auth')->name('kbuser.products.reviews.store');
     Route::post('/products/{product}/comments', [KbUserController::class, 'storeProductComment'])->whereNumber('product')->middleware('auth')->name('kbuser.products.comments.store');

@@ -58,3 +58,18 @@ test('the navbar product search validates cart product identifiers', function ()
         ->assertUnprocessable()
         ->assertJsonValidationErrors(['ids.0']);
 });
+
+test('the product search endpoint returns all products for calculator recommendations when all is enabled', function () {
+    $category = Category::factory()->create(['name' => 'Vật tư HVAC']);
+    collect(range(1, 10))->each(fn (int $number): Product => Product::query()->create([
+        'name' => "Sản phẩm {$number}",
+        'category_id' => $category->id,
+        'description' => 'Mô tả sản phẩm',
+        'price' => 100000,
+        'quantity' => 5,
+    ]));
+
+    $this->getJson(route('kbuser.products.search', ['all' => 1]))
+        ->assertOk()
+        ->assertJsonCount(10, 'products');
+});

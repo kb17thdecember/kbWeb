@@ -1,12 +1,35 @@
 <?php
 
 use App\Mail\ContactInquiryReceived;
+use App\Models\Catalogue;
 use App\Models\Category;
 use App\Models\FeaturedProject;
 use App\Models\Product;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Testing\AssertableInertia as Assert;
+
+test('the user catalogues page lists published catalogues with file URLs', function () {
+    Catalogue::factory()->create([
+        'title' => 'Ariston Catalogue 2025',
+        'file_path' => 'catalogues/files/ariston.pdf',
+        'file_name' => 'ariston.pdf',
+        'is_published' => true,
+    ]);
+    Catalogue::factory()->create([
+        'title' => 'Draft Catalogue',
+        'is_published' => false,
+    ]);
+
+    $this->get(route('kbuser.catalogues'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('catalogues/Index')
+            ->has('catalogues', 1)
+            ->where('catalogues.0.title', 'Ariston Catalogue 2025')
+            ->where('catalogues.0.file_url', '/storage/catalogues/files/ariston.pdf'),
+        );
+});
 
 test('the user products page lists products with their categories', function () {
     $category = Category::factory()->create(['name' => 'HVAC']);

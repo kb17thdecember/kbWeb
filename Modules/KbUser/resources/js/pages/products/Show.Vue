@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { Head, Link, router, useForm, usePage } from '@inertiajs/vue3';
-import { computed, onMounted, onUnmounted, ref } from 'vue';
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
+import RecentlyViewedProducts from '../../components/RecentlyViewedProducts.Vue';
 import UserLayout from '../../layout/UserLayout.Vue';
+import { recordRecentlyViewedProduct } from '../../utils/recentlyViewedProducts';
 
 type AuthUser = {
     id: number;
@@ -203,8 +205,17 @@ const stepImage = (delta: number): void => {
     }
 };
 
+watch(
+    () => props.product.id,
+    () => {
+        selectedImageIndex.value = 0;
+        recordRecentlyViewedProduct(props.product);
+    },
+);
+
 onMounted(() => {
     selectedImageIndex.value = 0;
+    recordRecentlyViewedProduct(props.product);
 });
 
 onUnmounted(() => {
@@ -572,6 +583,11 @@ onUnmounted(() => {
                                 </article>
                             </div>
                         </div>
+
+                        <RecentlyViewedProducts
+                            :exclude-product-id="product.id"
+                            @add-to-cart="(item) => addToCart(item as unknown as ProductDetail, 1)"
+                        />
                     </div>
                 </section>
             </main>
