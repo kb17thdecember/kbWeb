@@ -338,3 +338,38 @@ test('a featured project rejects an unsupported project type', function () {
 
     expect(FeaturedProject::query()->count())->toBe(0);
 });
+
+test('a featured project can save and update actual participating products', function () {
+    Storage::fake('public');
+    $parent = Category::factory()->create(['name' => 'K-FLEX']);
+    $child = Category::factory()->create([
+        'name' => 'Cao su lưu hóa NBR',
+        'parent_id' => $parent->id,
+    ]);
+
+    $this->post(route('admin.case-studies.store'), [
+        'name' => 'Tổ hợp văn phòng',
+        'description' => 'Dự án văn phòng tại Hà Nội',
+        'location' => 'Hà Nội',
+        'category' => $parent->name,
+        'subcategory' => $child->name,
+        'products' => ['KFlex ST', 'KFlex M-Flex'],
+        'type' => '2',
+        'image' => fakeFeaturedProjectImage('office.png'),
+    ])->assertRedirect(route('admin.case-studies.index'));
+
+    $project = FeaturedProject::query()->sole();
+    expect($project->products)->toBe(['KFlex ST', 'KFlex M-Flex']);
+
+    $this->put(route('admin.case-studies.update', $project), [
+        'name' => 'Tổ hợp văn phòng',
+        'description' => 'Dự án văn phòng tại Hà Nội',
+        'location' => 'Hà Nội',
+        'category' => $parent->name,
+        'subcategory' => $child->name,
+        'products' => ['KFlex K-Protect'],
+        'type' => '2',
+    ])->assertRedirect(route('admin.case-studies.index'));
+
+    expect($project->fresh()->products)->toBe(['KFlex K-Protect']);
+});

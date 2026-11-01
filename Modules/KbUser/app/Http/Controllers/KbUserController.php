@@ -15,7 +15,11 @@ use App\Models\Wishlist;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response as InertiaResponse;
@@ -48,18 +52,7 @@ class KbUserController extends Controller
                 'price',
             ]);
 
-        $featuredProjects = FeaturedProject::query()
-            ->with('images')
-            ->latest()
-            ->get([
-                'id',
-                'name',
-                'description',
-                'location',
-                'category',
-                'subcategory',
-                'type',
-            ]);
+        $featuredProjects = $this->featuredProjectsWithProducts($products);
 
         return Inertia::render('Home', [
             'categories' => $categories,
@@ -264,43 +257,240 @@ class KbUserController extends Controller
                 'price',
             ]);
 
-        $projects = FeaturedProject::query()
-            ->with('images')
-            ->latest()
-            ->get([
-                'id',
-                'name',
-                'description',
-                'location',
-                'category',
-                'subcategory',
-                'type',
-            ])
-            ->map(function (FeaturedProject $project) use ($allProducts): array {
-                $catLower = mb_strtolower(trim((string) $project->category));
-                $subLower = mb_strtolower(trim((string) $project->subcategory));
-
-                $matched = $allProducts->filter(function (Product $product) use ($catLower, $subLower): bool {
-                    $pCat = mb_strtolower(trim((string) $product->category?->name));
-                    $pSub = mb_strtolower(trim((string) $product->subcategory?->name));
-
-                    return ($subLower !== '' && $pSub === $subLower)
-                        || ($catLower !== '' && $pCat === $catLower);
-                })->sortByDesc(function (Product $product) use ($subLower): int {
-                    $pSub = mb_strtolower(trim((string) $product->subcategory?->name));
-
-                    return ($subLower !== '' && $pSub === $subLower) ? 1 : 0;
-                })->take(4)->values();
-
-                return [
-                    ...$project->toArray(),
-                    'related_products' => $matched->toArray(),
-                ];
-            });
+        $projects = $this->featuredProjectsWithProducts($allProducts);
 
         return Inertia::render('featured projects/Index', [
             'projects' => $projects,
         ]);
+    }
+
+    /**
+     * @param  Collection<int, Product>  $allProducts
+     * @return Collection<int, array<string, mixed>>
+     */
+    private function featuredProjectsWithProducts(Collection $allProducts): Collection
+    {
+        $columns = [
+            'id',
+            'name',
+            'description',
+            'location',
+            'category',
+            'subcategory',
+            'type',
+        ];
+
+        if (Schema::hasColumn('featured_projects', 'products')) {
+            $columns[] = 'products';
+        }
+
+        return FeaturedProject::query()
+            ->with('images')
+            ->latest()
+            ->get($columns)
+            ->map(function (FeaturedProject $project) use ($allProducts): array {
+                $seededProducts = is_array($project->products) ? array_values(array_filter($project->products)) : [];
+
+                if ($seededProducts !== []) {
+                    $relatedProducts = collect($seededProducts)
+                        ->map(function (mixed $reference) use ($allProducts, $project): array {
+                            $matchedProduct = $this->findMatchingProduct($allProducts, $reference);
+
+                            if (! $matchedProduct instanceof Product) {
+                                $matchedProduct = $this->ensureSeededProductExists((string) $reference, $project);
+                                if ($matchedProduct instanceof Product) {
+                                    $allProducts->push($matchedProduct);
+                                }
+                            }
+
+                            if ($matchedProduct instanceof Product) {
+                                return $matchedProduct->toArray();
+                            }
+
+                            return [
+                                'id' => 0,
+                                'name' => trim((string) $reference),
+                                'product_title' => null,
+                                'price' => 0,
+                                'image' => [],
+                                'category' => ['id' => 0, 'name' => (string) $project->category],
+                                'subcategory' => ['id' => 0, 'name' => (string) $project->subcategory],
+                            ];
+                        })
+                        ->values()
+                        ->all();
+                } else {
+                    $catLower = mb_strtolower(trim((string) $project->category));
+                    $subLower = mb_strtolower(trim((string) $project->subcategory));
+
+                    $relatedProducts = $allProducts->filter(function (Product $product) use ($catLower, $subLower): bool {
+                        $pCat = mb_strtolower(trim((string) $product->category?->name));
+                        $pSub = mb_strtolower(trim((string) $product->subcategory?->name));
+
+                        return ($subLower !== '' && $pSub === $subLower)
+                            || ($catLower !== '' && $pCat === $catLower);
+                    })->sortByDesc(function (Product $product) use ($subLower): int {
+                        $pSub = mb_strtolower(trim((string) $product->subcategory?->name));
+
+                        return ($subLower !== '' && $pSub === $subLower) ? 1 : 0;
+                    })->take(4)->values()->toArray();
+                }
+
+                return [
+                    ...$project->toArray(),
+                    'related_products' => $relatedProducts,
+                ];
+            });
+    }
+
+    /**
+     * @param  Collection<int, Product>  $allProducts
+     */
+    private function findMatchingProduct(Collection $allProducts, mixed $reference): ?Product
+    {
+        if (is_numeric($reference)) {
+            $byId = $allProducts->firstWhere('id', (int) $reference);
+            if ($byId instanceof Product) {
+                return $byId;
+            }
+        }
+
+        $refLower = mb_strtolower(trim((string) $reference));
+        $refKey = $this->normalizeProductKey((string) $reference);
+
+        if ($refKey === '') {
+            return null;
+        }
+
+        $exactMatch = $allProducts->first(function (Product $product) use ($refLower, $refKey): bool {
+            return mb_strtolower(trim((string) $product->name)) === $refLower
+                || $this->normalizeProductKey((string) $product->name) === $refKey;
+        });
+
+        if ($exactMatch instanceof Product) {
+            return $exactMatch;
+        }
+
+        return $allProducts->first(function (Product $product) use ($refKey): bool {
+            $productKey = $this->normalizeProductKey((string) $product->name);
+
+            return $productKey !== '' && (str_contains($productKey, $refKey) || str_contains($refKey, $productKey));
+        });
+    }
+
+    private function normalizeProductKey(string $value): string
+    {
+        $ascii = Str::ascii(mb_strtolower(trim($value)));
+
+        return preg_replace('/[^a-z0-9]+/', '', $ascii) ?? '';
+    }
+
+    private function ensureSeededProductExists(string $reference, FeaturedProject $project): ?Product
+    {
+        $trimmedRef = trim($reference);
+        if ($trimmedRef === '') {
+            return null;
+        }
+
+        $refKey = $this->normalizeProductKey($trimmedRef);
+        $presets = [
+            'kflexmflex' => [
+                'name' => 'KFlex M-Flex',
+                'category' => 'K-FLEX',
+                'subcategory' => 'Cao su lưu hóa NBR',
+                'product_title' => 'Dòng sản phẩm bảo ôn cao cấp phù hợp cho chung cư và khu công nghiệp .',
+                'image' => 'MFLEX.png',
+                'description' => implode("\n", [
+                    '- vật liệu: Cao su lưu hóa NBR',
+                    '-Tỷ trọng: 46-60kg/m3',
+                    '- Phạm vi nhiệt độ: -45°C~105°C',
+                    '- Hệ số kháng ẩm: >10.000 (ASTM C209, EN 12086, EN 13469)',
+                    '-Hệ số dẫn nhiệt: <0.031 W/mK tại 20°C (EN 12667, ISO 8497)',
+                    '-Độ thẩm thấu hơi nước: 0.92 x10^-11 g/Pa.s.m (ASTM E96)',
+                    '-Độ hấp thụ nước theo thể tích: ≤ 0.2 % (ASTM C209)',
+                    '- Chứng chỉ: UL94 V-0 ,HB; BS 476 part 6&7, Class 0; ASTM E84',
+                ]),
+            ],
+            'kflexst' => [
+                'name' => 'KFlex ST',
+                'category' => 'K-FLEX',
+                'subcategory' => 'Cao su lưu hóa NBR',
+                'product_title' => 'Dòng sản phẩm bảo ôn cao cấp phù hợp cho văn phòng khách sạn .',
+                'image' => 'ST.png',
+                'description' => implode("\n", [
+                    '- vật liệu: Cao su lưu hóa NBR',
+                    '-Tỷ trọng: 48-70kg/m3',
+                    '- Phạm vi nhiệt độ: -200°C~116°C',
+                    '- Hệ số kháng ẩm: >10.000 (ASTM C209, EN 12086, EN 13469)',
+                    '-Hệ số dẫn nhiệt: <0.034 W/mK tại 20°C (EN 12667, ISO 8497)',
+                    '-Độ thẩm thấu hơi nước: 0.92 x10^-11 g/Pa.s.m (ASTM E96)',
+                    '-Độ hấp thụ nước theo thể tích: ≤ 0.1 % (ASTM C209)',
+                    '- Chứng chỉ: FM Approved; UL94 V-0, 5VA; BS 476 part 6&7, Class 0; ASTM E84',
+                    '-Chỉ số lan truyền ngọn lửa FSI ≤25 (ASTM E84)',
+                    '-Chỉ số sinh khói SDI ≤30 (ASTM E84)',
+                ]),
+            ],
+            'kflexkprotect' => [
+                'name' => 'KFlex K-Protect',
+                'category' => 'K-FLEX',
+                'subcategory' => 'Polyolefin XLPE',
+                'product_title' => 'Dòng sản phẩm bảo ôn cao cấp phù hợp cho văn phòng khách sạn .',
+                'image' => 'KPROTECT.png',
+                'description' => implode("\n", [
+                    '- vật liệu: Polyolefin XLPE',
+                    '-Tỷ trọng: 30kg/m3',
+                    '- Phạm vi nhiệt độ: -40°C~115°C',
+                    '- Hệ số kháng ẩm: >20.000 (EN 12086)',
+                    '-Hệ số dẫn nhiệt: <0.0322 W/mK tại 23°C (ASTM C518)',
+                    '-Độ hấp thụ nước theo thể tích: ≤ 0.1 % (ASTM C209)',
+                    '- Chứng chỉ: FM Approved; UL94 V-0, 5VA; BS 476 part 6&7, Class 0; ASTM E84',
+                    '-Chỉ số lan truyền ngọn lửa FSI ≤25 (ASTM E84)',
+                    '-Chỉ số sinh khói SDI ≤30 (ASTM E84)',
+                ]),
+            ],
+        ];
+
+        $preset = $presets[$refKey] ?? null;
+        $categoryName = $preset['category'] ?? ((string) $project->category ?: 'HVAC');
+        $subcategoryName = $preset['subcategory'] ?? ((string) $project->subcategory ?: 'Vật tư dự án');
+
+        $parentCategory = Category::query()->firstOrCreate([
+            'name' => $categoryName,
+            'parent_id' => null,
+        ]);
+        $childCategory = Category::query()->firstOrCreate([
+            'name' => $subcategoryName,
+            'parent_id' => $parentCategory->id,
+        ]);
+
+        $product = Product::query()->updateOrCreate(
+            [
+                'name' => $preset['name'] ?? $trimmedRef,
+                'category_id' => $parentCategory->id,
+            ],
+            [
+                'product_title' => $preset['product_title'] ?? "Vật tư thực tế sử dụng tại dự án {$project->name}",
+                'category_id' => $parentCategory->id,
+                'subcategory_id' => $childCategory->id,
+                'description' => $preset['description'] ?? "Sản phẩm {$trimmedRef} thuộc hạng mục {$categoryName} · {$subcategoryName}.",
+                'price' => 0,
+                'quantity' => 0,
+            ],
+        );
+
+        if (isset($preset['image'])) {
+            $sourceImage = base_path("Modules/KbAdmin/resources/assets/images/products/{$preset['image']}");
+            if (is_file($sourceImage)) {
+                $contents = file_get_contents($sourceImage);
+                if ($contents !== false) {
+                    $storedPath = 'products/'.Str::slug($product->name).'.png';
+                    Storage::disk('public')->put($storedPath, $contents);
+                    $product->syncImagePaths([$storedPath]);
+                }
+            }
+        }
+
+        return $product->load(['category:id,name', 'subcategory:id,name', 'images']);
     }
 
     public function about(): InertiaResponse

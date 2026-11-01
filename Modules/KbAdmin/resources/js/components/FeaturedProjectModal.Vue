@@ -12,7 +12,7 @@
             <div class="dialog-head">
                 <div class="eyebrow">ADMIN / FEATURED PROJECT</div>
                 <h2 id="featuredProjectModalTitle">{{ project ? 'Sửa dự án' : 'Thêm dự án' }}</h2>
-                <p>Thông tin công trình và hình ảnh dự án tiêu biểu.</p>
+                <p>Thông tin công trình, sản phẩm thực tế sử dụng và hình ảnh dự án tiêu biểu.</p>
             </div>
             <form class="form" @submit.prevent="saveProject">
                 <div class="formgrid">
@@ -59,6 +59,83 @@
                             <option value="2">Văn phòng &amp; Khách sạn &amp; Bệnh viện</option>
                             <option value="3">Khu công nghiệp</option>
                         </select>
+                    </div>
+                    <div class="field full">
+                        <div class="product-picker-head">
+                            <label for="featuredProjectProductSearch">
+                                Vật tư &amp; sản phẩm thực tế sử dụng
+                                <span v-if="selectedProducts.length" class="product-picker-badge">
+                                    Đã chọn {{ selectedProducts.length }}
+                                </span>
+                            </label>
+                            <div class="product-picker-controls">
+                                <button
+                                    v-if="selectedCategory"
+                                    type="button"
+                                    class="product-filter-toggle"
+                                    :class="{ active: filterBySelectedCategory }"
+                                    @click="filterBySelectedCategory = !filterBySelectedCategory"
+                                >
+                                    {{ filterBySelectedCategory ? `Đang lọc: ${selectedCategory}` : 'Tất cả danh mục' }}
+                                </button>
+                                <button
+                                    v-if="selectedProducts.length"
+                                    type="button"
+                                    class="product-clear-btn"
+                                    @click="selectedProducts = []"
+                                >
+                                    Bỏ chọn hết
+                                </button>
+                            </div>
+                        </div>
+
+                        <div v-if="selectedProducts.length" class="selected-products-chips">
+                            <span
+                                v-for="prodName in selectedProducts"
+                                :key="prodName"
+                                class="selected-product-chip"
+                            >
+                                {{ prodName }}
+                                <button
+                                    type="button"
+                                    :aria-label="`Bỏ chọn ${prodName}`"
+                                    @click="toggleProductSelection(prodName)"
+                                >×</button>
+                            </span>
+                        </div>
+
+                        <input
+                            id="featuredProjectProductSearch"
+                            v-model="productSearchQuery"
+                            type="search"
+                            placeholder="Tìm sản phẩm theo tên hoặc nhóm vật tư..."
+                        >
+
+                        <div v-if="filteredPickerProducts.length" class="product-picker-grid" role="group" aria-label="Danh sách sản phẩm">
+                            <button
+                                v-for="item in filteredPickerProducts"
+                                :key="item.id"
+                                type="button"
+                                class="product-picker-item"
+                                :class="{ selected: selectedProducts.includes(item.name) }"
+                                :aria-pressed="selectedProducts.includes(item.name)"
+                                @click="toggleProductSelection(item.name)"
+                            >
+                                <span class="product-picker-check" aria-hidden="true">
+                                    {{ selectedProducts.includes(item.name) ? '✓' : '+' }}
+                                </span>
+                                <span class="product-picker-copy">
+                                    <b>{{ item.name }}</b>
+                                    <small>{{ item.category?.name }}<template v-if="item.subcategory?.name"> · {{ item.subcategory.name }}</template></small>
+                                </span>
+                            </button>
+                        </div>
+                        <p v-else class="image-help">
+                            Không tìm thấy sản phẩm phù hợp. Bạn có thể tắt bộ lọc hạng mục hoặc đổi từ khóa tìm kiếm.
+                        </p>
+                        <p class="image-help">
+                            Chọn các sản phẩm thực tế đã cung ứng cho dự án. Nếu để trống, hệ thống sẽ tự động gợi ý sản phẩm theo Hạng mục &amp; Nhóm.
+                        </p>
                     </div>
                     <div class="field full">
                         <label>Ảnh dự án (tối đa 3 ảnh)</label>
@@ -118,6 +195,7 @@
         location: string;
         category: string;
         subcategory: string;
+        products?: string[] | null;
         type: string;
         image: string;
         image_url: string | null;
@@ -135,11 +213,26 @@
         }>;
     };
 
-    const props = defineProps<{
-        open: boolean;
-        project: FeaturedProject | null;
-        categories: Category[];
-    }>();
+    type AdminProduct = {
+        id: number;
+        name: string;
+        category_id: number;
+        subcategory_id: number | null;
+        category?: { id: number; name: string } | null;
+        subcategory?: { id: number; name: string } | null;
+    };
+
+    const props = withDefaults(
+        defineProps<{
+            open: boolean;
+            project: FeaturedProject | null;
+            categories: Category[];
+            products?: AdminProduct[];
+        }>(),
+        {
+            products: () => [],
+        },
+    );
 
     const emit = defineEmits<{
         'update:open': [open: boolean];
@@ -151,6 +244,9 @@
     const location = ref('');
     const selectedCategory = ref('');
     const selectedSubcategory = ref('');
+    const selectedProducts = ref<string[]>([]);
+    const productSearchQuery = ref('');
+    const filterBySelectedCategory = ref(true);
     const type = ref('');
     const selectedImages = ref<File[]>([]);
     const selectedImagePreviewUrls = ref<string[]>([]);
@@ -163,6 +259,46 @@
     const visibleSubcategories = computed(() =>
         props.categories.find((item) => item.name === selectedCategory.value)?.children ?? [],
     );
+
+    const filteredPickerProducts = computed(() => {
+        const query = productSearchQuery.value.trim().toLocaleLowerCase();
+        const catLower = selectedCategory.value.trim().toLocaleLowerCase();
+        const subLower = selectedSubcategory.value.trim().toLocaleLowerCase();
+
+        return [...props.products]
+            .filter((product) => {
+                if (filterBySelectedCategory.value && catLower !== '') {
+                    const pCat = (product.category?.name ?? '').trim().toLocaleLowerCase();
+                    if (pCat !== catLower && !selectedProducts.value.includes(product.name)) {
+                        return false;
+                    }
+                }
+
+                if (!query) {
+                    return true;
+                }
+
+                const haystack = `${product.name} ${product.category?.name ?? ''} ${product.subcategory?.name ?? ''}`.toLocaleLowerCase();
+
+                return haystack.includes(query);
+            })
+            .sort((a, b) => {
+                const aSelected = selectedProducts.value.includes(a.name) ? 1 : 0;
+                const bSelected = selectedProducts.value.includes(b.name) ? 1 : 0;
+                if (aSelected !== bSelected) {
+                    return bSelected - aSelected;
+                }
+
+                const aSub = (a.subcategory?.name ?? '').trim().toLocaleLowerCase() === subLower ? 1 : 0;
+                const bSub = (b.subcategory?.name ?? '').trim().toLocaleLowerCase() === subLower ? 1 : 0;
+                if (aSub !== bSub) {
+                    return bSub - aSub;
+                }
+
+                return a.name.localeCompare(b.name, 'vi');
+            });
+    });
+
     const existingImages = computed(() => {
         if (props.project?.images_url.length) {
             return props.project.images_url;
@@ -198,6 +334,16 @@
         },
     );
 
+    function toggleProductSelection(productName: string): void {
+        const index = selectedProducts.value.indexOf(productName);
+        if (index >= 0) {
+            selectedProducts.value.splice(index, 1);
+            return;
+        }
+
+        selectedProducts.value.push(productName);
+    }
+
     function resetForm(): void {
         name.value = props.project?.name ?? '';
         description.value = props.project?.description ?? '';
@@ -206,6 +352,9 @@
         const childCategory = parentCategory?.children.find((item) => item.name === props.project?.subcategory);
         selectedCategory.value = parentCategory?.name ?? '';
         selectedSubcategory.value = childCategory?.name ?? '';
+        selectedProducts.value = Array.isArray(props.project?.products) ? [...props.project.products] : [];
+        productSearchQuery.value = '';
+        filterBySelectedCategory.value = true;
         type.value = props.project?.type ?? '';
         clearSelectedImages();
         toastMessage.value = '';
@@ -345,6 +494,7 @@
             location: location.value,
             category: selectedCategory.value,
             subcategory: selectedSubcategory.value,
+            products: selectedProducts.value,
             type: type.value,
             images: selectedImages.value.length ? selectedImages.value : null,
         };
@@ -354,7 +504,7 @@
                 emit('update:open', false);
                 emit('saved', props.project ? 'updated' : 'created');
             },
-            onError: (errors) => {
+            onError: (errors: Record<string, string>) => {
                 const firstError = Object.values(errors)[0];
                 showToast(typeof firstError === 'string' ? firstError : 'Không thể lưu dự án. Vui lòng kiểm tra thông tin.');
             },
@@ -381,6 +531,186 @@
 </script>
 
 <style scoped>
+    .product-picker-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        flex-wrap: wrap;
+        margin-bottom: 6px;
+    }
+
+    .product-picker-head label {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        margin: 0;
+    }
+
+    .product-picker-badge {
+        display: inline-flex;
+        align-items: center;
+        padding: 2px 8px;
+        border-radius: 999px;
+        background: #b59a65;
+        color: #fff;
+        font-size: 10px;
+        font-weight: 800;
+    }
+
+    .product-picker-controls {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    .product-filter-toggle,
+    .product-clear-btn {
+        border: 1px solid #d8cfbd;
+        border-radius: 3px;
+        background: #fffdf8;
+        color: #5f5641;
+        padding: 4px 9px;
+        font-size: 11px;
+        font-weight: 700;
+        cursor: pointer;
+        transition: all .18s;
+    }
+
+    .product-filter-toggle.active {
+        border-color: #b59a65;
+        background: #f5efe1;
+        color: #6f582c;
+    }
+
+    .product-clear-btn:hover {
+        border-color: #efc3c3;
+        background: #fff5f5;
+        color: #b94242;
+    }
+
+    .selected-products-chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin-bottom: 8px;
+    }
+
+    .selected-product-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 4px 9px;
+        border: 1px solid #cdb78a;
+        border-radius: 3px;
+        background: #f6f0e2;
+        color: #4a3f28;
+        font-size: 11.5px;
+        font-weight: 700;
+    }
+
+    .selected-product-chip button {
+        border: 0;
+        background: transparent;
+        color: #8e7443;
+        padding: 0;
+        font-size: 14px;
+        font-weight: 800;
+        line-height: 1;
+        cursor: pointer;
+    }
+
+    .selected-product-chip button:hover {
+        color: #b42318;
+    }
+
+    .product-picker-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 7px;
+        max-height: 196px;
+        overflow-y: auto;
+        margin-top: 8px;
+        padding: 8px;
+        border: 1px solid #e2dbcc;
+        border-radius: 4px;
+        background: #faf7f0;
+    }
+
+    .product-picker-item {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        padding: 8px 10px;
+        border: 1px solid #e5decb;
+        border-radius: 3px;
+        background: #fffdf9;
+        color: #353026;
+        text-align: left;
+        cursor: pointer;
+        transition: border-color .18s, background .18s, box-shadow .18s;
+    }
+
+    .product-picker-item:hover {
+        border-color: #b59a65;
+        background: #fcf8ef;
+    }
+
+    .product-picker-item.selected {
+        border-color: #b59a65;
+        background: #f4ecda;
+        box-shadow: inset 0 0 0 1px #b59a65;
+    }
+
+    .product-picker-check {
+        width: 20px;
+        height: 20px;
+        border: 1px solid #cbb996;
+        border-radius: 3px;
+        background: #fff;
+        color: #8e7443;
+        font-size: 11px;
+        font-weight: 900;
+        display: grid;
+        place-items: center;
+        flex: none;
+    }
+
+    .product-picker-item.selected .product-picker-check {
+        border-color: #9e824c;
+        background: #9e824c;
+        color: #fff;
+    }
+
+    .product-picker-copy {
+        min-width: 0;
+        display: grid;
+        gap: 2px;
+    }
+
+    .product-picker-copy b {
+        font-size: 12px;
+        font-weight: 700;
+        color: #2f2b21;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .product-picker-copy small {
+        font-size: 10.5px;
+        color: #7c7463;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    @media (max-width: 560px) {
+        .product-picker-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+
     .image-upload {
         position: relative;
         display: flex;

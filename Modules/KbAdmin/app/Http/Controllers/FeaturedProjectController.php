@@ -5,10 +5,12 @@ namespace Modules\KbAdmin\Http\Controllers;
 use App\Http\Controllers\Controller;
 use App\Models\Category;
 use App\Models\FeaturedProject;
+use App\Models\Product;
 use App\Support\ImageStorage;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -27,10 +29,15 @@ class FeaturedProjectController extends Controller
             ->with('children:id,name,parent_id')
             ->orderBy('name')
             ->get(['id', 'name']);
+        $products = Product::query()
+            ->with(['category:id,name', 'subcategory:id,name'])
+            ->orderBy('name')
+            ->get(['id', 'name', 'category_id', 'subcategory_id']);
 
         return Inertia::render('featured projects/Index', [
             'projects' => $projects,
             'categories' => $categories,
+            'products' => $products,
             ...$dashboardStats->summary(),
         ]);
     }
@@ -40,6 +47,7 @@ class FeaturedProjectController extends Controller
         $validated = $request->validate($this->rules($request));
         $uploadedImages = $validated['images'] ?? [$validated['image']];
         unset($validated['image'], $validated['images']);
+        $validated = $this->normalizeProductsPayload($validated);
 
         $project = FeaturedProject::create($validated);
         $project->syncImagePaths($this->storeImages($uploadedImages));
@@ -56,6 +64,7 @@ class FeaturedProjectController extends Controller
         }
 
         unset($validated['image'], $validated['images']);
+        $validated = $this->normalizeProductsPayload($validated);
         $featuredProject->update($validated);
 
         if ($uploadedImages !== []) {
@@ -102,6 +111,8 @@ class FeaturedProjectController extends Controller
                 ),
             ],
             'type' => ['required', 'string', Rule::in(['1', '2', '3'])],
+            'products' => ['nullable', 'array'],
+            'products.*' => ['required', 'string', 'max:255'],
             'image' => [
                 $imageRequired ? 'required_without:images' : 'nullable',
                 'image',
@@ -115,6 +126,28 @@ class FeaturedProjectController extends Controller
             ],
             'images.*' => ['required', 'image', 'max:5120'],
         ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $validated
+     * @return array<string, mixed>
+     */
+    private function normalizeProductsPayload(array $validated): array
+    {
+        if (! Schema::hasColumn('featured_projects', 'products')) {
+            unset($validated['products']);
+
+            return $validated;
+        }
+
+        if (array_key_exists('products', $validated)) {
+            $validated['products'] = array_values(array_unique(array_filter(array_map(
+                static fn (mixed $item): string => trim((string) $item),
+                (array) $validated['products'],
+            ))));
+        }
+
+        return $validated;
     }
 
     /**

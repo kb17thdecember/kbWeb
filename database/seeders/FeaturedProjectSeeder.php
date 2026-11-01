@@ -4,6 +4,7 @@ namespace Database\Seeders;
 
 use App\Models\FeaturedProject;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use RuntimeException;
@@ -32,14 +33,22 @@ class FeaturedProjectSeeder extends Seeder
                 'location' => 'đường Nguyễn Du, phường Thành Sen, thành phố Hà Tĩnh.',
                 'category' => 'K-FLEX',
                 'subcategory' => 'Cao su lưu hóa NBR',
+                'products' => [
+                    'K-Flex M-Flex',
+                ],
                 'type' => '2',
                 'images' => ['FPTS.jpg', 'FPTS1.jpg', 'FPTS2.jpg'],
             ],
         ];
 
+        $hasProductsColumn = Schema::hasColumn('featured_projects', 'products');
+
         foreach ($projects as $projectData) {
             $imageFiles = $projectData['images'];
             unset($projectData['images']);
+            if (! $hasProductsColumn) {
+                unset($projectData['products']);
+            }
             $projectData['description'] = implode("\n", $projectData['description']);
 
             $project = FeaturedProject::query()->updateOrCreate(

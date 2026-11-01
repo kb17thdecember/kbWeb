@@ -16,12 +16,23 @@ class FeaturedProject extends Model
         'location',
         'category',
         'subcategory',
+        'products',
         'type',
     ];
 
     protected $hidden = ['images'];
 
     protected $appends = ['image', 'image_url', 'images_url'];
+
+    /**
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'products' => 'array',
+        ];
+    }
 
     /**
      * @return Attribute<string|null, never>

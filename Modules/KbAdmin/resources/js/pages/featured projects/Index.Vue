@@ -3,7 +3,7 @@
         <div class="page-head">
             <div>
                 <h2>Quản lý dự án tiêu biểu</h2>
-                <p>Cập nhật thông tin công trình và hình ảnh dự án.</p>
+                <p>Cập nhật thông tin công trình, sản phẩm sử dụng thực tế và hình ảnh dự án.</p>
             </div>
             <div class="actions">
                 <button class="btn primary" type="button" @click="createProject">＋ Thêm dự án</button>
@@ -18,6 +18,7 @@
                         <th>Dự án</th>
                         <th>Hạng mục</th>
                         <th>Nhóm</th>
+                        <th>Vật tư &amp; Sản phẩm</th>
                         <th>Ảnh</th>
                         <th>Thao tác</th>
                     </tr>
@@ -37,7 +38,16 @@
                             </div>
                         </td>
                         <td>{{ project.category }}</td>
-                        <td>{{ project.subcategory }} · {{ projectTypeLabel(project.type) }}</td>
+                        <td>{{ projectTypeLabel(project.type) }}</td>
+                        <td>
+                            <div v-if="project.products?.length" class="project-admin-products">
+                                <span v-for="prodName in project.products.slice(0, 3)" :key="prodName" class="project-admin-product-chip">
+                                    {{ prodName }}
+                                </span>
+                                <small v-if="project.products.length > 3" class="muted">+{{ project.products.length - 3 }} khác</small>
+                            </div>
+                            <span v-else class="muted">Tự động theo hạng mục</span>
+                        </td>
                         <td>{{ project.images_url.length }} ảnh</td>
                         <td>
                             <div class="row-actions">
@@ -67,6 +77,7 @@
             v-model:open="isProjectModalOpen"
             :project="selectedProject"
             :categories="props.categories"
+            :products="props.products ?? []"
             @saved="showToast($event === 'created' ? 'Đã tạo dự án thành công.' : 'Đã cập nhật dự án thành công.')"
         />
         <div class="toast" :class="{ show: isToastVisible }" role="status" aria-live="polite">{{ toastMessage }}</div>
@@ -88,6 +99,7 @@
         location: string;
         category: string;
         subcategory: string;
+        products?: string[] | null;
         type: string;
         image: string;
         image_url: string | null;
@@ -105,6 +117,15 @@
         }>;
     };
 
+    type AdminProduct = {
+        id: number;
+        name: string;
+        category_id: number;
+        subcategory_id: number | null;
+        category?: { id: number; name: string } | null;
+        subcategory?: { id: number; name: string } | null;
+    };
+
     type AdminStat = {
         label: string;
         count: number;
@@ -114,6 +135,7 @@
     const props = defineProps<{
         projects: FeaturedProject[];
         categories: Category[];
+        products?: AdminProduct[];
         stats: AdminStat[];
         openRequestsCount: number;
     }>();
@@ -139,6 +161,7 @@
                 project.location,
                 project.category,
                 project.subcategory,
+                ...(project.products ?? []),
                 projectTypeLabel(project.type),
             ].some((value) => value.toLocaleLowerCase().includes(query)),
         );
@@ -208,3 +231,26 @@
         }
     });
 </script>
+
+<style scoped>
+    .project-admin-products {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 5px;
+        max-width: 280px;
+    }
+
+    .project-admin-product-chip {
+        display: inline-flex;
+        align-items: center;
+        padding: 3px 8px;
+        border: 1px solid #dfd5c0;
+        border-radius: 3px;
+        background: #f8f4ec;
+        color: #554b37;
+        font-size: 11px;
+        font-weight: 700;
+        line-height: 1.3;
+    }
+</style>

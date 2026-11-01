@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
-import { Head, Link, useForm } from '@inertiajs/vue3';
+import { Head, Link, router, useForm } from '@inertiajs/vue3';
 import UserLayout from '../layout/UserLayout.Vue';
 import { lockPageScroll } from '../utils/pageScrollLock';
 
@@ -26,6 +26,16 @@ type HomeCategory = {
     children: { id: number; name: string; parent_id: number }[];
 };
 
+type RelatedProjectProduct = {
+    id: number;
+    name: string;
+    product_title: string | null;
+    price: number;
+    image: string[];
+    category: { id: number; name: string } | null;
+    subcategory: { id: number; name: string } | null;
+};
+
 type HomeProject = {
     id: number;
     name: string;
@@ -38,6 +48,7 @@ type HomeProject = {
     image_url: string | null;
     images: string[] | null;
     images_url: string[];
+    related_products?: RelatedProjectProduct[];
 };
 
 const props = defineProps<{
@@ -57,6 +68,7 @@ const cart = ref<Record<number, number>>({});
 const selectedProduct = ref<HomeProduct | null>(null);
 const selectedProject = ref<HomeProject | null>(null);
 const selectedProjectImageIndex = ref(0);
+const addedProjectProductId = ref<number | null>(null);
 const selectedImageIndex = ref(0);
 const currentPage = ref(1);
 const activeProjectType = ref<string | null>(null);
@@ -404,6 +416,42 @@ const addToCart = (product: HomeProduct): void => {
     cart.value[product.id] = (cart.value[product.id] ?? 0) + 1;
     persistCart();
     notify(`Đã thêm ${product.name} vào giỏ hàng.`);
+};
+
+const projectProductThumbUrl = (product: RelatedProjectProduct): string | null => {
+    const first = product.image?.[0];
+
+    if (!first) {
+        return null;
+    }
+
+    return productImageUrl(first);
+};
+
+const projectProductDetailUrl = (product: RelatedProjectProduct): string =>
+    product.id ? `/products/${product.id}` : `/products`;
+
+const goToProjectProductDetail = (product: RelatedProjectProduct): void => {
+    releasePageScrollLock?.();
+    releasePageScrollLock = null;
+    closeProject();
+    router.visit(projectProductDetailUrl(product));
+};
+
+const addProjectProductToCart = (product: RelatedProjectProduct): void => {
+    if (!product.id) {
+        return;
+    }
+
+    cart.value[product.id] = (cart.value[product.id] ?? 0) + 1;
+    persistCart();
+    addedProjectProductId.value = product.id;
+    notify(`Đã thêm ${product.name} vào giỏ báo giá.`);
+    setTimeout(() => {
+        if (addedProjectProductId.value === product.id) {
+            addedProjectProductId.value = null;
+        }
+    }, 2000);
 };
 
 const openProduct = (product: HomeProduct): void => {
@@ -901,6 +949,19 @@ onUnmounted(() => {
                           <div><span>Vị trí</span><strong>{{ project.location }}</strong></div>
                           <div><span>Hạng mục tham chiếu</span><strong>{{ project.category }} · {{ project.subcategory }}</strong></div>
                         </div>
+                        <div v-if="project.related_products?.length" class="project-linked-products-inline">
+                          <span class="project-linked-label">Vật tư thực tế sử dụng:</span>
+                          <div class="project-linked-chips">
+                            <Link
+                              v-for="prod in project.related_products"
+                              :key="prod.id || prod.name"
+                              :href="projectProductDetailUrl(prod)"
+                              class="project-linked-chip"
+                            >
+                              {{ prod.name }}
+                            </Link>
+                          </div>
+                        </div>
                         <div class="project-detail-note">
                           Thông tin dự án được cập nhật theo dữ liệu hiện có. Vui lòng liên hệ để xác nhận phạm vi cung ứng.
                         </div>
@@ -1279,6 +1340,80 @@ onUnmounted(() => {
               <div><span>Danh mục</span><strong>{{ selectedProject.category }}</strong></div>
               <div><span>Hạng mục</span><strong>{{ selectedProject.subcategory }}</strong></div>
             </div>
+
+            <div v-if="selectedProject.related_products?.length" class="project-modal-products">
+              <div class="project-modal-products-head">
+                <div class="project-modal-products-title">
+                  <span class="project-modal-products-dot" aria-hidden="true"></span>
+                  <span>VẬT TƯ &amp; SẢN PHẨM THỰC TẾ TRONG DỰ ÁN</span>
+                  <strong class="project-modal-products-count">{{ selectedProject.related_products.length }}</strong>
+                </div>
+                <Link href="/products" class="project-modal-products-more" @click="closeProject">
+                  Xem toàn bộ danh mục →
+                </Link>
+              </div>
+              <div class="project-modal-products-list">
+                <article
+                  v-for="prod in selectedProject.related_products"
+                  :key="prod.id || prod.name"
+                  class="project-modal-product-item"
+                  role="link"
+                  tabindex="0"
+                  @click="goToProjectProductDetail(prod)"
+                  @keydown.enter.prevent="goToProjectProductDetail(prod)"
+                >
+                  <Link
+                    :href="projectProductDetailUrl(prod)"
+                    class="project-modal-product-thumb-wrap"
+                    @click.stop
+                  >
+                    <img
+                      v-if="projectProductThumbUrl(prod)"
+                      :src="projectProductThumbUrl(prod) ?? undefined"
+                      :alt="prod.name"
+                      class="project-modal-product-thumb"
+                    >
+                    <span v-else class="project-modal-product-thumb-fallback">
+                      {{ prod.category?.name ?? 'HVAC' }}
+                    </span>
+                  </Link>
+                  <div class="project-modal-product-info">
+                    <span class="project-modal-product-meta">
+                      {{ prod.category?.name }}<template v-if="prod.subcategory?.name"> · {{ prod.subcategory.name }}</template>
+                    </span>
+                    <Link
+                      :href="projectProductDetailUrl(prod)"
+                      class="project-modal-product-name"
+                      @click.stop
+                    >
+                      {{ prod.name }}
+                    </Link>
+                    <small class="project-modal-product-sub">
+                      {{ prod.product_title || formatPrice(prod.price) }}
+                    </small>
+                  </div>
+                  <button
+                    v-if="prod.id"
+                    type="button"
+                    class="project-modal-product-btn"
+                    :class="{ 'is-added': addedProjectProductId === prod.id }"
+                    @click.stop="addProjectProductToCart(prod)"
+                    @keydown.enter.stop
+                  >
+                    {{ addedProjectProductId === prod.id ? '✓ Đã thêm' : '+ Giỏ báo giá' }}
+                  </button>
+                  <Link
+                    v-else
+                    href="/contacts"
+                    class="project-modal-product-btn"
+                    @click.stop
+                  >
+                    Nhận báo giá
+                  </Link>
+                </article>
+              </div>
+            </div>
+
             <p class="project-detail-note">
               Thông tin địa điểm và hạng mục được cung cấp theo dữ liệu dự án. Vui lòng liên hệ để xác nhận chi tiết.
             </p>

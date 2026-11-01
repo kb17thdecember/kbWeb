@@ -8171,52 +8171,76 @@ body::-webkit-scrollbar-thumb:hover {
 }
 
 .project-linked-products-inline {
-  margin: 10px 0 4px;
+  margin-top: 15px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(255, 255, 255, .14);
   display: grid;
-  gap: 6px;
+  gap: 8px;
 }
 
 .project-linked-label {
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 800;
-  letter-spacing: .08em;
+  letter-spacing: .1em;
   text-transform: uppercase;
-  color: var(--muted);
+  color: #9eb1a2;
 }
 
 .project-linked-chips {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 7px;
 }
 
 .project-linked-chip {
   display: inline-flex;
   align-items: center;
-  padding: 4px 10px;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  background: var(--paper);
-  color: var(--ink);
+  gap: 6px;
+  padding: 5px 11px;
+  border: 1px solid rgba(223, 205, 169, .28);
+  border-radius: 3px;
+  background: rgba(255, 255, 255, .05);
+  color: #f0f5ee;
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 600;
   text-decoration: none;
-  transition: border-color .15s, color .15s;
+  transition: border-color .18s, background .18s, color .18s, transform .18s;
+}
+
+.project-linked-chip::before {
+  content: "";
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--brass);
+  flex: none;
 }
 
 .project-linked-chip:hover {
   border-color: var(--brass);
+  background: rgba(183, 154, 99, .18);
+  color: var(--champ);
+  transform: translateY(-1px);
+}
+
+.project-modal-copy .project-detail-type {
   color: var(--brass);
 }
 
 .project-modal-products {
-  margin: 12px 0;
-  padding: 14px;
+  width: 100%;
+  margin: 2px 0 20px;
+  padding: 16px;
   border: 1px solid var(--line);
-  border-radius: 12px;
-  background: var(--paper);
+  border-left: 3px solid var(--brass);
+  border-radius: 4px;
+  background: light-dark(
+    linear-gradient(180deg, #faf8f3 0%, #f3efe6 100%),
+    linear-gradient(180deg, #1b1b17 0%, #141411 100%)
+  );
   display: grid;
-  gap: 10px;
+  gap: 12px;
+  box-shadow: 0 8px 24px rgba(23, 23, 20, .05);
 }
 
 .project-modal-products-head {
@@ -8225,70 +8249,218 @@ body::-webkit-scrollbar-thumb:hover {
   justify-content: space-between;
   gap: 10px;
   flex-wrap: wrap;
+  padding-bottom: 10px;
+  border-bottom: 1px dashed var(--line);
 }
 
-.project-modal-products-head span {
+.project-modal-products-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
   font-size: 10px;
   font-weight: 800;
-  letter-spacing: .08em;
-  color: var(--muted);
+  letter-spacing: .09em;
+  text-transform: uppercase;
+  color: var(--ink);
 }
 
-.project-modal-products-head a {
+.project-modal-products-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--brass);
+  box-shadow: 0 0 0 3px rgba(183, 154, 99, .2);
+  flex: none;
+}
+
+.project-modal-products-count {
+  display: inline-grid;
+  place-items: center;
+  min-width: 20px;
+  height: 18px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--brass);
+  color: var(--dark);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0;
+}
+
+.project-modal-products-more {
   font-size: 11px;
   font-weight: 700;
   color: var(--brass);
   text-decoration: none;
+  white-space: nowrap;
+  transition: color .18s, transform .18s;
+}
+
+.project-modal-products-more:hover {
+  color: var(--ink);
+  transform: translateX(2px);
 }
 
 .project-modal-products-list {
   display: grid;
-  gap: 8px;
+  gap: 10px;
 }
 
 .project-modal-product-item {
-  display: flex;
+  display: grid;
+  grid-template-columns: 56px minmax(0, 1fr) auto;
   align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  padding: 8px 10px;
+  gap: 12px;
+  padding: 10px 12px;
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: 4px;
   background: var(--surface);
+  cursor: pointer;
+  transition: border-color .2s, box-shadow .2s, transform .2s;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .project-modal-product-item:hover {
+    border-color: var(--brass);
+    box-shadow: 0 6px 18px rgba(23, 23, 20, .07);
+    transform: translateY(-1px);
+  }
+}
+
+.project-modal-product-thumb-wrap {
+  width: 56px;
+  height: 56px;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  background: light-dark(#f8f6f0, #24241f);
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  padding: 4px;
+  flex: none;
 }
 
 .project-modal-product-thumb {
-  width: 40px;
-  height: 40px;
-  min-width: 40px;
+  width: 100%;
+  height: 100%;
   object-fit: contain;
-  border-radius: 6px;
-  background: var(--paper);
-  padding: 2px;
+  transition: transform .25s;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .project-modal-product-item:hover .project-modal-product-thumb {
+    transform: scale(1.06);
+  }
+}
+
+.project-modal-product-thumb-fallback {
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: .06em;
+  color: var(--brass);
+  text-align: center;
+  text-transform: uppercase;
+  line-height: 1.2;
 }
 
 .project-modal-product-info {
-  flex: 1;
   min-width: 0;
-  display: grid;
-  gap: 2px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.project-modal-product-meta {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--brass);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .project-modal-product-name {
   color: var(--ink);
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 700;
+  line-height: 1.3;
   text-decoration: none;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  transition: color .18s;
 }
 
 .project-modal-product-name:hover {
   color: var(--brass);
 }
 
-.project-modal-product-info small {
+.project-modal-product-sub {
   color: var(--muted);
   font-size: 11px;
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.project-modal-product-btn,
+.project-modal-products .btn {
+  width: auto !important;
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  height: 34px;
+  padding: 0 12px !important;
+  border: 1px solid var(--brass);
+  border-radius: 2px;
+  background: transparent;
+  color: var(--ink);
+  font-size: 11px !important;
+  font-weight: 700;
+  letter-spacing: .02em;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background .2s, color .2s, border-color .2s;
+}
+
+.project-modal-product-btn:hover,
+.project-modal-products .btn:hover {
+  background: var(--brass);
+  color: var(--dark);
+}
+
+.project-modal-product-btn.is-added {
+  background: var(--dark);
+  border-color: var(--dark);
+  color: var(--champ);
+}
+
+@media (max-width: 520px) {
+  .project-modal-products {
+    padding: 12px;
+  }
+
+  .project-modal-product-item {
+    grid-template-columns: 48px minmax(0, 1fr);
+    gap: 10px;
+  }
+
+  .project-modal-product-thumb-wrap {
+    width: 48px;
+    height: 48px;
+  }
+
+  .project-modal-product-btn,
+  .project-modal-products .btn {
+    grid-column: 1 / -1;
+    width: 100% !important;
+    height: 34px;
+  }
 }

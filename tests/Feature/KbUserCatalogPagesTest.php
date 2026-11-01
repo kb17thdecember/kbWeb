@@ -48,6 +48,7 @@ test('the user featured projects page provides project details and image URLs', 
         'location' => 'Hà Nội',
         'category' => 'Văn phòng',
         'subcategory' => 'HVAC',
+        'products' => ['KFlex ST'],
         'type' => '2',
     ]);
     $project->syncImagePaths(['featured-projects/office.png', 'featured-projects/office-detail.png']);
@@ -62,7 +63,8 @@ test('the user featured projects page provides project details and image URLs', 
             ->where('projects.0.images_url', [
                 '/storage/featured-projects/office.png',
                 '/storage/featured-projects/office-detail.png',
-            ]),
+            ])
+            ->where('projects.0.related_products.0.name', 'KFlex ST'),
         );
 });
 

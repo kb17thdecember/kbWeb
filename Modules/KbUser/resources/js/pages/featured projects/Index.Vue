@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
-import { Head, Link } from '@inertiajs/vue3';
+import { Head, Link, router } from '@inertiajs/vue3';
 import UserLayout from '../../layout/UserLayout.Vue';
 import { lockPageScroll } from '../../utils/pageScrollLock';
 
@@ -112,9 +112,23 @@ const productThumbUrl = (product: RelatedProduct): string | null => {
 };
 
 const formatPrice = (price: number): string =>
-    `${new Intl.NumberFormat('vi-VN').format(price)}đ`;
+    price > 0 ? `${new Intl.NumberFormat('vi-VN').format(price)}₫` : 'Báo giá theo dự án';
+
+const productDetailUrl = (product: RelatedProduct): string =>
+    product.id ? `/products/${product.id}` : `/products`;
+
+const goToProductDetail = (product: RelatedProduct): void => {
+    releasePageScrollLock?.();
+    releasePageScrollLock = null;
+    selectedProject.value = null;
+    router.visit(productDetailUrl(product));
+};
 
 const addProjectProductToCart = (product: RelatedProduct): void => {
+    if (!product.id) {
+        return;
+    }
+
     try {
         const raw = sessionStorage.getItem('kbuser-cart');
         const current = raw ? (JSON.parse(raw) as Record<string, number>) : {};
@@ -289,8 +303,8 @@ onUnmounted(() => {
                                                     <div class="project-linked-chips">
                                                         <Link
                                                             v-for="prod in project.related_products"
-                                                            :key="prod.id"
-                                                            :href="`/products/${prod.id}`"
+                                                            :key="prod.id || prod.name"
+                                                            :href="productDetailUrl(prod)"
                                                             class="project-linked-chip"
                                                         >
                                                             {{ prod.name }}
@@ -399,34 +413,73 @@ onUnmounted(() => {
 
                                 <div v-if="selectedProject.related_products?.length" class="project-modal-products">
                                     <div class="project-modal-products-head">
-                                        <span>VẬT TƯ &amp; SẢN PHẨM THỰC TẾ TRONG DỰ ÁN ({{ selectedProject.related_products.length }})</span>
-                                        <Link href="/products" @click="selectedProject = null">Xem toàn bộ danh mục →</Link>
+                                        <div class="project-modal-products-title">
+                                            <span class="project-modal-products-dot" aria-hidden="true"></span>
+                                            <span>VẬT TƯ &amp; SẢN PHẨM THỰC TẾ TRONG DỰ ÁN</span>
+                                            <strong class="project-modal-products-count">{{ selectedProject.related_products.length }}</strong>
+                                        </div>
+                                        <Link href="/products" class="project-modal-products-more" @click="selectedProject = null">
+                                            Xem toàn bộ danh mục →
+                                        </Link>
                                     </div>
                                     <div class="project-modal-products-list">
                                         <article
                                             v-for="prod in selectedProject.related_products"
-                                            :key="prod.id"
+                                            :key="prod.id || prod.name"
                                             class="project-modal-product-item"
+                                            role="link"
+                                            tabindex="0"
+                                            @click="goToProductDetail(prod)"
+                                            @keydown.enter.prevent="goToProductDetail(prod)"
                                         >
-                                            <img
-                                                v-if="productThumbUrl(prod)"
-                                                :src="productThumbUrl(prod) ?? undefined"
-                                                :alt="prod.name"
-                                                class="project-modal-product-thumb"
+                                            <Link
+                                                :href="productDetailUrl(prod)"
+                                                class="project-modal-product-thumb-wrap"
+                                                @click.stop
                                             >
+                                                <img
+                                                    v-if="productThumbUrl(prod)"
+                                                    :src="productThumbUrl(prod) ?? undefined"
+                                                    :alt="prod.name"
+                                                    class="project-modal-product-thumb"
+                                                >
+                                                <span v-else class="project-modal-product-thumb-fallback">
+                                                    {{ prod.category?.name ?? 'HVAC' }}
+                                                </span>
+                                            </Link>
                                             <div class="project-modal-product-info">
-                                                <Link :href="`/products/${prod.id}`" class="project-modal-product-name" @click="selectedProject = null">
+                                                <span class="project-modal-product-meta">
+                                                    {{ prod.category?.name }}<template v-if="prod.subcategory?.name"> · {{ prod.subcategory.name }}</template>
+                                                </span>
+                                                <Link
+                                                    :href="productDetailUrl(prod)"
+                                                    class="project-modal-product-name"
+                                                    @click.stop
+                                                >
                                                     {{ prod.name }}
                                                 </Link>
-                                                <small>{{ prod.category?.name }} · {{ prod.subcategory?.name || formatPrice(prod.price) }}</small>
+                                                <small class="project-modal-product-sub">
+                                                    {{ prod.product_title || formatPrice(prod.price) }}
+                                                </small>
                                             </div>
                                             <button
+                                                v-if="prod.id"
                                                 type="button"
-                                                class="btn btn-outline kb-calc-add-btn"
-                                                @click="addProjectProductToCart(prod)"
+                                                class="project-modal-product-btn"
+                                                :class="{ 'is-added': addedProductId === prod.id }"
+                                                @click.stop="addProjectProductToCart(prod)"
+                                                @keydown.enter.stop
                                             >
                                                 {{ addedProductId === prod.id ? '✓ Đã thêm' : '+ Giỏ báo giá' }}
                                             </button>
+                                            <Link
+                                                v-else
+                                                href="/contacts"
+                                                class="project-modal-product-btn"
+                                                @click.stop
+                                            >
+                                                Nhận báo giá
+                                            </Link>
                                         </article>
                                     </div>
                                 </div>

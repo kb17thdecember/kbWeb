@@ -23,12 +23,17 @@ test('featured project seeder creates representative projects idempotently', fun
         ->toStartWith('Trường Tiểu học, THCS và THPT FPT Hà Tĩnh')
         ->toContain('khu vực Bắc Trung Bộ.')
         ->and(strlen($project->description))->toBeGreaterThan(255)
-        ->and($project->images)->toHaveCount(2)
+        ->and($project->products)->toBe([
+            'K-Flex M-Flex',
+        ])
+        ->and($project->images)->toHaveCount(3)
         ->and($project->images->pluck('path')->all())->toBe([
             'featured-projects/to-hop-giao-duc-fpt-tai-ha-tinh/FPTS.jpg',
             'featured-projects/to-hop-giao-duc-fpt-tai-ha-tinh/FPTS1.jpg',
+            'featured-projects/to-hop-giao-duc-fpt-tai-ha-tinh/FPTS2.jpg',
         ]);
 
     Storage::disk('public')->assertExists('featured-projects/to-hop-giao-duc-fpt-tai-ha-tinh/FPTS.jpg');
     Storage::disk('public')->assertExists('featured-projects/to-hop-giao-duc-fpt-tai-ha-tinh/FPTS1.jpg');
+    Storage::disk('public')->assertExists('featured-projects/to-hop-giao-duc-fpt-tai-ha-tinh/FPTS2.jpg');
 });
