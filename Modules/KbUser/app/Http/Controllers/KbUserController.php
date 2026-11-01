@@ -495,7 +495,14 @@ class KbUserController extends Controller
 
     public function about(): InertiaResponse
     {
-        return Inertia::render('about us/Index');
+        return Inertia::render('about us/Index', [
+            'stats' => [
+                'products' => Product::query()->count(),
+                'categories' => Category::query()->whereNull('parent_id')->count(),
+                'projects' => FeaturedProject::query()->count(),
+                'catalogues' => Catalogue::query()->published()->count(),
+            ],
+        ]);
     }
 
     public function news(): InertiaResponse
