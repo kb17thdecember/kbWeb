@@ -17,14 +17,14 @@
         </div>
 
         <div class="filters">
-            <label>
-                TỪ NGÀY
-                <input v-model="dateFrom" type="date" aria-label="Lọc yêu cầu từ ngày">
-            </label>
-            <label>
-                ĐẾN NGÀY
-                <input v-model="dateTo" type="date" aria-label="Lọc yêu cầu đến ngày">
-            </label>
+            <div class="filter-group">
+                <span>TỪ NGÀY</span>
+                <AdminDatePicker v-model="dateFrom" placeholder="Chọn từ ngày..." aria-label="Lọc yêu cầu từ ngày" />
+            </div>
+            <div class="filter-group">
+                <span>ĐẾN NGÀY</span>
+                <AdminDatePicker v-model="dateTo" placeholder="Chọn đến ngày..." aria-label="Lọc yêu cầu đến ngày" />
+            </div>
             <button
                 v-if="dateFrom || dateTo"
                 class="btn"
@@ -230,6 +230,7 @@
     import { router } from '@inertiajs/vue3';
     import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
     import AdminLayout from '../../layout/AdminLayout.Vue';
+    import AdminDatePicker from '../../components/AdminDatePicker.Vue';
     import AdminPagination from '../../components/AdminPagination.Vue';
     import { useClientPagination } from '../../composables/useClientPagination';
 

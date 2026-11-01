@@ -17,9 +17,23 @@
             </div>
         </div>
 
-        <!-- <div class="filters">
+        <div class="filters">
+            <div class="filter-group">
+                <span>TỪ NGÀY</span>
+                <AdminDatePicker v-model="dateFrom" placeholder="Chọn từ ngày..." aria-label="Lọc dự án từ ngày" />
+            </div>
+            <div class="filter-group">
+                <span>ĐẾN NGÀY</span>
+                <AdminDatePicker v-model="dateTo" placeholder="Chọn đến ngày..." aria-label="Lọc dự án đến ngày" />
+            </div>
+            <button
+                v-if="dateFrom || dateTo"
+                class="btn"
+                type="button"
+                @click="clearDates"
+            >Xóa lọc ngày</button>
             <em>{{ filteredReports.length }} / {{ props.projectReports.length }} dự án</em>
-        </div> -->
+        </div>
 
         <div v-if="filteredReports.length" class="tablewrap">
             <table class="table project-report-table">
@@ -53,10 +67,22 @@
                             <small>{{ report.project_location || 'Chưa cập nhật địa chỉ' }}</small>
                         </td>
                         <td>{{ report.progress }}</td>
-                        <td>{{ { '1': 'Đang triển khai', '2': 'Dự án đang nóng', '3': 'Dự án cần hỗ trợ' }[report.project_status] ?? 'Đang triển khai' }}</td>
+                        <td>{{ statusLabel(report.project_status) }}</td>
                         <td>{{ report.project_update }}</td>
                         <td>
                             <div class="row-actions">
+                                <button
+                                    class="request-eye"
+                                    type="button"
+                                    :aria-label="`Xem chi tiết báo cáo dự án ${report.project_name}`"
+                                    title="Xem chi tiết"
+                                    @click="openDetail(report)"
+                                >
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                        <path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z" />
+                                        <circle cx="12" cy="12" r="3" />
+                                    </svg>
+                                </button>
                                 <button class="mini" type="button" @click="editReport(report)">Sửa</button>
                                 <button
                                     class="mini danger"
@@ -72,8 +98,8 @@
         </div>
         <div v-else class="empty">
             {{
-                search
-                    ? 'Không tìm thấy dự án phù hợp.'
+                props.projectReports.length
+                    ? 'Không tìm thấy dự án phù hợp với điều kiện lọc.'
                     : 'Chưa có báo cáo dự án nào. Hãy thêm dự án đầu tiên.'
             }}
         </div>
@@ -82,6 +108,75 @@
             :total-items="filteredReports.length"
             @page-change="goToPage"
         />
+
+        <div v-if="detailReport" class="modal open" role="presentation" @click.self="closeDetail">
+            <section
+                class="dialog request-detail-dialog"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="projectReportDetailTitle"
+            >
+                <button class="close" type="button" aria-label="Đóng chi tiết" @click="closeDetail">
+                    <FontAwesomeIcon :icon="['fas', 'xmark']" />
+                </button>
+                <div class="dialog-head">
+                    <div class="eyebrow">PROJECT REPORT / DETAILS</div>
+                    <div class="request-detail-head">
+                        <span class="request-detail-avatar">{{ detailReport.project_name.charAt(0).toLocaleUpperCase() }}</span>
+                        <div>
+                            <h2 id="projectReportDetailTitle">{{ detailReport.project_name }}</h2>
+                            <p>Mã dự án: {{ detailReport.project_code }} · Khu vực: {{ detailReport.project_area }}</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="request-detail-grid">
+                    <div class="request-detail-item">
+                        <small>Chủ đầu tư / Phát triển</small>
+                        <div>{{ detailReport.developer || '—' }}</div>
+                    </div>
+                    <div class="request-detail-item">
+                        <small>Địa chỉ chi tiết</small>
+                        <div>{{ detailReport.project_location || '—' }}</div>
+                    </div>
+                    <div class="request-detail-item">
+                        <small>Tư vấn M&amp;E</small>
+                        <div>{{ detailReport.me_consultant || '—' }}</div>
+                    </div>
+                    <div class="request-detail-item">
+                        <small>Nhà thầu M&amp;E</small>
+                        <div>{{ detailReport.me_contractor || '—' }}</div>
+                    </div>
+                    <div class="request-detail-item">
+                        <small>Tiến độ công trình</small>
+                        <div>{{ detailReport.progress || '—' }}</div>
+                    </div>
+                    <div class="request-detail-item">
+                        <small>Tiến độ làm việc</small>
+                        <div>{{ statusLabel(detailReport.project_status) }}</div>
+                    </div>
+                    <div class="request-detail-item">
+                        <small>Giá trị dự toán</small>
+                        <div>{{ detailReport.estimate_value || '—' }}</div>
+                    </div>
+                    <div class="request-detail-item">
+                        <small>Người liên hệ</small>
+                        <div>{{ detailReport.contact_person || '—' }}</div>
+                    </div>
+                    <div class="request-detail-item full">
+                        <small>Sản phẩm tham gia</small>
+                        <div>{{ detailReport.participating_products || '—' }}</div>
+                    </div>
+                    <div class="request-detail-item full">
+                        <small>Cập nhật gần nhất</small>
+                        <div>{{ detailReport.project_update || '—' }}</div>
+                    </div>
+                </div>
+                <div class="request-detail-actions">
+                    <button class="btn" type="button" @click="editFromDetail(detailReport)">Chỉnh sửa</button>
+                    <button class="btn primary" type="button" @click="closeDetail">Đóng</button>
+                </div>
+            </section>
+        </div>
 
         <ProjectReportModal
             v-model:open="isModalOpen"
@@ -97,6 +192,7 @@
     import { router } from '@inertiajs/vue3';
     import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
     import AdminLayout from '../../layout/AdminLayout.Vue';
+    import AdminDatePicker from '../../components/AdminDatePicker.Vue';
     import AdminPagination from '../../components/AdminPagination.Vue';
     import ProjectReportModal from '../../components/ProjectReportModal.Vue';
     import { useClientPagination } from '../../composables/useClientPagination';
@@ -116,6 +212,7 @@
         participating_products: string | null;
         project_status: string;
         project_update: string;
+        created_at?: string | null;
     };
 
     type AdminStat = {
@@ -132,8 +229,11 @@
     }>();
 
     const search = ref('');
+    const dateFrom = ref('');
+    const dateTo = ref('');
     const isModalOpen = ref(false);
     const selectedReport = ref<ProjectReport | null>(null);
+    const detailReport = ref<ProjectReport | null>(null);
     const deletingReportId = ref<number | null>(null);
     const isToastVisible = ref(false);
     const toastMessage = ref('');
@@ -141,12 +241,9 @@
 
     const filteredReports = computed(() => {
         const query = search.value.trim().toLocaleLowerCase();
-        if (!query) {
-            return props.projectReports;
-        }
 
-        return props.projectReports.filter((report) =>
-            [
+        return props.projectReports.filter((report) => {
+            const matchesQuery = !query || [
                 report.project_name,
                 report.project_code,
                 report.project_area,
@@ -159,12 +256,62 @@
                 report.contact_person ?? '',
                 report.participating_products ?? '',
                 report.project_update,
-            ].some((value) => value.toLocaleLowerCase().includes(query)),
-        );
+            ].some((value) => value.toLocaleLowerCase().includes(query));
+            const createdDate = dateKey(report.created_at);
+
+            return (
+                matchesQuery
+                && (!dateFrom.value || (createdDate && createdDate >= dateFrom.value))
+                && (!dateTo.value || (createdDate && createdDate <= dateTo.value))
+            );
+        });
     });
     const { currentPage, goToPage, paginatedItems: paginatedReports, resetPage } = useClientPagination(filteredReports);
 
-    watch(search, resetPage);
+    watch([search, dateFrom, dateTo], resetPage);
+
+    function dateKey(value?: string | null): string {
+        if (!value) {
+            return '';
+        }
+
+        const date = new Date(value);
+        if (Number.isNaN(date.getTime())) {
+            return '';
+        }
+
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+
+        return `${year}-${month}-${day}`;
+    }
+
+    function clearDates(): void {
+        dateFrom.value = '';
+        dateTo.value = '';
+    }
+
+    function statusLabel(status: string): string {
+        return {
+            '1': 'Đang triển khai',
+            '2': 'Dự án đang nóng',
+            '3': 'Dự án cần hỗ trợ',
+        }[status] ?? 'Đang triển khai';
+    }
+
+    function openDetail(report: ProjectReport): void {
+        detailReport.value = report;
+    }
+
+    function closeDetail(): void {
+        detailReport.value = null;
+    }
+
+    function editFromDetail(report: ProjectReport): void {
+        closeDetail();
+        editReport(report);
+    }
 
     function createReport(): void {
         selectedReport.value = null;
@@ -193,7 +340,12 @@
         deletingReportId.value = report.id;
         router.delete(`/admin/project-reports/${report.id}`, {
             preserveScroll: true,
-            onSuccess: () => showToast('Đã xóa dự án thành công.'),
+            onSuccess: () => {
+                if (detailReport.value?.id === report.id) {
+                    closeDetail();
+                }
+                showToast('Đã xóa dự án thành công.');
+            },
             onError: () => showToast('Không thể xóa dự án. Vui lòng thử lại.'),
             onFinish: () => {
                 deletingReportId.value = null;

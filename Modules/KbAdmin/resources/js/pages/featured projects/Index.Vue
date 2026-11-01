@@ -7,8 +7,26 @@
             </div>
             <div class="actions">
                 <button class="btn primary" type="button" @click="createProject">＋ Thêm dự án</button>
-                <input v-model="search" class="search" placeholder="Tìm dự án...">
+                <input v-model="search" class="search" type="search" placeholder="Tìm dự án..." aria-label="Tìm dự án tiêu biểu">
             </div>
+        </div>
+
+        <div class="filters">
+            <div class="filter-group">
+                <span>TỪ NGÀY</span>
+                <AdminDatePicker v-model="dateFrom" placeholder="Chọn từ ngày..." aria-label="Lọc dự án từ ngày" />
+            </div>
+            <div class="filter-group">
+                <span>ĐẾN NGÀY</span>
+                <AdminDatePicker v-model="dateTo" placeholder="Chọn đến ngày..." aria-label="Lọc dự án đến ngày" />
+            </div>
+            <button
+                v-if="dateFrom || dateTo"
+                class="btn"
+                type="button"
+                @click="clearDates"
+            >Xóa lọc ngày</button>
+            <em>{{ filteredProjects.length }} / {{ projects.length }} dự án</em>
         </div>
 
         <div v-if="filteredProjects.length" class="tablewrap">
@@ -51,6 +69,18 @@
                         <td>{{ project.images_url.length }} ảnh</td>
                         <td>
                             <div class="row-actions">
+                                <button
+                                    class="request-eye"
+                                    type="button"
+                                    :aria-label="`Xem chi tiết dự án ${project.name}`"
+                                    title="Xem chi tiết"
+                                    @click="openDetail(project)"
+                                >
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                        <path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z" />
+                                        <circle cx="12" cy="12" r="3" />
+                                    </svg>
+                                </button>
                                 <button class="mini" type="button" @click="editProject(project)">Sửa</button>
                                 <button
                                     class="mini danger"
@@ -64,14 +94,75 @@
                 </tbody>
             </table>
         </div>
-        <div v-else class="card">
-            {{ search ? 'Không tìm thấy dự án phù hợp.' : 'Chưa có dự án tiêu biểu nào. Hãy thêm dự án đầu tiên.' }}
+        <div v-else class="empty">
+            {{ projects.length ? 'Không tìm thấy dự án phù hợp với điều kiện lọc.' : 'Chưa có dự án tiêu biểu nào. Hãy thêm dự án đầu tiên.' }}
         </div>
         <AdminPagination
             :current-page="currentPage"
             :total-items="filteredProjects.length"
             @page-change="goToPage"
         />
+
+        <div v-if="detailProject" class="modal open" role="presentation" @click.self="closeDetail">
+            <section
+                class="dialog request-detail-dialog"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="featuredProjectDetailTitle"
+            >
+                <button class="close" type="button" aria-label="Đóng chi tiết" @click="closeDetail">
+                    <FontAwesomeIcon :icon="['fas', 'xmark']" />
+                </button>
+                <div class="dialog-head">
+                    <div class="eyebrow">FEATURED PROJECT / DETAILS</div>
+                    <div class="request-detail-head">
+                        <span class="request-detail-avatar">{{ detailProject.name.charAt(0).toLocaleUpperCase() }}</span>
+                        <div>
+                            <h2 id="featuredProjectDetailTitle">{{ detailProject.name }}</h2>
+                            <p>Địa điểm: {{ detailProject.location }}</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="request-detail-grid">
+                    <div class="request-detail-item">
+                        <small>Tên công trình</small>
+                        <div>{{ detailProject.name }}</div>
+                    </div>
+                    <div class="request-detail-item">
+                        <small>Địa điểm</small>
+                        <div>{{ detailProject.location }}</div>
+                    </div>
+                    <div class="request-detail-item">
+                        <small>Hạng mục chính</small>
+                        <div>{{ detailProject.category }}</div>
+                    </div>
+                    <div class="request-detail-item">
+                        <small>Dòng sản phẩm</small>
+                        <div>{{ detailProject.subcategory }}</div>
+                    </div>
+                    <div class="request-detail-item">
+                        <small>Nhóm công trình</small>
+                        <div>{{ projectTypeLabel(detailProject.type) }}</div>
+                    </div>
+                    <div class="request-detail-item">
+                        <small>Ngày tạo</small>
+                        <div>{{ formatDate(detailProject.created_at) }}</div>
+                    </div>
+                    <div class="request-detail-item full">
+                        <small>Vật tư &amp; sản phẩm sử dụng</small>
+                        <div>{{ detailProject.products?.length ? detailProject.products.join(', ') : 'Tự động theo hạng mục' }}</div>
+                    </div>
+                    <div class="request-detail-item full">
+                        <small>Mô tả dự án</small>
+                        <div>{{ detailProject.description }}</div>
+                    </div>
+                </div>
+                <div class="request-detail-actions">
+                    <button class="btn" type="button" @click="editFromDetail(detailProject)">Chỉnh sửa</button>
+                    <button class="btn primary" type="button" @click="closeDetail">Đóng</button>
+                </div>
+            </section>
+        </div>
 
         <FeaturedProjectModal
             v-model:open="isProjectModalOpen"
@@ -88,6 +179,7 @@
     import { router } from '@inertiajs/vue3';
     import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
     import AdminLayout from '../../layout/AdminLayout.Vue';
+    import AdminDatePicker from '../../components/AdminDatePicker.Vue';
     import AdminPagination from '../../components/AdminPagination.Vue';
     import FeaturedProjectModal from '../../components/FeaturedProjectModal.Vue';
     import { useClientPagination } from '../../composables/useClientPagination';
@@ -105,6 +197,7 @@
         image_url: string | null;
         images: string[] | null;
         images_url: string[];
+        created_at?: string | null;
     };
 
     type Category = {
@@ -141,8 +234,11 @@
     }>();
 
     const search = ref('');
+    const dateFrom = ref('');
+    const dateTo = ref('');
     const isProjectModalOpen = ref(false);
     const selectedProject = ref<FeaturedProject | null>(null);
+    const detailProject = ref<FeaturedProject | null>(null);
     const deletingProjectId = ref<number | null>(null);
     const isToastVisible = ref(false);
     const toastMessage = ref('');
@@ -150,12 +246,9 @@
 
     const filteredProjects = computed(() => {
         const query = search.value.trim().toLocaleLowerCase();
-        if (!query) {
-            return props.projects;
-        }
 
-        return props.projects.filter((project) =>
-            [
+        return props.projects.filter((project) => {
+            const matchesQuery = !query || [
                 project.name,
                 project.description,
                 project.location,
@@ -163,12 +256,73 @@
                 project.subcategory,
                 ...(project.products ?? []),
                 projectTypeLabel(project.type),
-            ].some((value) => value.toLocaleLowerCase().includes(query)),
-        );
+            ].some((value) => value.toLocaleLowerCase().includes(query));
+            const createdDate = dateKey(project.created_at);
+
+            return (
+                matchesQuery
+                && (!dateFrom.value || (createdDate && createdDate >= dateFrom.value))
+                && (!dateTo.value || (createdDate && createdDate <= dateTo.value))
+            );
+        });
     });
     const { currentPage, goToPage, paginatedItems: paginatedProjects, resetPage } = useClientPagination(filteredProjects);
 
-    watch(search, resetPage);
+    watch([search, dateFrom, dateTo], resetPage);
+
+    function dateKey(value?: string | null): string {
+        if (!value) {
+            return '';
+        }
+
+        const date = new Date(value);
+        if (Number.isNaN(date.getTime())) {
+            return '';
+        }
+
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+
+        return `${year}-${month}-${day}`;
+    }
+
+    function formatDate(value?: string | null): string {
+        if (!value) {
+            return '—';
+        }
+
+        const date = new Date(value);
+        if (Number.isNaN(date.getTime())) {
+            return '—';
+        }
+
+        return new Intl.DateTimeFormat('vi-VN', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+        }).format(date);
+    }
+
+    function clearDates(): void {
+        dateFrom.value = '';
+        dateTo.value = '';
+    }
+
+    function openDetail(project: FeaturedProject): void {
+        detailProject.value = project;
+    }
+
+    function closeDetail(): void {
+        detailProject.value = null;
+    }
+
+    function editFromDetail(project: FeaturedProject): void {
+        closeDetail();
+        editProject(project);
+    }
 
     function projectTypeLabel(type: string): string {
         const labels: Record<string, string> = {
@@ -204,7 +358,12 @@
         deletingProjectId.value = project.id;
         router.delete(`/admin/case-studies/${project.id}`, {
             preserveScroll: true,
-            onSuccess: () => showToast('Đã xóa dự án thành công.'),
+            onSuccess: () => {
+                if (detailProject.value?.id === project.id) {
+                    closeDetail();
+                }
+                showToast('Đã xóa dự án thành công.');
+            },
             onError: () => showToast('Không thể xóa dự án. Vui lòng thử lại.'),
             onFinish: () => {
                 deletingProjectId.value = null;

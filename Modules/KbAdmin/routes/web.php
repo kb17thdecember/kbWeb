@@ -7,6 +7,7 @@ use Modules\KbAdmin\Http\Controllers\CatalogueController;
 use Modules\KbAdmin\Http\Controllers\CategoryController;
 use Modules\KbAdmin\Http\Controllers\ChatController;
 use Modules\KbAdmin\Http\Controllers\ConsultationController;
+use Modules\KbAdmin\Http\Controllers\CustomerController;
 use Modules\KbAdmin\Http\Controllers\DashboardController;
 use Modules\KbAdmin\Http\Controllers\FeaturedProjectController;
 use Modules\KbAdmin\Http\Controllers\ProductController;
@@ -59,6 +60,15 @@ Route::middleware([UseKbAdminRootView::class, EnsureAdminAuthenticated::class])
 
         Route::get('/consultations', [ConsultationController::class, 'index'])
             ->name('admin.consultations.index');
+
+        Route::get('/customers', [CustomerController::class, 'index'])
+            ->name('admin.customers.index');
+        Route::post('/customers', [CustomerController::class, 'store'])
+            ->name('admin.customers.store');
+        Route::put('/customers/{customer}', [CustomerController::class, 'update'])
+            ->name('admin.customers.update');
+        Route::delete('/customers/{customer}', [CustomerController::class, 'destroy'])
+            ->name('admin.customers.destroy');
 
         Route::get('/chats', [ChatController::class, 'index'])->name('admin.chats.index');
         Route::get('/chats/list', [ChatController::class, 'conversations'])->name('admin.chats.list');

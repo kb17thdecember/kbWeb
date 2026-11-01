@@ -31,6 +31,7 @@ const menuItems = [
     { label: 'Dự Án Tiêu Biểu', icon: 'fa-solid fa-building', href: '/admin/case-studies' },
     { label: 'Bài Viết', icon: 'fa-solid fa-newspaper', href: '/admin/articles' },
     { label: 'Catalogue', icon: 'fa-solid fa-file-pdf', href: '/admin/catalogues' },
+    { label: 'Khách Hàng', icon: 'fa-solid fa-users', href: '/admin/customers' },
     { label: 'Yêu Cầu Tư Vấn', icon: 'fa-solid fa-headset', href: '/admin/consultations' },
     { label: 'Chat Cùng Khách', icon: ['fas', 'comments'], href: '/admin/chats' },
     { label: 'Báo Cáo Dự Án', icon: 'fa-solid fa-chart-line', href: '/admin/project-reports' },
