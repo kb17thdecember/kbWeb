@@ -4,6 +4,7 @@ use App\Models\Article;
 use Illuminate\Support\Facades\Route;
 use Modules\KbUser\Http\Controllers\ChatController;
 use Modules\KbUser\Http\Controllers\KbUserController;
+use Modules\KbUser\Http\Controllers\QuotationController;
 use Modules\KbUser\Http\Controllers\UserAuthController;
 use Modules\KbUser\Http\Middleware\UseKbUserRootView;
 
@@ -48,6 +49,11 @@ Route::middleware(UseKbUserRootView::class)->group(function () {
     Route::put('/my-account/password', [UserAuthController::class, 'updatePassword'])->middleware('auth')->name('kbuser.account.password.update');
     Route::get('/auth/google/redirect', [UserAuthController::class, 'redirectToGoogle'])->name('kbuser.auth.google.redirect');
     Route::get('/auth/google/callback', [UserAuthController::class, 'handleGoogleCallback'])->name('kbuser.auth.google.callback');
+
+    Route::get('/quotations', [QuotationController::class, 'index'])->name('kbuser.quotations.index');
+    Route::get('/quotations/login', [QuotationController::class, 'showLogin'])->name('kbuser.quotations.login');
+    Route::post('/quotations/login', [QuotationController::class, 'login'])->name('kbuser.quotations.login.store');
+    Route::post('/quotations/logout', [QuotationController::class, 'logout'])->name('kbuser.quotations.logout');
 
     Route::get('/kbusers', [KbUserController::class, 'index'])->name('kbuser.index');
 });

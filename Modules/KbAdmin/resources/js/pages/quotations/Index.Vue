@@ -113,7 +113,7 @@ const props = withDefaults(
     },
 );
 
-const activeQuotationType = ref<'ariston' | 'second'>('second');
+const activeQuotationType = ref<'ariston' | 'second'>('ariston');
 
 const pad2 = (n: number): string => String(n).padStart(2, '0');
 
