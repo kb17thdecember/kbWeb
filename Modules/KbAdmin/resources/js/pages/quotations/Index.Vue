@@ -1135,8 +1135,8 @@ const printKflexQuotationPdf = (): void => {
         }
         .kf-meta-row {
             display: grid;
-            grid-template-columns: 6.0% 1fr;
-            column-gap: 3px;
+            grid-template-columns: 8.2% 1fr;
+            column-gap: 4px;
             margin-bottom: calc(2px * var(--s));
             align-items: baseline;
         }
@@ -1145,6 +1145,9 @@ const printKflexQuotationPdf = (): void => {
             white-space: normal;
             word-wrap: break-word;
             overflow-wrap: break-word;
+        }
+        .kf-meta-row > span:first-child {
+            white-space: nowrap;
         }
         .kf-meta-kinhgui-label {
             font-weight: 700;
@@ -1310,11 +1313,11 @@ const printKflexQuotationPdf = (): void => {
                         <span class="kf-meta-kinhgui-val">${escapeHtml(kflexQuoteForm.value.recipientCompany)}</span>
                     </div>
                     <div class="kf-meta-row">
-                        <span class="kf-meta-label-sub">Người nhận :</span>
+                        <span class="kf-meta-label-sub">Người nhận:</span>
                         <span class="kf-meta-italic">${escapeHtml(kflexQuoteForm.value.recipientPerson)}</span>
                     </div>
                     <div class="kf-meta-row">
-                        <span class="kf-meta-label-sub">Project :</span>
+                        <span class="kf-meta-label-sub">Project:</span>
                         <span class="kf-meta-italic">${escapeHtml(kflexQuoteForm.value.projectName)}</span>
                     </div>
                     <div class="kf-meta-row">
@@ -2938,11 +2941,11 @@ const printQuotationPdf = (): void => {
                             <span class="kflex-qp-kinhgui-val">{{ kflexQuoteForm.recipientCompany }}</span>
                         </div>
                         <div class="kflex-qp-meta-row">
-                            <span class="kflex-qp-meta-label-sub">Người nhận :</span>
+                            <span class="kflex-qp-meta-label-sub">Người nhận:</span>
                             <span class="kflex-qp-italic">{{ kflexQuoteForm.recipientPerson }}</span>
                         </div>
                         <div class="kflex-qp-meta-row">
-                            <span class="kflex-qp-meta-label-sub">Project :</span>
+                            <span class="kflex-qp-meta-label-sub">Project:</span>
                             <span class="kflex-qp-italic">{{ kflexQuoteForm.projectName }}</span>
                         </div>
                         <div class="kflex-qp-meta-row">
@@ -3469,7 +3472,7 @@ const printQuotationPdf = (): void => {
 
 .kflex-qp-meta-row {
     display: grid;
-    grid-template-columns: 6.0% 1fr;
+    grid-template-columns: 8.2% 1fr;
     column-gap: 4px;
     margin-bottom: 2px;
     align-items: baseline;
@@ -3480,6 +3483,10 @@ const printQuotationPdf = (): void => {
     white-space: normal;
     word-wrap: break-word;
     overflow-wrap: break-word;
+}
+
+.kflex-qp-meta-row > span:first-child {
+    white-space: nowrap;
 }
 
 .kflex-qp-kinhgui-label {
