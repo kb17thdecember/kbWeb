@@ -128,9 +128,17 @@ watch([isMenuOpen, isGlobalCalculatorOpen], ([menuOpen, calcOpen]) => {
 
 let removeSuccessListener: (() => void) | undefined;
 
+const onCustomToast = (event: Event): void => {
+    const message = (event as CustomEvent<{ message?: string }>).detail?.message;
+    if (message) {
+        showToast(message);
+    }
+};
+
 onMounted(() => {
     window.addEventListener('keydown', onEscapeKey);
     window.addEventListener('kbuser-calculator-open', openGlobalCalculator);
+    window.addEventListener('kbuser-toast', onCustomToast);
     removeSuccessListener = router.on('success', (event) => {
         const flashedToast = (event.detail.page.props as { toast?: string | null }).toast;
 
@@ -144,6 +152,7 @@ onUnmounted(() => {
     removeSuccessListener?.();
     window.removeEventListener('keydown', onEscapeKey);
     window.removeEventListener('kbuser-calculator-open', openGlobalCalculator);
+    window.removeEventListener('kbuser-toast', onCustomToast);
     if (toastTimeout) {
         clearTimeout(toastTimeout);
     }

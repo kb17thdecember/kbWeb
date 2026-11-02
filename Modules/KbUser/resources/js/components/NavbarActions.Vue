@@ -514,6 +514,10 @@ const formatDate = (value: string): string =>
         year: 'numeric',
     });
 
+const notifyToast = (message: string): void => {
+    window.dispatchEvent(new CustomEvent('kbuser-toast', { detail: { message } }));
+};
+
 const exportCartCsv = (): void => {
     if (cartItems.value.length === 0) {
         return;
@@ -534,6 +538,8 @@ const exportCartCsv = (): void => {
         cartTotal.value,
         `bang-du-toan-hvac-mart-${new Date().toISOString().slice(0, 10)}.xlsx`,
     );
+
+    notifyToast('Đã xuất báo giá Excel (.xlsx) thành công.');
 };
 
 const printCartQuote = (): void => {
@@ -543,6 +549,7 @@ const printCartQuote = (): void => {
 
     const win = window.open('', '_blank', 'width=860,height=720');
     if (!win) {
+        notifyToast('Vui lòng cho phép mở cửa sổ bật lên (Pop-up) để in báo giá.');
         return;
     }
 
@@ -630,6 +637,19 @@ const printCartQuote = (): void => {
 </body>
 </html>`);
     win.document.close();
+
+    let notified = false;
+    const notifyCompleted = (): void => {
+        if (notified) {
+            return;
+        }
+        notified = true;
+        notifyToast('Đã xuất báo giá PDF thành công.');
+    };
+    win.addEventListener('afterprint', notifyCompleted);
+    win.addEventListener('beforeunload', notifyCompleted);
+
+    notifyToast('Đã xuất báo giá PDF thành công.');
     win.focus();
     win.print();
 };

@@ -10,6 +10,7 @@ use Modules\KbAdmin\Http\Controllers\ConsultationController;
 use Modules\KbAdmin\Http\Controllers\CustomerController;
 use Modules\KbAdmin\Http\Controllers\DashboardController;
 use Modules\KbAdmin\Http\Controllers\FeaturedProjectController;
+use Modules\KbAdmin\Http\Controllers\KflexPriceController;
 use Modules\KbAdmin\Http\Controllers\NotificationController;
 use Modules\KbAdmin\Http\Controllers\ProductController;
 use Modules\KbAdmin\Http\Controllers\ProjectReportController;
@@ -53,6 +54,17 @@ Route::middleware([UseKbAdminRootView::class, EnsureAdminAuthenticated::class])
 
         Route::get('/products', [ProductController::class, 'index'])
             ->name('admin.products.index');
+
+        Route::get('/kflex-prices', [KflexPriceController::class, 'index'])
+            ->name('admin.kflex-prices.index');
+        Route::post('/kflex-prices/bulk', [KflexPriceController::class, 'bulkStoreOrUpdate'])
+            ->name('admin.kflex-prices.bulk');
+        Route::delete('/kflex-prices/bulk', [KflexPriceController::class, 'bulkDestroy'])
+            ->name('admin.kflex-prices.bulk-destroy');
+        Route::put('/kflex-prices/{kflexPrice}', [KflexPriceController::class, 'update'])
+            ->name('admin.kflex-prices.update');
+        Route::delete('/kflex-prices/{kflexPrice}', [KflexPriceController::class, 'destroy'])
+            ->name('admin.kflex-prices.destroy');
 
         Route::get('/categories', [CategoryController::class, 'index'])
             ->name('admin.categories.index');

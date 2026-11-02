@@ -325,6 +325,10 @@ const starLightLogoUrl = computed(() => resolveImageUrl(starLightLogoAsset));
 const aristonLogoUrl = computed(() => resolveImageUrl(aristonLogoAsset));
 const isPortraitMode = computed(() => items.value.length >= 3);
 
+const notifyToast = (message: string): void => {
+    window.dispatchEvent(new CustomEvent('kbadmin-toast', { detail: { message } }));
+};
+
 const printQuotationPdf = (): void => {
     const portrait = isPortraitMode.value;
     const pageOrientation = portrait ? 'portrait' : 'landscape';
@@ -334,6 +338,7 @@ const printQuotationPdf = (): void => {
 
     const printWindow = window.open('', '_blank', winFeatures);
     if (!printWindow) {
+        notifyToast('Vui lòng cho phép mở cửa sổ bật lên (Pop-up) để xuất báo giá PDF.');
         return;
     }
 
@@ -783,6 +788,18 @@ const printQuotationPdf = (): void => {
     printWindow.document.open();
     printWindow.document.write(html);
     printWindow.document.close();
+
+    let notified = false;
+    const notifyCompleted = (): void => {
+        if (notified) {
+            return;
+        }
+        notified = true;
+        notifyToast('Đã xuất báo giá PDF thành công.');
+    };
+    printWindow.addEventListener('afterprint', notifyCompleted);
+    printWindow.addEventListener('beforeunload', notifyCompleted);
+    notifyToast('Đã xuất báo giá PDF thành công.');
 };
 </script>
 

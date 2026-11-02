@@ -46,6 +46,7 @@ const props = defineProps<{
 const menuItems = [
     { label: 'Dashboard', icon: 'fa-solid fa-house', href: '/admin/dashboard' },
     { label: 'Sản Phẩm', icon: 'fa-solid fa-box', href: '/admin/products' },
+    { label: 'Bảng Giá K-Flex', icon: 'fa-solid fa-tags', href: '/admin/kflex-prices' },
     { label: 'Danh Mục', icon: 'fa-solid fa-layer-group', href: '/admin/categories' },
     { label: 'Dự Án Tiêu Biểu', icon: 'fa-solid fa-building', href: '/admin/case-studies' },
     { label: 'Bài Viết', icon: 'fa-solid fa-newspaper', href: '/admin/articles' },
@@ -272,10 +273,19 @@ void refreshNotifications();
 
 let removeSuccessListener: (() => void) | undefined;
 
+function handleCustomAdminToast(event: Event): void {
+    const message = (event as CustomEvent<{ message?: string }>).detail?.message;
+    if (message) {
+        showToast(message);
+    }
+}
+
 onMounted(() => {
     if (page.props.toast) {
         showToast(page.props.toast);
     }
+
+    window.addEventListener('kbadmin-toast', handleCustomAdminToast);
 
     removeSuccessListener = router.on('success', (event) => {
         const flashedToast = (event.detail.page.props as { toast?: string | null }).toast;
@@ -295,6 +305,7 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
     removeSuccessListener?.();
+    window.removeEventListener('kbadmin-toast', handleCustomAdminToast);
 
     if (toastTimeout) {
         clearTimeout(toastTimeout);

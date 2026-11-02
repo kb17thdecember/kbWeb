@@ -328,11 +328,17 @@ const exportComparisonToPdf = (): void => {
         hotline: siteSettings.value.hotline || '0979.807.234',
         email: siteSettings.value.contact_email || 'kbnguyen0311@gmail.com',
         address: siteSettings.value.address || 'Hà Nội, Việt Nam',
+        onCompleted: () => {
+            notify('Đã in file BẢNG SO SÁNH THÔNG SỐ KỸ THUẬT thành công.');
+        },
     });
 
     if (!ok) {
         notify('Vui lòng cho phép mở cửa sổ bật lên (Pop-up) để xuất file PDF.');
+        return;
     }
+
+    notify('Đã xuất file BẢNG SO SÁNH THÔNG SỐ KỸ THUẬT thành công.');
 };
 
 const stepImage = (delta: number): void => {

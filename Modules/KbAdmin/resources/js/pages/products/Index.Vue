@@ -6,6 +6,7 @@
                 <p>Thêm, sửa, xóa mặt hàng và quản lý thư viện ảnh.</p>
             </div>
             <div class="actions">
+                <Link class="btn" href="/admin/kflex-prices">🏷️ Bảng giá chi tiết K-Flex</Link>
                 <button class="btn primary" type="button" @click="createProduct">＋ Thêm sản phẩm</button>
                 <input v-model="search" class="search" type="search" placeholder="Tìm sản phẩm..." aria-label="Tìm sản phẩm">
             </div>
@@ -169,7 +170,7 @@
 </template>
 
 <script setup lang="ts">
-    import { router } from '@inertiajs/vue3';
+    import { Link, router } from '@inertiajs/vue3';
     import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
     import AdminLayout from '../../layout/AdminLayout.Vue';
     import AdminDatePicker from '../../components/AdminDatePicker.Vue';

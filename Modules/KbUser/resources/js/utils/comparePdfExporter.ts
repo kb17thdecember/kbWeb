@@ -15,6 +15,7 @@ export type CompareExportCompanyInfo = {
     hotline?: string;
     email?: string;
     address?: string;
+    onCompleted?: () => void;
 };
 
 const escapeHtml = (value: string): string =>
@@ -123,7 +124,7 @@ export function exportProductComparisonPdf(
 <html lang="vi">
 <head>
     <meta charset="UTF-8" />
-    <title>Bảng so sánh thông số kỹ thuật - ${companyName} (${docCode})</title>
+    <title>BẢNG SO SÁNH THÔNG SỐ KỸ THUẬT</title>
     <style>
         @page {
             size: A4 portrait;
@@ -467,6 +468,20 @@ export function exportProductComparisonPdf(
     printWindow.document.open();
     printWindow.document.write(html);
     printWindow.document.close();
+    printWindow.document.title = 'BẢNG SO SÁNH THÔNG SỐ KỸ THUẬT';
+
+    if (company.onCompleted) {
+        let notified = false;
+        const notifyOnce = (): void => {
+            if (notified) {
+                return;
+            }
+            notified = true;
+            company.onCompleted?.();
+        };
+        printWindow.addEventListener('afterprint', notifyOnce);
+        printWindow.addEventListener('beforeunload', notifyOnce);
+    }
 
     return true;
 }
