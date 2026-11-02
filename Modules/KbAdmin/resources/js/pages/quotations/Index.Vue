@@ -735,6 +735,25 @@ const printQuotationPdf = (): void => {
                     }
                 }
 
+                var closePrintWindow = function () {
+                    setTimeout(function () {
+                        window.close();
+                    }, 100);
+                };
+
+                window.addEventListener('afterprint', closePrintWindow);
+                window.onafterprint = closePrintWindow;
+                if (window.matchMedia) {
+                    var mediaQueryList = window.matchMedia('print');
+                    if (mediaQueryList.addEventListener) {
+                        mediaQueryList.addEventListener('change', function (mql) {
+                            if (!mql.matches) {
+                                closePrintWindow();
+                            }
+                        });
+                    }
+                }
+
                 setTimeout(function () {
                     window.focus();
                     window.print();

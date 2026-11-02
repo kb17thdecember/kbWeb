@@ -563,6 +563,7 @@ const printCartQuote = (): void => {
         )
         .join('');
 
+    win.document.open();
     win.document.write(`<!DOCTYPE html>
 <html lang="vi">
 <head>
@@ -604,6 +605,28 @@ const printCartQuote = (): void => {
         </tbody>
     </table>
     <p style="margin-top:18px;font-style:italic;text-align:left;">* Ghi chú: Đơn giá trên là giá tham khảo. Vui lòng gửi yêu cầu báo giá tại ${brandName} để nhận chiết khấu chính thức theo khối lượng dự án.</p>
+    <script>
+        (function () {
+            var closePrintWindow = function () {
+                setTimeout(function () {
+                    window.close();
+                }, 100);
+            };
+
+            window.addEventListener('afterprint', closePrintWindow);
+            window.onafterprint = closePrintWindow;
+            if (window.matchMedia) {
+                var mediaQueryList = window.matchMedia('print');
+                if (mediaQueryList.addEventListener) {
+                    mediaQueryList.addEventListener('change', function (mql) {
+                        if (!mql.matches) {
+                            closePrintWindow();
+                        }
+                    });
+                }
+            }
+        })();
+    <\/script>
 </body>
 </html>`);
     win.document.close();

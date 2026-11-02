@@ -433,12 +433,33 @@ export function exportProductComparisonPdf(
         </footer>
     </div>
     <script>
-        window.addEventListener('load', function () {
-            setTimeout(function () {
-                window.focus();
-                window.print();
-            }, 250);
-        });
+        (function () {
+            var closePrintWindow = function () {
+                setTimeout(function () {
+                    window.close();
+                }, 100);
+            };
+
+            window.addEventListener('afterprint', closePrintWindow);
+            window.onafterprint = closePrintWindow;
+            if (window.matchMedia) {
+                var mediaQueryList = window.matchMedia('print');
+                if (mediaQueryList.addEventListener) {
+                    mediaQueryList.addEventListener('change', function (mql) {
+                        if (!mql.matches) {
+                            closePrintWindow();
+                        }
+                    });
+                }
+            }
+
+            window.addEventListener('load', function () {
+                setTimeout(function () {
+                    window.focus();
+                    window.print();
+                }, 250);
+            });
+        })();
     </script>
 </body>
 </html>`;
