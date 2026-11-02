@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
 import aristonLogoAsset from '../../../assets/images/ariston_quote_logo.png';
+import kflexLogoAsset from '../../../assets/images/kflex_quote_logo.png';
 import starLightLogoAsset from '../../../assets/images/starlight_logo.png';
 import AdminLayout from '../../layout/AdminLayout.Vue';
 
@@ -21,6 +22,20 @@ type AristonProduct = {
     subcategory: { id: number; name: string } | null;
 };
 
+type KflexPriceRecord = {
+    id: number;
+    product_line: 'st' | 'k_protect' | 'm_flex';
+    form_type: 'sheet' | 'tube';
+    variant_type: string;
+    thickness: string;
+    diameter: string | null;
+    brand: string | null;
+    origin: string | null;
+    product_name: string;
+    unit: string;
+    price: number;
+};
+
 type QuotationItem = {
     uid: string;
     productId: number | null;
@@ -34,15 +49,71 @@ type QuotationItem = {
     quantity: number;
 };
 
-const props = defineProps<{
-    aristonProducts: AristonProduct[];
-    stats: AdminStat[];
-    openRequestsCount: number;
-    chatUnreadCount?: number;
-    supportProjectsCount?: number;
-}>();
+type KflexQuotationItem = {
+    uid: string;
+    kflexPriceId: number | null;
+    itemName: string;
+    brandLabel: string;
+    originLabel: string;
+    productTypeLabel: string;
+    productLine: 'st' | 'k_protect' | 'm_flex';
+    formType: 'tube' | 'sheet';
+    variantType: string;
+    thickness: string;
+    innerDiameter: string;
+    widthM: string;
+    lengthM: string;
+    qtyM: number | null;
+    qtyM2: number | null;
+    unitPrice: number;
+    note: string;
+};
 
-const activeQuotationType = ref<'ariston' | 'second'>('ariston');
+type KflexQuotationGroup = {
+    uid: string;
+    hasTitle: boolean;
+    title: string;
+    items: KflexQuotationItem[];
+};
+
+const props = withDefaults(
+    defineProps<{
+        aristonProducts: AristonProduct[];
+        kflexPrices?: KflexPriceRecord[];
+        kflexProductLines?: Record<string, string>;
+        kflexProductLineMeta?: Record<string, { label: string; brand: string; origin: string }>;
+        kflexTubeVariants?: Record<string, string>;
+        kflexSheetVariants?: Record<string, string>;
+        stats: AdminStat[];
+        openRequestsCount: number;
+        chatUnreadCount?: number;
+        supportProjectsCount?: number;
+    }>(),
+    {
+        kflexPrices: () => [],
+        kflexProductLines: () => ({
+            st: 'ST',
+            k_protect: 'K-Protect',
+            m_flex: 'M-Flex',
+        }),
+        kflexProductLineMeta: () => ({
+            st: { label: 'ST', brand: 'Ý', origin: 'Malaysia' },
+            k_protect: { label: 'K-Protect', brand: 'Ý', origin: 'Malaysia' },
+            m_flex: { label: 'M-Flex', brand: 'Ý', origin: 'VN' },
+        }),
+        kflexTubeVariants: () => ({
+            foam: 'Chỉ Foam',
+            alu: 'Phủ nhôm',
+        }),
+        kflexSheetVariants: () => ({
+            foam: 'Chỉ Foam',
+            alu_or_glue: 'Có keo/nhôm',
+            alu_and_glue: 'Có cả keo và nhôm',
+        }),
+    },
+);
+
+const activeQuotationType = ref<'ariston' | 'second'>('second');
 
 const pad2 = (n: number): string => String(n).padStart(2, '0');
 
@@ -323,10 +394,1119 @@ const nl2br = (value: string): string =>
 
 const starLightLogoUrl = computed(() => resolveImageUrl(starLightLogoAsset));
 const aristonLogoUrl = computed(() => resolveImageUrl(aristonLogoAsset));
+const kflexLogoUrl = computed(() => resolveImageUrl(kflexLogoAsset));
 const isPortraitMode = computed(() => items.value.length >= 3);
 
 const notifyToast = (message: string): void => {
     window.dispatchEvent(new CustomEvent('kbadmin-toast', { detail: { message } }));
+};
+
+// =========================================================================
+// K-FLEX QUOTATION BUILDER & PDF EXPORT
+// =========================================================================
+const kflexQuoteForm = ref({
+    documentTitle: 'BÁO GIÁ BẢO ÔN K-FLEX',
+    recipientCompany: 'Quý đối tác Công ty Cổ phần Kỹ thuật Thăng Tiến',
+    recipientPerson: 'Mr.Phương',
+    projectName: 'Detech Tower',
+    quoteDate: todayIso,
+    validUntilDate: addTwoMonths(todayIso),
+    vatPercent: 8,
+    introText: 'Công ty Star Light là đơn vị phân phối mảng dự án sản phẩm bảo ôn K-FLEX',
+    paymentTerms: 'Thỏa thuận',
+    deliveryMethod: 'Giao hàng tại chân công trình',
+    deliveryTime:
+        'tối thiểu 40 ngày (đối với hàng nhập khẩu) kể từ ngày đơn đặt hàng được xác nhận, Hiện đơn hàng đang có sẵn',
+    contactName: 'Mr.Kiệt',
+    contactHp: '0979.807.234',
+    contactEmail: 'tuankiet@starlightgroup.vn',
+});
+
+watch(
+    () => kflexQuoteForm.value.quoteDate,
+    (newDate) => {
+        if (newDate) {
+            kflexQuoteForm.value.validUntilDate = addTwoMonths(newDate);
+        }
+    },
+);
+
+const kflexSectionPresets = [
+    'BẢO ÔN CHO ĐƯỜNG THÉP',
+    'BẢO ÔN CHO ĐƯỜNG ỐNG PVC',
+    'BẢO ÔN ĐƯỜNG ỐNG ĐỒNG',
+    'BẢO ÔN ỐNG GIÓ',
+];
+
+type KflexProductLineKey = 'st' | 'k_protect' | 'm_flex';
+
+const kflexAllProductLineOptions: Array<{
+    key: KflexProductLineKey;
+    brandLabel: string;
+    originLabel: string;
+}> = [
+    { key: 'st', brandLabel: 'K-Flex ST', originLabel: 'Ý - Malaysia' },
+    { key: 'k_protect', brandLabel: 'K-Flex K-Protect', originLabel: 'Ý - Malaysia' },
+    { key: 'm_flex', brandLabel: 'K-Flex M-Flex', originLabel: 'Ý - VN' },
+];
+
+const kflexSelectedProductLines = ref<KflexProductLineKey[]>(['st']);
+
+const getDefaultSheetDimensions = (
+    productLine: 'st' | 'k_protect' | 'm_flex',
+    variantType: string,
+    thickness: string,
+): { widthM: string; lengthM: string } => {
+    const tNum = Number(String(thickness).replace(/[^0-9.]/g, '')) || 25;
+
+    if (productLine === 'k_protect') {
+        return {
+            widthM: '1.2',
+            lengthM: tNum >= 30 ? '7.5' : '15',
+        };
+    }
+
+    const widthM = productLine === 'st' && variantType !== 'foam' ? '1.14' : '1.22';
+    const lengthMap: Record<number, string> = {
+        6: '30',
+        9: '20',
+        10: '20',
+        13: '14',
+        16: '12',
+        19: '10',
+        25: '8',
+        32: '6',
+        40: '4',
+        50: '4',
+    };
+
+    return {
+        widthM,
+        lengthM: lengthMap[tNum] || '4',
+    };
+};
+
+const getDefaultBrandLabel = (productLine: 'st' | 'k_protect' | 'm_flex'): string => {
+    if (productLine === 'k_protect') {
+        return 'K-Flex K-Protect';
+    }
+    if (productLine === 'm_flex') {
+        return 'K-Flex M-Flex';
+    }
+    return 'K-Flex ST';
+};
+
+const getDefaultOriginLabel = (
+    productLine: 'st' | 'k_protect' | 'm_flex',
+    brand?: string | null,
+    origin?: string | null,
+): string => {
+    const meta = props.kflexProductLineMeta[productLine] || { brand: 'Ý', origin: 'Malaysia' };
+    const b = (brand || meta.brand || 'Ý').trim();
+    const o = (origin || meta.origin || 'Malaysia').trim();
+    return `${b} - ${o}`;
+};
+
+const getDefaultProductTypeLabel = (
+    formType: 'tube' | 'sheet',
+    variantType: string,
+): string => {
+    if (formType === 'tube') {
+        return variantType === 'alu' ? 'Có nhôm' : 'Chỉ Foam';
+    }
+    if (variantType === 'alu_or_glue') {
+        return 'Có nhôm, không keo';
+    }
+    if (variantType === 'alu_and_glue') {
+        return 'Có cả keo và nhôm';
+    }
+    return 'Chỉ Foam';
+};
+
+const normalizeNumberStr = (val?: string | null): string => {
+    if (!val) {
+        return '';
+    }
+    const trimmed = String(val).trim();
+    if (/^\d+$/.test(trimmed)) {
+        return String(Number(trimmed));
+    }
+    return trimmed;
+};
+
+const findMatchingKflexPrice = (
+    productLine: 'st' | 'k_protect' | 'm_flex',
+    formType: 'tube' | 'sheet',
+    variantType: string,
+    thickness: string,
+    innerDiameter: string,
+): KflexPriceRecord | undefined => {
+    const tNorm = normalizeNumberStr(thickness);
+    const dNorm = normalizeNumberStr(innerDiameter);
+
+    return props.kflexPrices.find((p) => {
+        if (p.product_line !== productLine || p.form_type !== formType || p.variant_type !== variantType) {
+            return false;
+        }
+        if (normalizeNumberStr(p.thickness) !== tNorm) {
+            return false;
+        }
+        if (formType === 'tube') {
+            return normalizeNumberStr(p.diameter) === dNorm;
+        }
+        return true;
+    });
+};
+
+const getAvailableThicknessesForRow = (item: KflexQuotationItem): string[] => {
+    const set = new Set<string>();
+    props.kflexPrices.forEach((p) => {
+        if (
+            p.product_line === item.productLine &&
+            p.form_type === item.formType &&
+            p.variant_type === item.variantType &&
+            p.thickness
+        ) {
+            set.add(normalizeNumberStr(p.thickness));
+        }
+    });
+    return Array.from(set).sort((a, b) => Number(a) - Number(b));
+};
+
+const getAvailableDiametersForRow = (item: KflexQuotationItem): string[] => {
+    if (item.formType !== 'tube') {
+        return [];
+    }
+    const tNorm = normalizeNumberStr(item.thickness);
+    const set = new Set<string>();
+    props.kflexPrices.forEach((p) => {
+        if (
+            p.product_line === item.productLine &&
+            p.form_type === 'tube' &&
+            p.variant_type === item.variantType &&
+            normalizeNumberStr(p.thickness) === tNorm &&
+            p.diameter
+        ) {
+            set.add(normalizeNumberStr(p.diameter));
+        }
+    });
+    return Array.from(set).sort((a, b) => Number(a) - Number(b));
+};
+
+const getStandardKflexProductName = (
+    productLine: 'st' | 'k_protect' | 'm_flex',
+    formType: 'tube' | 'sheet',
+    thickness: string,
+    innerDiameter: string,
+    matched?: KflexPriceRecord,
+): string => {
+    if (matched?.product_name) {
+        return matched.product_name;
+    }
+
+    const lineLabel =
+        props.kflexProductLines[productLine] ||
+        (productLine === 'k_protect' ? 'K-Protect' : productLine === 'm_flex' ? 'M-Flex' : 'ST');
+    const cleanThickness = String(thickness || '')
+        .trim()
+        .replace(/\s*mm$/i, '');
+    const cleanDiameter = String(innerDiameter || '')
+        .trim()
+        .replace(/\s*mm$/i, '');
+
+    if (formType === 'sheet') {
+        return `Tấm bảo ôn K-Flex ${lineLabel} dày ${cleanThickness}mm`;
+    }
+
+    return `Ống bảo ôn K-Flex ${lineLabel} kích thước ${cleanThickness}x${cleanDiameter}`;
+};
+
+const createDefaultKflexRow = (
+    productLine: 'st' | 'k_protect' | 'm_flex' = 'st',
+    formType: 'tube' | 'sheet' = 'tube',
+): KflexQuotationItem => {
+    const variantType = formType === 'tube' ? 'alu' : 'alu_or_glue';
+    const thickness = formType === 'tube' ? '32' : '25';
+    const innerDiameter = formType === 'tube' ? '22' : '';
+    const found = findMatchingKflexPrice(productLine, formType, variantType, thickness, innerDiameter);
+    const dims =
+        formType === 'sheet'
+            ? getDefaultSheetDimensions(productLine, variantType, thickness)
+            : { widthM: '', lengthM: '2' };
+
+    return {
+        uid: nextUid(),
+        kflexPriceId: found?.id ?? null,
+        itemName: getStandardKflexProductName(
+            productLine,
+            formType,
+            thickness,
+            innerDiameter,
+            found,
+        ),
+        brandLabel: getDefaultBrandLabel(productLine),
+        originLabel: getDefaultOriginLabel(productLine, found?.brand, found?.origin),
+        productTypeLabel: getDefaultProductTypeLabel(formType, variantType),
+        productLine,
+        formType,
+        variantType,
+        thickness,
+        innerDiameter,
+        widthM: dims.widthM,
+        lengthM: dims.lengthM,
+        qtyM: formType === 'tube' ? 9 : null,
+        qtyM2: formType === 'sheet' ? 10 : null,
+        unitPrice: found?.price ?? 165127,
+        note: '',
+    };
+};
+
+const kflexGroups = ref<KflexQuotationGroup[]>([
+    {
+        uid: nextUid(),
+        hasTitle: true,
+        title: 'BẢO ÔN CHO ĐƯỜNG THÉP',
+        items: [createDefaultKflexRow('st', 'tube')],
+    },
+]);
+
+const kflexTotalItemsCount = computed(() =>
+    kflexGroups.value.reduce((acc, g) => acc + g.items.length, 0),
+);
+
+const resolveDefaultProductLineForNewRow = (isDuct = false): KflexProductLineKey => {
+    const allowed = kflexSelectedProductLines.value;
+    if (isDuct && allowed.includes('k_protect')) {
+        return 'k_protect';
+    }
+    return allowed[0] || 'st';
+};
+
+const selectSingleKflexProductLine = (line: KflexProductLineKey): void => {
+    kflexSelectedProductLines.value = [line];
+    kflexGroups.value.forEach((group) => {
+        group.items.forEach((item) => {
+            item.productLine = line;
+            onKflexLineOrFormChange(item);
+        });
+    });
+};
+
+const toggleKflexProductLine = (line: KflexProductLineKey): void => {
+    const current = [...kflexSelectedProductLines.value];
+    const idx = current.indexOf(line);
+    if (idx >= 0) {
+        if (current.length <= 1) {
+            return;
+        }
+        current.splice(idx, 1);
+    } else {
+        current.push(line);
+    }
+
+    kflexSelectedProductLines.value = current;
+    const fallbackLine = current[0] || 'st';
+
+    kflexGroups.value.forEach((group) => {
+        group.items.forEach((item) => {
+            if (!current.includes(item.productLine) || current.length === 1) {
+                item.productLine = fallbackLine;
+                onKflexLineOrFormChange(item);
+            }
+        });
+    });
+};
+
+const addKflexGroup = (presetTitle?: string): void => {
+    const hasTitle = presetTitle !== '';
+    const title = presetTitle !== undefined ? presetTitle : '';
+    const isDuct = title.toUpperCase().includes('ỐNG GIÓ');
+    const defaultLine = resolveDefaultProductLineForNewRow(isDuct);
+
+    kflexGroups.value.push({
+        uid: nextUid(),
+        hasTitle,
+        title,
+        items: [
+            createDefaultKflexRow(
+                defaultLine,
+                isDuct ? 'sheet' : 'tube',
+            ),
+        ],
+    });
+};
+
+const removeKflexGroup = (groupIdx: number): void => {
+    if (kflexGroups.value.length <= 1) {
+        return;
+    }
+    kflexGroups.value.splice(groupIdx, 1);
+};
+
+const addKflexItemToGroup = (group: KflexQuotationGroup): void => {
+    const lastItem = group.items[group.items.length - 1];
+    const allowed = kflexSelectedProductLines.value;
+    const targetLine =
+        lastItem && allowed.includes(lastItem.productLine)
+            ? lastItem.productLine
+            : resolveDefaultProductLineForNewRow(
+                  (group.title || '').toUpperCase().includes('ỐNG GIÓ'),
+              );
+    const targetForm = lastItem?.formType ?? 'tube';
+    const newRow = createDefaultKflexRow(targetLine, targetForm);
+
+    if (lastItem) {
+        newRow.variantType = lastItem.variantType;
+        newRow.thickness = lastItem.thickness;
+        if (targetForm === 'tube') {
+            const availD = getAvailableDiametersForRow(newRow);
+            const curIdx = availD.indexOf(normalizeNumberStr(lastItem.innerDiameter));
+            if (curIdx >= 0 && curIdx + 1 < availD.length) {
+                newRow.innerDiameter = availD[curIdx + 1];
+            }
+        }
+        syncKflexRowFromDatabase(newRow);
+    }
+
+    group.items.push(newRow);
+};
+
+const duplicateKflexItemInGroup = (group: KflexQuotationGroup, itemIdx: number): void => {
+    const src = group.items[itemIdx];
+    if (!src) {
+        return;
+    }
+    group.items.splice(itemIdx + 1, 0, {
+        ...src,
+        uid: nextUid(),
+    });
+};
+
+const removeKflexItemFromGroup = (group: KflexQuotationGroup, itemIdx: number): void => {
+    if (group.items.length <= 1 && kflexGroups.value.length <= 1) {
+        return;
+    }
+    if (group.items.length <= 1) {
+        const gIdx = kflexGroups.value.findIndex((g) => g.uid === group.uid);
+        if (gIdx >= 0 && kflexGroups.value.length > 1) {
+            kflexGroups.value.splice(gIdx, 1);
+        }
+        return;
+    }
+    group.items.splice(itemIdx, 1);
+};
+
+const onKflexLineOrFormChange = (item: KflexQuotationItem): void => {
+    if (item.formType === 'tube' && !['foam', 'alu'].includes(item.variantType)) {
+        item.variantType = 'alu';
+    } else if (item.formType === 'sheet' && !['foam', 'alu_or_glue', 'alu_and_glue'].includes(item.variantType)) {
+        item.variantType = 'alu_or_glue';
+    }
+
+    const availT = getAvailableThicknessesForRow(item);
+    if (availT.length > 0 && !availT.includes(normalizeNumberStr(item.thickness))) {
+        item.thickness = availT[0];
+    }
+
+    if (item.formType === 'tube') {
+        const availD = getAvailableDiametersForRow(item);
+        if (availD.length > 0 && !availD.includes(normalizeNumberStr(item.innerDiameter))) {
+            item.innerDiameter = availD[0];
+        }
+    } else {
+        item.innerDiameter = '';
+    }
+
+    syncKflexRowFromDatabase(item);
+};
+
+const syncKflexRowFromDatabase = (item: KflexQuotationItem): void => {
+    if (item.formType === 'tube') {
+        const availD = getAvailableDiametersForRow(item);
+        if (availD.length > 0 && !availD.includes(normalizeNumberStr(item.innerDiameter))) {
+            item.innerDiameter = availD[0];
+        }
+    }
+
+    const found = findMatchingKflexPrice(
+        item.productLine,
+        item.formType,
+        item.variantType,
+        item.thickness,
+        item.innerDiameter,
+    );
+
+    item.itemName = getStandardKflexProductName(
+        item.productLine,
+        item.formType,
+        item.thickness,
+        item.innerDiameter,
+        found,
+    );
+    item.brandLabel = getDefaultBrandLabel(item.productLine);
+    item.originLabel = getDefaultOriginLabel(item.productLine, found?.brand, found?.origin);
+    item.productTypeLabel = getDefaultProductTypeLabel(item.formType, item.variantType);
+
+    if (item.formType === 'sheet') {
+        const dims = getDefaultSheetDimensions(item.productLine, item.variantType, item.thickness);
+        item.innerDiameter = '';
+        item.widthM = dims.widthM;
+        item.lengthM = dims.lengthM;
+        if (item.qtyM2 === null && item.qtyM !== null) {
+            item.qtyM2 = item.qtyM;
+            item.qtyM = null;
+        }
+    } else {
+        item.widthM = '';
+        item.lengthM = '2';
+        if (item.qtyM === null && item.qtyM2 !== null) {
+            item.qtyM = item.qtyM2;
+            item.qtyM2 = null;
+        }
+    }
+
+    if (found) {
+        item.kflexPriceId = found.id;
+        if (found.price > 0) {
+            item.unitPrice = found.price;
+        }
+    }
+};
+
+const formatKflexNum = (amount: number | null | undefined): string => {
+    if (amount === null || amount === undefined || Number.isNaN(Number(amount))) {
+        return '';
+    }
+    const safe = Math.round(Number(amount));
+    if (safe === 0) {
+        return '';
+    }
+    return new Intl.NumberFormat('en-US').format(safe);
+};
+
+const formatKflexTotalNum = (amount: number): string => {
+    const safe = Number.isFinite(amount) ? Math.round(amount) : 0;
+    return new Intl.NumberFormat('en-US').format(safe);
+};
+
+const kflexRowQuantity = (item: KflexQuotationItem): number => {
+    if (item.formType === 'sheet') {
+        return Number(item.qtyM2) || Number(item.qtyM) || 0;
+    }
+    return Number(item.qtyM) || Number(item.qtyM2) || 0;
+};
+
+const kflexRowAmount = (item: KflexQuotationItem): number =>
+    Math.round(kflexRowQuantity(item) * (Number(item.unitPrice) || 0));
+
+const kflexSubTotal = computed(() =>
+    kflexGroups.value.reduce(
+        (groupSum, group) =>
+            groupSum + group.items.reduce((itemSum, item) => itemSum + kflexRowAmount(item), 0),
+        0,
+    ),
+);
+
+const kflexVatAmount = computed(() =>
+    Math.round((kflexSubTotal.value * (Number(kflexQuoteForm.value.vatPercent) || 0)) / 100),
+);
+
+const kflexGrandTotal = computed(() => kflexSubTotal.value + kflexVatAmount.value);
+
+const kflexFormattedQuoteDate = computed(() =>
+    formatDisplayDateSlash(kflexQuoteForm.value.quoteDate, false),
+);
+
+const kflexFormattedValidUntil = computed(() =>
+    formatDisplayDateSlash(kflexQuoteForm.value.validUntilDate, true),
+);
+
+const kflexFormattedVatLabel = computed(() => {
+    const v = Number(kflexQuoteForm.value.vatPercent) || 0;
+    return v < 10 ? `0${v}%` : `${v}%`;
+});
+
+type KflexRenderRow =
+    | {
+          rowType: 'section';
+          key: string;
+          sectionTitle: string;
+      }
+    | {
+          rowType: 'item';
+          key: string;
+          tt: number;
+          item: KflexQuotationItem;
+          noteRowspan: number;
+      };
+
+const kflexRenderRows = computed<KflexRenderRow[]>(() => {
+    const rows: KflexRenderRow[] = [];
+    let globalTt = 0;
+
+    kflexGroups.value.forEach((group) => {
+        const cleanTitle = (group.title || '').trim();
+        if (group.hasTitle && cleanTitle) {
+            rows.push({
+                rowType: 'section',
+                key: `sec-${group.uid}`,
+                sectionTitle: cleanTitle,
+            });
+        }
+
+        const list = group.items;
+        const noteSpans = new Array<number>(list.length).fill(1);
+        let i = 0;
+        while (i < list.length) {
+            const noteText = (list[i].note || '').trim();
+            if (!noteText) {
+                noteSpans[i] = 1;
+                i++;
+                continue;
+            }
+            let j = i + 1;
+            while (j < list.length && (list[j].note || '').trim() === noteText) {
+                noteSpans[j] = 0;
+                j++;
+            }
+            noteSpans[i] = j - i;
+            i = j;
+        }
+
+        list.forEach((item, idx) => {
+            globalTt += 1;
+            rows.push({
+                rowType: 'item',
+                key: item.uid,
+                tt: globalTt,
+                item,
+                noteRowspan: noteSpans[idx],
+            });
+        });
+    });
+
+    return rows;
+});
+
+const printKflexQuotationPdf = (): void => {
+    const printWindow = window.open('', '_blank', 'width=980,height=1180');
+    if (!printWindow) {
+        notifyToast('Vui lòng cho phép mở cửa sổ bật lên (Pop-up) để xuất báo giá PDF.');
+        return;
+    }
+
+    const bodyRowsHtml = kflexRenderRows.value
+        .map((row) => {
+            if (row.rowType === 'section') {
+                return `
+                    <tr class="kf-sec-row">
+                        <td></td>
+                        <td colspan="13" class="c-left c-bold">${escapeHtml(row.sectionTitle)}</td>
+                    </tr>
+                `;
+            }
+
+            const it = row.item;
+            const displayName = it.itemName.trim() || `${it.brandLabel} ${it.thickness}${it.innerDiameter ? 'x' + it.innerDiameter : 'mm'}`;
+            const noteCellHtml =
+                row.noteRowspan > 0
+                    ? `<td class="c-center c-note"${row.noteRowspan > 1 ? ` rowspan="${row.noteRowspan}"` : ''}>${nl2br(it.note)}</td>`
+                    : '';
+
+            return `
+                <tr>
+                    <td class="c-center c-tt">${row.tt}</td>
+                    <td class="c-left c-name">${nl2br(displayName)}</td>
+                    <td class="c-center">${escapeHtml(it.brandLabel)}</td>
+                    <td class="c-center">${escapeHtml(it.originLabel)}</td>
+                    <td class="c-center">${nl2br(it.productTypeLabel)}</td>
+                    <td class="c-center">${escapeHtml(it.thickness)}</td>
+                    <td class="c-center">${escapeHtml(it.innerDiameter)}</td>
+                    <td class="c-center">${escapeHtml(it.widthM)}</td>
+                    <td class="c-center">${escapeHtml(it.lengthM)}</td>
+                    <td class="c-center">${formatKflexNum(it.qtyM)}</td>
+                    <td class="c-center">${formatKflexNum(it.qtyM2)}</td>
+                    <td class="c-center c-uprice">${formatKflexTotalNum(it.unitPrice)}</td>
+                    <td class="c-right c-bold">${formatKflexTotalNum(kflexRowAmount(it))}</td>
+                    ${noteCellHtml}
+                </tr>
+            `;
+        })
+        .join('');
+
+    const html = `<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8" />
+    <title>${escapeHtml(kflexQuoteForm.value.documentTitle)} - ${escapeHtml(kflexQuoteForm.value.projectName)}</title>
+    <style>
+        @page {
+            size: A4 portrait;
+            margin: 0;
+        }
+        * {
+            box-sizing: border-box;
+        }
+        html, body {
+            width: 210mm;
+            margin: 0 auto;
+            padding: 0;
+            font-family: "Times New Roman", Times, serif;
+            color: #000000;
+            background: #ffffff;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+        }
+        .q-page-frame {
+            width: 210mm;
+            min-height: 297mm;
+            margin: 0 auto;
+            padding: 16mm 18mm;
+            page-break-after: avoid;
+            break-after: avoid;
+            page-break-inside: avoid;
+            break-inside: avoid;
+        }
+        .q-scale-box {
+            width: 100%;
+        }
+        .q-sheet {
+            --s: 1;
+            width: 100%;
+            font-size: calc(8.5pt * var(--s));
+            line-height: 1.22;
+        }
+        .kf-header {
+            display: grid;
+            grid-template-columns: 38mm 1fr 38mm;
+            align-items: center;
+            gap: 6px;
+            margin-bottom: calc(3px * var(--s));
+        }
+        .kf-logo-left {
+            display: flex;
+            align-items: center;
+            justify-content: flex-start;
+            padding-left: 6px;
+        }
+        .kf-logo-left img {
+            width: calc(86px * var(--s));
+            height: auto;
+            object-fit: contain;
+            display: block;
+        }
+        .kf-company-center {
+            text-align: center;
+            line-height: 1.22;
+        }
+        .kf-company-center h1 {
+            margin: 0 0 1px;
+            font-size: calc(11pt * var(--s));
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+        .kf-company-center p {
+            margin: 0;
+            font-size: calc(9.5pt * var(--s));
+        }
+        .kf-logo-right {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            padding-right: 14px;
+        }
+        .kf-logo-right img {
+            width: calc(112px * var(--s));
+            height: auto;
+            object-fit: contain;
+            display: block;
+        }
+        .kf-title {
+            text-align: center;
+            font-size: calc(12pt * var(--s));
+            font-weight: 700;
+            text-transform: uppercase;
+            margin: calc(4px * var(--s)) 0 calc(5px * var(--s));
+        }
+        .kf-meta {
+            width: 100%;
+            margin-bottom: calc(4px * var(--s));
+            font-size: calc(8.8pt * var(--s));
+        }
+        .kf-meta-row {
+            display: grid;
+            grid-template-columns: 6.0% 1fr;
+            column-gap: 3px;
+            margin-bottom: calc(2px * var(--s));
+            align-items: baseline;
+        }
+        .kf-meta-row > span {
+            min-width: 0;
+            white-space: normal;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+        }
+        .kf-meta-kinhgui-label {
+            font-weight: 700;
+            font-style: italic;
+            text-decoration: underline;
+            font-size: calc(8.2pt * var(--s));
+        }
+        .kf-meta-kinhgui-val {
+            font-weight: 700;
+            font-style: italic;
+        }
+        .kf-meta-label-sub {
+            font-style: italic;
+            font-size: calc(7.2pt * var(--s));
+            line-height: 1.15;
+        }
+        .kf-meta-italic {
+            font-style: italic;
+        }
+        .kf-intro {
+            text-align: center;
+            font-weight: 700;
+            font-style: italic;
+            color: #0070c0;
+            font-size: calc(9.2pt * var(--s));
+            margin: calc(3px * var(--s)) 0 calc(4px * var(--s));
+        }
+        table.kf-table {
+            width: 100%;
+            border-collapse: collapse;
+            table-layout: fixed;
+            font-size: calc(7.4pt * var(--s));
+        }
+        table.kf-table th,
+        table.kf-table td {
+            border: 1px solid #000000;
+            padding: calc(2.4px * var(--s)) calc(3px * var(--s));
+            vertical-align: middle;
+            line-height: 1.18;
+            white-space: normal;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+            word-break: break-word;
+        }
+        table.kf-table thead th {
+            background: #ffff00;
+            text-align: center;
+            font-weight: 700;
+            font-size: calc(7pt * var(--s));
+            line-height: 1.14;
+            padding: calc(3px * var(--s)) calc(2px * var(--s));
+        }
+        .kf-sec-row td {
+            background: #c5d9f1;
+            font-weight: 700;
+            text-transform: uppercase;
+            padding: calc(2.6px * var(--s)) calc(4px * var(--s));
+        }
+        .c-center { text-align: center; }
+        .c-left { text-align: left; }
+        .c-right { text-align: right; }
+        .c-bold { font-weight: 700; }
+        .c-tt { font-size: calc(6.8pt * var(--s)); }
+        .c-name { line-height: 1.18; }
+        .c-uprice { font-size: calc(7pt * var(--s)); }
+        .c-note {
+            font-size: calc(6.8pt * var(--s));
+            line-height: 1.16;
+        }
+        .kf-summary-row td {
+            font-weight: 700;
+            padding: calc(3px * var(--s)) calc(4px * var(--s));
+            font-size: calc(7.6pt * var(--s));
+        }
+        .kf-summary-label {
+            text-align: center;
+        }
+        .kf-summary-val {
+            text-align: right;
+            color: #c00000;
+            font-weight: 700;
+        }
+        table.kf-table td.no-border {
+            border: 0 !important;
+            background: transparent !important;
+        }
+        .kf-terms {
+            margin-top: calc(4px * var(--s));
+            font-family: Arial, Helvetica, sans-serif;
+            font-size: calc(7.2pt * var(--s));
+            line-height: 1.25;
+        }
+        .kf-terms-head {
+            font-family: "Times New Roman", Times, serif;
+            font-size: calc(8pt * var(--s));
+            font-weight: 700;
+            text-decoration: underline;
+            font-style: italic;
+            margin-bottom: 1px;
+        }
+        .kf-terms p {
+            margin: 1px 0;
+        }
+        .kf-sign {
+            margin-top: calc(3px * var(--s));
+            font-family: "Times New Roman", Times, serif;
+            font-size: calc(8.2pt * var(--s));
+            line-height: 1.28;
+            font-style: italic;
+        }
+        .kf-sign-grid {
+            display: grid;
+            grid-template-columns: 6.0% 1fr;
+            column-gap: 3px;
+            align-items: baseline;
+        }
+        .kf-sign-grid > span {
+            min-width: 0;
+            white-space: normal;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+        }
+        .kf-sign-label {
+            text-align: center;
+        }
+        .kf-sign-name {
+            grid-column: 1 / -1;
+            padding-left: 6px;
+            color: #800000;
+        }
+        .kf-sign-hp {
+            text-decoration: underline;
+        }
+        .kf-sign-email {
+            color: #0070c0;
+        }
+    </style>
+</head>
+<body>
+    <div class="q-page-frame" id="qPageFrame">
+        <div class="q-scale-box" id="qScaleBox">
+            <div class="q-sheet" id="qSheet">
+                <header class="kf-header">
+                    <div class="kf-logo-left">
+                        <img src="${escapeHtml(starLightLogoUrl.value)}" alt="STAR LIGHT" />
+                    </div>
+                    <div class="kf-company-center">
+                        <h1>CÔNG TY CỔ PHẦN QUỐC TẾ STAR LIGHT</h1>
+                        <p>Địa chỉ VP: Số 15 Nguyễn Cảnh Dị, Định Công, Hà Nội</p>
+                        <p>Điện thoại: 0243 201 8322 - Hotline: 0979 541 345</p>
+                        <p>www: starlightgroup.vn</p>
+                    </div>
+                    <div class="kf-logo-right">
+                        <img src="${escapeHtml(kflexLogoUrl.value)}" alt="K-FLEX" />
+                    </div>
+                </header>
+
+                <div class="kf-title">${escapeHtml(kflexQuoteForm.value.documentTitle)}</div>
+
+                <div class="kf-meta">
+                    <div class="kf-meta-row">
+                        <span class="kf-meta-kinhgui-label">Kính gửi:</span>
+                        <span class="kf-meta-kinhgui-val">${escapeHtml(kflexQuoteForm.value.recipientCompany)}</span>
+                    </div>
+                    <div class="kf-meta-row">
+                        <span class="kf-meta-label-sub">Người nhận :</span>
+                        <span class="kf-meta-italic">${escapeHtml(kflexQuoteForm.value.recipientPerson)}</span>
+                    </div>
+                    <div class="kf-meta-row">
+                        <span class="kf-meta-label-sub">Project :</span>
+                        <span class="kf-meta-italic">${escapeHtml(kflexQuoteForm.value.projectName)}</span>
+                    </div>
+                    <div class="kf-meta-row">
+                        <span class="kf-meta-label-sub">Thời gian:</span>
+                        <span class="kf-meta-italic">${escapeHtml(kflexFormattedQuoteDate.value)}</span>
+                    </div>
+                </div>
+
+                <div class="kf-intro">${escapeHtml(kflexQuoteForm.value.introText)}</div>
+
+                <table class="kf-table">
+                    <colgroup>
+                        <col style="width: 6.0%" />
+                        <col style="width: 16.2%" />
+                        <col style="width: 7.2%" />
+                        <col style="width: 9.0%" />
+                        <col style="width: 7.2%" />
+                        <col style="width: 4.4%" />
+                        <col style="width: 4.4%" />
+                        <col style="width: 4.4%" />
+                        <col style="width: 4.4%" />
+                        <col style="width: 5.4%" />
+                        <col style="width: 5.4%" />
+                        <col style="width: 7.2%" />
+                        <col style="width: 7.8%" />
+                        <col style="width: 11.0%" />
+                    </colgroup>
+                    <thead>
+                        <tr>
+                            <th rowspan="2">TT</th>
+                            <th rowspan="2">Tên vật tư</th>
+                            <th rowspan="2">Nhãn hiệu</th>
+                            <th rowspan="2">Thương hiệu - Xuất xứ</th>
+                            <th rowspan="2">Loại sản phẩm</th>
+                            <th colspan="4">Kích thước</th>
+                            <th colspan="2">Khối lượng</th>
+                            <th rowspan="2">Đơn giá<br>Unit Price</th>
+                            <th rowspan="2">Tổng<br>Total</th>
+                            <th rowspan="2">Ghi chú</th>
+                        </tr>
+                        <tr>
+                            <th>Chiều dày<br>(mm)</th>
+                            <th>ID (mm)</th>
+                            <th>Chiều rộng<br>(m)</th>
+                            <th>Chiều dài<br>(m)</th>
+                            <th>m</th>
+                            <th>m2</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${bodyRowsHtml}
+                        <tr class="kf-summary-row">
+                            <td colspan="12" class="kf-summary-label">
+                                TỔNG CỘNG (chưa bao gồm thuế VAT) - Sub Total (Not included VAT)
+                            </td>
+                            <td class="kf-summary-val">${formatKflexTotalNum(kflexSubTotal.value)}</td>
+                            <td class="no-border"></td>
+                        </tr>
+                        <tr class="kf-summary-row">
+                            <td colspan="12" class="kf-summary-label">
+                                Thuế VAT (${kflexFormattedVatLabel.value})
+                            </td>
+                            <td class="kf-summary-val">${formatKflexTotalNum(kflexVatAmount.value)}</td>
+                            <td class="no-border"></td>
+                        </tr>
+                        <tr class="kf-summary-row">
+                            <td colspan="12" class="kf-summary-label">
+                                TỔNG CỘNG (bao gồm thuế VAT) - Sub Total (included VAT)
+                            </td>
+                            <td class="kf-summary-val">${formatKflexTotalNum(kflexGrandTotal.value)}</td>
+                            <td class="no-border"></td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <div class="kf-terms">
+                    <div class="kf-terms-head">Điều kiện thương mại:</div>
+                    <p>1. Báo giá có hiệu lực đến ngày: ${escapeHtml(kflexFormattedValidUntil.value)}</p>
+                    <p>2. Phương thức thanh toán: ${escapeHtml(kflexQuoteForm.value.paymentTerms)}</p>
+                    <p>3. Phương thức giao hàng: ${escapeHtml(kflexQuoteForm.value.deliveryMethod)}</p>
+                    <p>4. Thời gian giao hàng: ${escapeHtml(kflexQuoteForm.value.deliveryTime)}</p>
+                    <p>5. Chúng tôi hy vọng báo giá này sẽ làm hài lòng Quý Công ty. Mọi thắc mắc xin vui lòng liên lạc với chúng tôi</p>
+                    <p>Rất mong nhận được sự ủng hộ từ Quý Công ty.</p>
+                </div>
+
+                <div class="kf-sign">
+                    <div class="kf-sign-grid">
+                        <span></span>
+                        <span class="kf-sign-thanks">Many thanks &amp; Best regards</span>
+                        <span class="kf-sign-name">${escapeHtml(kflexQuoteForm.value.contactName)}</span>
+                        <span class="kf-sign-label">HP</span>
+                        <span class="kf-sign-hp">${escapeHtml(kflexQuoteForm.value.contactHp)}</span>
+                        <span class="kf-sign-label">Email :</span>
+                        <span class="kf-sign-email">${escapeHtml(kflexQuoteForm.value.contactEmail)}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script>
+        (function () {
+            var imgs = Array.prototype.slice.call(document.images);
+            var pending = imgs.filter(function (img) { return !img.complete; });
+
+            function fitSinglePageAndPrint() {
+                var frame = document.getElementById('qPageFrame');
+                var sheet = document.getElementById('qSheet');
+                if (frame && sheet) {
+                    var cs = window.getComputedStyle(frame);
+                    var padY = parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom);
+                    var targetPagePx = (297 / 25.4) * 96;
+                    var availH = targetPagePx - padY - 4;
+                    var rawH = sheet.scrollHeight;
+
+                    if (rawH > availH && availH > 0) {
+                        var low = 0.48;
+                        var high = 1.0;
+                        var best = 0.48;
+                        for (var step = 0; step < 12; step++) {
+                            var mid = (low + high) / 2;
+                            sheet.style.setProperty('--s', String(mid));
+                            if (sheet.scrollHeight <= availH) {
+                                best = mid;
+                                low = mid;
+                            } else {
+                                high = mid;
+                            }
+                        }
+                        sheet.style.setProperty('--s', String(best));
+                    }
+                }
+
+                var closePrintWindow = function () {
+                    setTimeout(function () {
+                        window.close();
+                    }, 100);
+                };
+
+                window.addEventListener('afterprint', closePrintWindow);
+                window.onafterprint = closePrintWindow;
+                if (window.matchMedia) {
+                    var mediaQueryList = window.matchMedia('print');
+                    if (mediaQueryList.addEventListener) {
+                        mediaQueryList.addEventListener('change', function (mql) {
+                            if (!mql.matches) {
+                                closePrintWindow();
+                            }
+                        });
+                    }
+                }
+
+                setTimeout(function () {
+                    window.focus();
+                    window.print();
+                }, 150);
+            }
+
+            if (pending.length === 0) {
+                fitSinglePageAndPrint();
+            } else {
+                var loaded = 0;
+                pending.forEach(function (img) {
+                    var done = function () {
+                        loaded++;
+                        if (loaded >= pending.length) {
+                            fitSinglePageAndPrint();
+                        }
+                    };
+                    img.addEventListener('load', done);
+                    img.addEventListener('error', done);
+                });
+            }
+        })();
+    <\/script>
+</body>
+</html>`;
+
+    printWindow.document.open();
+    printWindow.document.write(html);
+    printWindow.document.close();
+
+    let notified = false;
+    const notifyCompleted = (): void => {
+        if (notified) {
+            return;
+        }
+        notified = true;
+        notifyToast('Đã xuất báo giá bảo ôn K-Flex PDF thành công.');
+    };
+    printWindow.addEventListener('afterprint', notifyCompleted);
+    printWindow.addEventListener('beforeunload', notifyCompleted);
+    notifyToast('Đã xuất báo giá bảo ôn K-Flex PDF thành công.');
 };
 
 const printQuotationPdf = (): void => {
@@ -334,6 +1514,8 @@ const printQuotationPdf = (): void => {
     const pageOrientation = portrait ? 'portrait' : 'landscape';
     const pageW = portrait ? '210mm' : '297mm';
     const pageH = portrait ? '297mm' : '210mm';
+    const framePad = portrait ? '15mm 16mm' : '12mm 16mm';
+    const targetPageHeightMm = portrait ? 297 : 210;
     const winFeatures = portrait ? 'width=920,height=1160' : 'width=1240,height=860';
 
     const printWindow = window.open('', '_blank', winFeatures);
@@ -379,25 +1561,19 @@ const printQuotationPdf = (): void => {
         }
         html, body {
             width: ${pageW};
-            height: ${pageH};
-            max-height: ${pageH};
-            margin: 0;
+            margin: 0 auto;
             padding: 0;
-            overflow: hidden;
             font-family: "Times New Roman", Times, serif;
             color: #000000;
             background: #ffffff;
-            font-size: 10.5pt;
-            line-height: 1.26;
             -webkit-print-color-adjust: exact;
             print-color-adjust: exact;
         }
         .q-page-frame {
             width: ${pageW};
-            height: ${pageH};
-            max-height: ${pageH};
-            padding: 5mm 8mm;
-            overflow: hidden;
+            min-height: ${pageH};
+            margin: 0 auto;
+            padding: ${framePad};
             page-break-after: avoid;
             break-after: avoid;
             page-break-inside: avoid;
@@ -405,24 +1581,28 @@ const printQuotationPdf = (): void => {
         }
         .q-scale-box {
             width: 100%;
-            overflow: hidden;
         }
         .q-sheet {
+            --s: 1;
             width: 100%;
-            transform-origin: top left;
+            font-size: calc(10.5pt * var(--s));
+            line-height: 1.26;
         }
         .q-header {
             display: grid;
-            grid-template-columns: 200px 1fr 210px;
+            grid-template-columns: 44mm 1fr 44mm;
             align-items: center;
             gap: 10px;
-            margin-bottom: 4px;
+            margin-bottom: calc(4px * var(--s));
         }
         .q-logo-left {
-            padding-left: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: flex-start;
+            padding-left: 6px;
         }
         .q-logo-left img {
-            width: 112px;
+            width: calc(108px * var(--s));
             height: auto;
             object-fit: contain;
             display: block;
@@ -433,44 +1613,51 @@ const printQuotationPdf = (): void => {
         }
         .q-company-center h1 {
             margin: 0 0 2px;
-            font-size: 13.5pt;
+            font-size: calc(13.5pt * var(--s));
             font-weight: 700;
             text-transform: uppercase;
         }
         .q-company-center p {
             margin: 0;
-            font-size: 11.5pt;
+            font-size: calc(11.5pt * var(--s));
         }
         .q-logo-right {
             display: flex;
             align-items: center;
             justify-content: flex-end;
-            padding-right: 8px;
+            padding-right: 6px;
         }
         .q-logo-right img {
-            width: 188px;
+            width: calc(168px * var(--s));
             height: auto;
             object-fit: contain;
             display: block;
         }
         .q-title {
             text-align: center;
-            font-size: 14.5pt;
+            font-size: calc(14.5pt * var(--s));
             font-weight: 700;
             text-decoration: underline;
             text-transform: uppercase;
-            margin: 5px 0 6px;
+            margin: calc(5px * var(--s)) 0 calc(6px * var(--s));
         }
         .q-meta {
             width: 100%;
-            margin-bottom: 3px;
-            font-size: 10.5pt;
+            margin-bottom: calc(3px * var(--s));
+            font-size: calc(10.5pt * var(--s));
         }
         .q-meta-row {
             display: grid;
             grid-template-columns: 9.5% 1fr;
-            margin-bottom: 2px;
+            column-gap: 4px;
+            margin-bottom: calc(2px * var(--s));
             align-items: baseline;
+        }
+        .q-meta-row > span {
+            min-width: 0;
+            white-space: normal;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
         }
         .q-meta-label-kinhgui {
             font-weight: 700;
@@ -482,7 +1669,8 @@ const printQuotationPdf = (): void => {
         }
         .q-meta-label-italic {
             font-style: italic;
-            padding-left: 3px;
+            font-size: calc(9.2pt * var(--s));
+            line-height: 1.18;
         }
         .q-meta-label-project {
             font-weight: 700;
@@ -494,28 +1682,31 @@ const printQuotationPdf = (): void => {
         .q-intro {
             text-align: center;
             font-style: italic;
-            font-size: 10.2pt;
-            margin: 3px 0 4px;
+            font-size: calc(10.2pt * var(--s));
+            margin: calc(3px * var(--s)) 0 calc(4px * var(--s));
         }
         table.q-table {
             width: 100%;
             border-collapse: collapse;
             table-layout: fixed;
-            font-size: 10pt;
+            font-size: calc(10pt * var(--s));
         }
         table.q-table th,
         table.q-table td {
             border: 1px solid #000000;
-            padding: 4px 5px;
+            padding: calc(4px * var(--s)) calc(5px * var(--s));
             vertical-align: middle;
+            white-space: normal;
             word-wrap: break-word;
+            overflow-wrap: break-word;
+            word-break: break-word;
         }
         table.q-table thead th {
             text-align: center;
             font-weight: 700;
-            font-size: 9.5pt;
+            font-size: calc(9.5pt * var(--s));
             line-height: 1.2;
-            padding: 5px 3px;
+            padding: calc(5px * var(--s)) calc(3px * var(--s));
         }
         table.q-table thead th em {
             display: block;
@@ -540,26 +1731,26 @@ const printQuotationPdf = (): void => {
         .c-spec {
             text-align: left;
             vertical-align: middle;
-            line-height: 1.28;
-            font-size: 10.5pt;
-            padding: 5px 7px;
+            line-height: 1.26;
+            font-size: calc(10.2pt * var(--s));
+            padding: calc(5px * var(--s)) calc(7px * var(--s));
         }
         .c-img {
-            padding: 4px;
+            padding: calc(4px * var(--s));
         }
         .q-prod-img {
             width: 98%;
             max-width: 100%;
-            height: 178px;
-            max-height: 188px;
+            height: calc(170px * var(--s));
+            max-height: calc(180px * var(--s));
             object-fit: contain;
             display: block;
             margin: 0 auto;
         }
         .q-summary-row td {
             font-weight: 700;
-            padding: 3.5px 5px;
-            font-size: 9.8pt;
+            padding: calc(3.5px * var(--s)) calc(5px * var(--s));
+            font-size: calc(9.8pt * var(--s));
         }
         .q-summary-label {
             text-align: center;
@@ -569,9 +1760,9 @@ const printQuotationPdf = (): void => {
             font-weight: 700;
         }
         .q-terms {
-            margin-top: 3px;
-            font-size: 9pt;
-            line-height: 1.26;
+            margin-top: calc(3px * var(--s));
+            font-size: calc(9pt * var(--s));
+            line-height: 1.25;
             font-weight: 700;
         }
         .q-terms-head {
@@ -582,9 +1773,9 @@ const printQuotationPdf = (): void => {
             margin: 1px 0;
         }
         .q-sign {
-            margin-top: 6px;
-            font-size: 9.2pt;
-            line-height: 1.26;
+            margin-top: calc(6px * var(--s));
+            font-size: calc(9.2pt * var(--s));
+            line-height: 1.25;
             font-weight: 700;
             font-style: italic;
         }
@@ -708,35 +1899,29 @@ const printQuotationPdf = (): void => {
 
             function fitSinglePageAndPrint() {
                 var frame = document.getElementById('qPageFrame');
-                var scaleBox = document.getElementById('qScaleBox');
                 var sheet = document.getElementById('qSheet');
-                if (frame && scaleBox && sheet) {
+                if (frame && sheet) {
                     var cs = window.getComputedStyle(frame);
                     var padY = parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom);
-                    var availH = frame.clientHeight - padY - 2;
+                    var targetPagePx = (${targetPageHeightMm} / 25.4) * 96;
+                    var availH = targetPagePx - padY - 4;
                     var rawH = sheet.scrollHeight;
 
                     if (rawH > availH && availH > 0) {
-                        var low = 0.28;
+                        var low = 0.48;
                         var high = 1.0;
-                        var best = 0.28;
-                        for (var i = 0; i < 12; i++) {
+                        var best = 0.48;
+                        for (var step = 0; step < 12; step++) {
                             var mid = (low + high) / 2;
-                            sheet.style.width = (100 / mid) + '%';
-                            sheet.style.transform = 'scale(' + mid + ')';
-                            var scaledH = sheet.scrollHeight * mid;
-                            if (scaledH <= availH) {
+                            sheet.style.setProperty('--s', String(mid));
+                            if (sheet.scrollHeight <= availH) {
                                 best = mid;
                                 low = mid;
                             } else {
                                 high = mid;
                             }
                         }
-                        sheet.style.width = (100 / best) + '%';
-                        sheet.style.transform = 'scale(' + best + ')';
-                        scaleBox.style.height = Math.floor(availH) + 'px';
-                    } else {
-                        scaleBox.style.height = Math.ceil(rawH) + 'px';
+                        sheet.style.setProperty('--s', String(best));
                     }
                 }
 
@@ -813,7 +1998,7 @@ const printQuotationPdf = (): void => {
         <div class="page-head">
             <div>
                 <h2>Tạo Báo Giá &amp; Xuất PDF</h2>
-                <p>Lập bảng báo giá dự án chuẩn mẫu Star Light và xuất file PDF khổ A4 ngang.</p>
+                <p>Lập bảng báo giá dự án chuẩn mẫu Star Light và xuất file PDF khổ A4.</p>
             </div>
             <div class="actions">
                 <button
@@ -822,7 +2007,15 @@ const printQuotationPdf = (): void => {
                     type="button"
                     @click="printQuotationPdf"
                 >
-                    🖨️ In / Xuất PDF Báo Giá
+                    🖨️ In / Xuất PDF Báo Giá Ariston
+                </button>
+                <button
+                    v-else
+                    class="btn primary"
+                    type="button"
+                    @click="printKflexQuotationPdf"
+                >
+                    🖨️ In / Xuất PDF Báo Giá K-Flex
                 </button>
             </div>
         </div>
@@ -848,8 +2041,8 @@ const printQuotationPdf = (): void => {
             >
                 <span class="kb-quote-tab-badge">02</span>
                 <div>
-                    <strong>Loại báo giá thứ 2 (Bảo ôn / Vật tư dự án)</strong>
-                    <small>Sẵn sàng cập nhật khi bạn gửi file mẫu thứ 2</small>
+                    <strong>Báo giá Bảo ôn K-Flex (Ống &amp; Tấm)</strong>
+                    <small>Mẫu chuẩn Công ty CP Quốc tế Star Light · K-Flex</small>
                 </div>
             </button>
         </div>
@@ -1206,12 +2399,1253 @@ const printQuotationPdf = (): void => {
         </template>
 
         <template v-else>
+            <!-- 1. Thông tin chung & Điều kiện thương mại của Báo giá Bảo ôn K-Flex -->
             <div class="kb-quote-builder-card">
-                <div class="kb-quote-section-title">Mẫu báo giá số 02</div>
-                <p style="margin: 0; color: var(--muted);">
-                    Bạn hãy gửi tiếp file mẫu PDF của loại báo giá thứ 2 để hệ thống thiết lập form nhập liệu và biểu mẫu in giống hệt 100% như mẫu Bình nước nóng Ariston.
-                </p>
+                <div class="kb-quote-section-title">
+                    1. Thông tin chung &amp; Điều kiện thương mại (Báo giá Bảo ôn K-Flex)
+                </div>
+                <div class="kb-quote-form-grid">
+                    <label class="kb-quote-field">
+                        <span>Tiêu đề báo giá</span>
+                        <input
+                            v-model="kflexQuoteForm.documentTitle"
+                            type="text"
+                            placeholder="BÁO GIÁ BẢO ÔN K-FLEX"
+                        />
+                    </label>
+                    <label class="kb-quote-field">
+                        <span>Kính gửi</span>
+                        <input
+                            v-model="kflexQuoteForm.recipientCompany"
+                            type="text"
+                            placeholder="VD: Quý đối tác Công ty Cổ phần Kỹ thuật Thăng Tiến"
+                        />
+                    </label>
+                    <label class="kb-quote-field">
+                        <span>Người nhận</span>
+                        <input
+                            v-model="kflexQuoteForm.recipientPerson"
+                            type="text"
+                            placeholder="VD: Mr.Phương"
+                        />
+                    </label>
+                    <label class="kb-quote-field">
+                        <span>Project (Dự án)</span>
+                        <input
+                            v-model="kflexQuoteForm.projectName"
+                            type="text"
+                            placeholder="VD: Detech Tower"
+                        />
+                    </label>
+                    <label class="kb-quote-field">
+                        <span>Thời gian báo giá</span>
+                        <input v-model="kflexQuoteForm.quoteDate" type="date" />
+                    </label>
+                    <label class="kb-quote-field">
+                        <span>Hiệu lực đến ngày</span>
+                        <input v-model="kflexQuoteForm.validUntilDate" type="date" />
+                    </label>
+                    <label class="kb-quote-field">
+                        <span>Thuế VAT (%)</span>
+                        <input
+                            v-model.number="kflexQuoteForm.vatPercent"
+                            type="number"
+                            min="0"
+                            max="100"
+                            step="1"
+                        />
+                    </label>
+                    <label class="kb-quote-field">
+                        <span>Người liên hệ (Ký tên)</span>
+                        <input
+                            v-model="kflexQuoteForm.contactName"
+                            type="text"
+                            placeholder="Mr.Kiệt"
+                        />
+                    </label>
+                    <label class="kb-quote-field">
+                        <span>Số điện thoại (HP)</span>
+                        <input
+                            v-model="kflexQuoteForm.contactHp"
+                            type="text"
+                            placeholder="0979.807.234"
+                        />
+                    </label>
+                    <label class="kb-quote-field">
+                        <span>Email liên hệ</span>
+                        <input
+                            v-model="kflexQuoteForm.contactEmail"
+                            type="text"
+                            placeholder="tuankiet@starlightgroup.vn"
+                        />
+                    </label>
+                    <label class="kb-quote-field kb-quote-span-2">
+                        <span>Dòng giới thiệu (In nghiêng xanh dưới thông tin dự án)</span>
+                        <input
+                            v-model="kflexQuoteForm.introText"
+                            type="text"
+                        />
+                    </label>
+                    <label class="kb-quote-field kb-quote-span-2">
+                        <span>2. Phương thức thanh toán</span>
+                        <input
+                            v-model="kflexQuoteForm.paymentTerms"
+                            type="text"
+                        />
+                    </label>
+                    <label class="kb-quote-field kb-quote-span-2">
+                        <span>3. Phương thức giao hàng</span>
+                        <input
+                            v-model="kflexQuoteForm.deliveryMethod"
+                            type="text"
+                        />
+                    </label>
+                    <label class="kb-quote-field kb-quote-span-full">
+                        <span>4. Thời gian giao hàng</span>
+                        <input
+                            v-model="kflexQuoteForm.deliveryTime"
+                            type="text"
+                        />
+                    </label>
+
+                    <!-- Chọn chung Nhãn hiệu & Xuất xứ cho cả file báo giá (Hỗ trợ chọn 1 loại hoặc tích chọn 2-3 loại) -->
+                    <div class="kb-quote-field kb-quote-span-full kflex-global-brand-box">
+                        <div class="kflex-global-brand-head">
+                            <div>
+                                <strong>Nhãn hiệu (Dòng sản phẩm) &amp; Xuất xứ áp dụng cho báo giá</strong>
+                                <p>
+                                    Thường chỉ chọn 1 loại cho toàn bộ file báo giá (Xuất xứ tự động đi theo Nhãn hiệu). Nếu khách yêu cầu báo giá kết hợp 2 hoặc 3 loại, hãy tích chọn thêm bên dưới.
+                                </p>
+                            </div>
+                            <div class="kflex-global-brand-quick">
+                                <button
+                                    v-for="opt in kflexAllProductLineOptions"
+                                    :key="`single-${opt.key}`"
+                                    type="button"
+                                    class="kflex-quick-line-btn"
+                                    :class="{
+                                        active:
+                                            kflexSelectedProductLines.length === 1 &&
+                                            kflexSelectedProductLines[0] === opt.key,
+                                    }"
+                                    @click="selectSingleKflexProductLine(opt.key)"
+                                >
+                                    Chỉ dùng {{ opt.brandLabel }} ({{ opt.originLabel }})
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="kflex-global-brand-pills">
+                            <label
+                                v-for="opt in kflexAllProductLineOptions"
+                                :key="opt.key"
+                                class="kflex-brand-pill"
+                                :class="{ checked: kflexSelectedProductLines.includes(opt.key) }"
+                            >
+                                <input
+                                    type="checkbox"
+                                    :checked="kflexSelectedProductLines.includes(opt.key)"
+                                    @change="toggleKflexProductLine(opt.key)"
+                                />
+                                <div class="kflex-brand-pill-info">
+                                    <strong>{{ opt.brandLabel }}</strong>
+                                    <small>Thương hiệu - Xuất xứ: {{ opt.originLabel }}</small>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 2. Quản lý Nhóm hạng mục & Danh sách Vật tư Bảo ôn K-Flex -->
+            <div class="kb-quote-builder-card">
+                <div class="kb-quote-items-head">
+                    <div>
+                        <div class="kb-quote-section-title">
+                            2. Nhóm hạng mục &amp; Vật tư Bảo ôn K-Flex ({{ kflexGroups.length }} nhóm — {{ kflexTotalItemsCount }} dòng vật tư)
+                        </div>
+                        <small class="kb-quote-section-sub">
+                            Mỗi <strong>Nhóm hạng mục</strong> có thể bật/tắt tiêu đề nhóm (hoặc để trống nếu không chia nhóm) và chứa nhiều loại bảo ôn khác nhau. <strong>Tên vật tư</strong> và <strong>Đơn giá</strong> tự động lấy chuẩn theo bảng giá đã lưu.
+                        </small>
+                    </div>
+                    <div class="kb-quote-items-actions">
+                        <button
+                            v-for="preset in kflexSectionPresets"
+                            :key="preset"
+                            type="button"
+                            class="btn"
+                            @click="addKflexGroup(preset)"
+                        >
+                            ＋ {{ preset }}
+                        </button>
+                        <button
+                            type="button"
+                            class="btn"
+                            @click="addKflexGroup('')"
+                        >
+                            ＋ Nhóm không tiêu đề
+                        </button>
+                        <button
+                            type="button"
+                            class="btn primary"
+                            @click="addKflexGroup('BẢO ÔN CHO ĐƯỜNG THÉP')"
+                        >
+                            ＋ Thêm Nhóm hạng mục
+                        </button>
+                    </div>
+                </div>
+
+                <datalist id="kflex-section-presets">
+                    <option v-for="sec in kflexSectionPresets" :key="sec" :value="sec" />
+                </datalist>
+
+                <div class="kflex-groups-container">
+                    <div
+                        v-for="(group, gIdx) in kflexGroups"
+                        :key="group.uid"
+                        class="kflex-group-card"
+                    >
+                        <!-- Thanh thiết lập riêng cho Nhóm hạng mục (Có thể có hoặc không có tiêu đề nhóm) -->
+                        <div class="kflex-group-bar">
+                            <div class="kflex-group-bar-left">
+                                <span class="kflex-group-badge">Nhóm #{{ gIdx + 1 }}</span>
+
+                                <label class="kflex-group-toggle">
+                                    <input v-model="group.hasTitle" type="checkbox" />
+                                    <span>Có tiêu đề nhóm hạng mục</span>
+                                </label>
+
+                                <input
+                                    v-if="group.hasTitle"
+                                    v-model="group.title"
+                                    type="text"
+                                    list="kflex-section-presets"
+                                    class="kflex-group-title-input"
+                                    placeholder="Nhập tên nhóm (VD: BẢO ÔN CHO ĐƯỜNG THÉP) — để trống nếu không hiện dòng tiêu đề..."
+                                />
+                                <span v-else class="kflex-group-no-title-hint">
+                                    (Không hiển thị dòng tiêu đề nhóm trên báo giá)
+                                </span>
+                            </div>
+
+                            <div class="kflex-group-bar-right">
+                                <button
+                                    type="button"
+                                    class="btn primary kflex-btn-sm"
+                                    @click="addKflexItemToGroup(group)"
+                                >
+                                    ＋ Thêm loại bảo ôn vào nhóm
+                                </button>
+                                <button
+                                    v-if="kflexGroups.length > 1"
+                                    type="button"
+                                    class="btn danger kflex-btn-sm"
+                                    @click="removeKflexGroup(gIdx)"
+                                >
+                                    Xóa nhóm
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Bảng các loại bảo ôn thuộc Nhóm này -->
+                        <div class="kflex-entry-table-wrap">
+                            <table class="kflex-entry-table">
+                                <thead>
+                                    <tr>
+                                        <th style="width: 38px">#</th>
+                                        <th style="min-width: 245px">Tên vật tư (Chuẩn theo bảng giá đã lưu)</th>
+                                        <th style="width: 138px">Nhãn hiệu</th>
+                                        <th style="width: 96px">Thương hiệu<br />- Xuất xứ</th>
+                                        <th style="width: 82px">Hình thức</th>
+                                        <th style="width: 148px">Loại sản phẩm</th>
+                                        <th style="width: 78px">Chiều dày<br />(mm)</th>
+                                        <th style="width: 78px">ID<br />(mm)</th>
+                                        <th style="width: 68px">Chiều rộng<br />(m)</th>
+                                        <th style="width: 68px">Chiều dài<br />(m)</th>
+                                        <th style="width: 82px">Khối lượng<br />(m / m2)</th>
+                                        <th style="width: 105px">Đơn giá<br />Unit Price</th>
+                                        <th style="width: 112px">Tổng<br />Total</th>
+                                        <th style="width: 165px">Ghi chú</th>
+                                        <th style="width: 68px">Thao tác</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr v-for="(item, idx) in group.items" :key="item.uid">
+                                        <td class="kflex-entry-tt">{{ idx + 1 }}</td>
+
+                                        <!-- Tên vật tư (Chuẩn theo bảng giá đã lưu) -->
+                                        <td>
+                                            <input
+                                                v-model="item.itemName"
+                                                type="text"
+                                                class="kflex-cell-input kflex-cell-name"
+                                                placeholder="Tên vật tư theo bảng giá..."
+                                            />
+                                        </td>
+
+                                        <!-- Nhãn hiệu (Chọn chung ở trên; nếu tích >= 2 loại thì cho chọn trong các loại đã tích) -->
+                                        <td class="kflex-cell-center">
+                                            <select
+                                                v-if="kflexSelectedProductLines.length > 1"
+                                                v-model="item.productLine"
+                                                class="kflex-cell-select"
+                                                @change="onKflexLineOrFormChange(item)"
+                                            >
+                                                <option
+                                                    v-for="opt in kflexAllProductLineOptions.filter((o) =>
+                                                        kflexSelectedProductLines.includes(o.key),
+                                                    )"
+                                                    :key="opt.key"
+                                                    :value="opt.key"
+                                                >
+                                                    {{ opt.brandLabel }}
+                                                </option>
+                                            </select>
+                                            <span v-else class="kflex-readonly-chip">
+                                                {{ item.brandLabel }}
+                                            </span>
+                                        </td>
+
+                                        <!-- Thương hiệu - Xuất xứ (Tự động đi theo Nhãn hiệu) -->
+                                        <td class="kflex-cell-center">
+                                            <span class="kflex-readonly-origin">
+                                                {{ item.originLabel }}
+                                            </span>
+                                        </td>
+
+                                        <!-- Hình thức: Ống / Tấm -->
+                                        <td>
+                                            <select
+                                                v-model="item.formType"
+                                                class="kflex-cell-select"
+                                                @change="onKflexLineOrFormChange(item)"
+                                            >
+                                                <option value="tube">Ống</option>
+                                                <option value="sheet">Tấm</option>
+                                            </select>
+                                        </td>
+
+                                        <!-- Loại sản phẩm -->
+                                        <td>
+                                            <select
+                                                v-model="item.variantType"
+                                                class="kflex-cell-select"
+                                                @change="syncKflexRowFromDatabase(item)"
+                                            >
+                                                <template v-if="item.formType === 'tube'">
+                                                    <option value="alu">Có nhôm</option>
+                                                    <option value="foam">Chỉ Foam</option>
+                                                </template>
+                                                <template v-else>
+                                                    <option value="alu_or_glue">Có nhôm, không keo</option>
+                                                    <option value="alu_and_glue">Có cả keo và nhôm</option>
+                                                    <option value="foam">Chỉ Foam</option>
+                                                </template>
+                                            </select>
+                                        </td>
+
+                                        <!-- Chiều dày (mm) -->
+                                        <td>
+                                            <select
+                                                v-if="getAvailableThicknessesForRow(item).length > 0"
+                                                v-model="item.thickness"
+                                                class="kflex-cell-select kflex-cell-center"
+                                                @change="syncKflexRowFromDatabase(item)"
+                                            >
+                                                <option
+                                                    v-for="t in getAvailableThicknessesForRow(item)"
+                                                    :key="t"
+                                                    :value="t"
+                                                >
+                                                    {{ t }}
+                                                </option>
+                                            </select>
+                                            <input
+                                                v-else
+                                                v-model="item.thickness"
+                                                type="text"
+                                                class="kflex-cell-input kflex-cell-center"
+                                                placeholder="25"
+                                                @change="syncKflexRowFromDatabase(item)"
+                                            />
+                                        </td>
+
+                                        <!-- ID (mm) -->
+                                        <td>
+                                            <template v-if="item.formType === 'tube'">
+                                                <select
+                                                    v-if="getAvailableDiametersForRow(item).length > 0"
+                                                    v-model="item.innerDiameter"
+                                                    class="kflex-cell-select kflex-cell-center"
+                                                    @change="syncKflexRowFromDatabase(item)"
+                                                >
+                                                    <option
+                                                        v-for="d in getAvailableDiametersForRow(item)"
+                                                        :key="d"
+                                                        :value="d"
+                                                    >
+                                                        {{ d }}
+                                                    </option>
+                                                </select>
+                                                <input
+                                                    v-else
+                                                    v-model="item.innerDiameter"
+                                                    type="text"
+                                                    class="kflex-cell-input kflex-cell-center"
+                                                    placeholder="22"
+                                                    @change="syncKflexRowFromDatabase(item)"
+                                                />
+                                            </template>
+                                            <input
+                                                v-else
+                                                v-model="item.innerDiameter"
+                                                type="text"
+                                                class="kflex-cell-input kflex-cell-center"
+                                                placeholder="-"
+                                            />
+                                        </td>
+
+                                        <!-- Chiều rộng (m) -->
+                                        <td>
+                                            <input
+                                                v-model="item.widthM"
+                                                type="text"
+                                                class="kflex-cell-input kflex-cell-center"
+                                                placeholder="1.2"
+                                            />
+                                        </td>
+
+                                        <!-- Chiều dài (m) -->
+                                        <td>
+                                            <input
+                                                v-model="item.lengthM"
+                                                type="text"
+                                                class="kflex-cell-input kflex-cell-center"
+                                                placeholder="2"
+                                            />
+                                        </td>
+
+                                        <!-- Khối lượng (m hoặc m2) -->
+                                        <td>
+                                            <input
+                                                v-if="item.formType === 'tube'"
+                                                v-model.number="item.qtyM"
+                                                type="number"
+                                                min="0"
+                                                step="any"
+                                                class="kflex-cell-input kflex-cell-center"
+                                                placeholder="m"
+                                                title="Khối lượng (m)"
+                                            />
+                                            <input
+                                                v-else
+                                                v-model.number="item.qtyM2"
+                                                type="number"
+                                                min="0"
+                                                step="any"
+                                                class="kflex-cell-input kflex-cell-center"
+                                                placeholder="m2"
+                                                title="Khối lượng (m2)"
+                                            />
+                                        </td>
+
+                                        <!-- Đơn giá -->
+                                        <td>
+                                            <input
+                                                v-model.number="item.unitPrice"
+                                                type="number"
+                                                min="0"
+                                                step="1"
+                                                class="kflex-cell-input kflex-cell-right"
+                                            />
+                                        </td>
+
+                                        <!-- Tổng Total -->
+                                        <td class="kflex-entry-total">
+                                            {{ formatKflexTotalNum(kflexRowAmount(item)) }}
+                                        </td>
+
+                                        <!-- Ghi chú -->
+                                        <td>
+                                            <input
+                                                v-model="item.note"
+                                                type="text"
+                                                class="kflex-cell-input"
+                                                placeholder="Ghi chú (tự gộp ô nếu trùng)..."
+                                            />
+                                        </td>
+
+                                        <!-- Thao tác -->
+                                        <td class="kflex-entry-actions">
+                                            <button
+                                                type="button"
+                                                class="kflex-icon-btn"
+                                                title="Nhân bản dòng này"
+                                                @click="duplicateKflexItemInGroup(group, idx)"
+                                            >
+                                                +
+                                            </button>
+                                            <button
+                                                v-if="group.items.length > 1 || kflexGroups.length > 1"
+                                                type="button"
+                                                class="kflex-icon-btn danger"
+                                                title="Xóa dòng này"
+                                                @click="removeKflexItemFromGroup(group, idx)"
+                                            >
+                                                ×
+                                            </button>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 3. Live Preview Chuẩn Mẫu PDF Báo Giá Bảo Ôn K-Flex -->
+            <div class="kb-quote-preview-wrap">
+                <div class="kb-quote-preview-toolbar">
+                    <strong>
+                        Xem trước bản in Báo giá Bảo ôn K-Flex (Khổ A4 Đứng — {{ kflexTotalItemsCount }} hạng mục)
+                    </strong>
+                    <button class="btn primary" type="button" @click="printKflexQuotationPdf">
+                        🖨️ In / Xuất PDF Báo Giá K-Flex (A4)
+                    </button>
+                </div>
+
+                <div class="kb-quote-paper kflex-quote-paper">
+                    <header class="qp-header kflex-qp-header">
+                        <div class="qp-logo-left">
+                            <img :src="starLightLogoUrl" alt="STAR LIGHT" class="qp-starlight-logo" />
+                        </div>
+                        <div class="qp-company-center">
+                            <h1>CÔNG TY CỔ PHẦN QUỐC TẾ STAR LIGHT</h1>
+                            <p>Địa chỉ VP: Số 15 Nguyễn Cảnh Dị, Định Công, Hà Nội</p>
+                            <p>Điện thoại: 0243 201 8322 - Hotline: 0979 541 345</p>
+                            <p>www: starlightgroup.vn</p>
+                        </div>
+                        <div class="qp-logo-right">
+                            <img :src="kflexLogoUrl" alt="K-FLEX" class="qp-kflex-logo" />
+                        </div>
+                    </header>
+
+                    <div class="kflex-qp-title">{{ kflexQuoteForm.documentTitle }}</div>
+
+                    <div class="kflex-qp-meta">
+                        <div class="kflex-qp-meta-row">
+                            <span class="kflex-qp-kinhgui-label">Kính gửi:</span>
+                            <span class="kflex-qp-kinhgui-val">{{ kflexQuoteForm.recipientCompany }}</span>
+                        </div>
+                        <div class="kflex-qp-meta-row">
+                            <span class="kflex-qp-meta-label-sub">Người nhận :</span>
+                            <span class="kflex-qp-italic">{{ kflexQuoteForm.recipientPerson }}</span>
+                        </div>
+                        <div class="kflex-qp-meta-row">
+                            <span class="kflex-qp-meta-label-sub">Project :</span>
+                            <span class="kflex-qp-italic">{{ kflexQuoteForm.projectName }}</span>
+                        </div>
+                        <div class="kflex-qp-meta-row">
+                            <span class="kflex-qp-meta-label-sub">Thời gian:</span>
+                            <span class="kflex-qp-italic">{{ kflexFormattedQuoteDate }}</span>
+                        </div>
+                    </div>
+
+                    <div class="kflex-qp-intro">
+                        {{ kflexQuoteForm.introText }}
+                    </div>
+
+                    <table class="kflex-qp-table">
+                        <colgroup>
+                            <col style="width: 6.0%" />
+                            <col style="width: 16.2%" />
+                            <col style="width: 7.2%" />
+                            <col style="width: 9.0%" />
+                            <col style="width: 7.2%" />
+                            <col style="width: 4.4%" />
+                            <col style="width: 4.4%" />
+                            <col style="width: 4.4%" />
+                            <col style="width: 4.4%" />
+                            <col style="width: 5.4%" />
+                            <col style="width: 5.4%" />
+                            <col style="width: 7.2%" />
+                            <col style="width: 7.8%" />
+                            <col style="width: 11.0%" />
+                        </colgroup>
+                        <thead>
+                            <tr>
+                                <th rowspan="2">TT</th>
+                                <th rowspan="2">Tên vật tư</th>
+                                <th rowspan="2">Nhãn hiệu</th>
+                                <th rowspan="2">Thương hiệu - Xuất xứ</th>
+                                <th rowspan="2">Loại sản phẩm</th>
+                                <th colspan="4">Kích thước</th>
+                                <th colspan="2">Khối lượng</th>
+                                <th rowspan="2">Đơn giá<br />Unit Price</th>
+                                <th rowspan="2">Tổng<br />Total</th>
+                                <th rowspan="2">Ghi chú</th>
+                            </tr>
+                            <tr>
+                                <th>Chiều dày<br />(mm)</th>
+                                <th>ID (mm)</th>
+                                <th>Chiều rộng<br />(m)</th>
+                                <th>Chiều dài<br />(m)</th>
+                                <th>m</th>
+                                <th>m2</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <template v-for="row in kflexRenderRows" :key="row.key">
+                                <tr v-if="row.rowType === 'section'" class="kflex-qp-sec-row">
+                                    <td></td>
+                                    <td colspan="13" class="kflex-qp-sec-name">{{ row.sectionTitle }}</td>
+                                </tr>
+                                <tr v-else>
+                                    <td class="qp-center">{{ row.tt }}</td>
+                                    <td class="kflex-qp-item-name">{{ row.item.itemName }}</td>
+                                    <td class="qp-center">{{ row.item.brandLabel }}</td>
+                                    <td class="qp-center">{{ row.item.originLabel }}</td>
+                                    <td class="qp-center qp-preline">{{ row.item.productTypeLabel }}</td>
+                                    <td class="qp-center">{{ row.item.thickness }}</td>
+                                    <td class="qp-center">{{ row.item.innerDiameter }}</td>
+                                    <td class="qp-center">{{ row.item.widthM }}</td>
+                                    <td class="qp-center">{{ row.item.lengthM }}</td>
+                                    <td class="qp-center">{{ formatKflexNum(row.item.qtyM) }}</td>
+                                    <td class="qp-center">{{ formatKflexNum(row.item.qtyM2) }}</td>
+                                    <td class="qp-center">{{ formatKflexTotalNum(row.item.unitPrice) }}</td>
+                                    <td class="kflex-qp-right qp-bold">
+                                        {{ formatKflexTotalNum(kflexRowAmount(row.item)) }}
+                                    </td>
+                                    <td
+                                        v-if="row.noteRowspan > 0"
+                                        :rowspan="row.noteRowspan > 1 ? row.noteRowspan : undefined"
+                                        class="qp-center qp-preline kflex-qp-note"
+                                    >
+                                        {{ row.item.note }}
+                                    </td>
+                                </tr>
+                            </template>
+
+                            <tr class="kflex-qp-summary-row">
+                                <td colspan="12" class="qp-center qp-bold">
+                                    TỔNG CỘNG (chưa bao gồm thuế VAT) - Sub Total (Not included VAT)
+                                </td>
+                                <td class="kflex-qp-summary-val">
+                                    {{ formatKflexTotalNum(kflexSubTotal) }}
+                                </td>
+                                <td class="kflex-qp-no-border"></td>
+                            </tr>
+                            <tr class="kflex-qp-summary-row">
+                                <td colspan="12" class="qp-center qp-bold">
+                                    Thuế VAT ({{ kflexFormattedVatLabel }})
+                                </td>
+                                <td class="kflex-qp-summary-val">
+                                    {{ formatKflexTotalNum(kflexVatAmount) }}
+                                </td>
+                                <td class="kflex-qp-no-border"></td>
+                            </tr>
+                            <tr class="kflex-qp-summary-row">
+                                <td colspan="12" class="qp-center qp-bold">
+                                    TỔNG CỘNG (bao gồm thuế VAT) - Sub Total (included VAT)
+                                </td>
+                                <td class="kflex-qp-summary-val">
+                                    {{ formatKflexTotalNum(kflexGrandTotal) }}
+                                </td>
+                                <td class="kflex-qp-no-border"></td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <div class="kflex-qp-terms">
+                        <div class="kflex-qp-terms-head">Điều kiện thương mại:</div>
+                        <p>1. Báo giá có hiệu lực đến ngày: {{ kflexFormattedValidUntil }}</p>
+                        <p>2. Phương thức thanh toán: {{ kflexQuoteForm.paymentTerms }}</p>
+                        <p>3. Phương thức giao hàng: {{ kflexQuoteForm.deliveryMethod }}</p>
+                        <p>4. Thời gian giao hàng: {{ kflexQuoteForm.deliveryTime }}</p>
+                        <p>
+                            5. Chúng tôi hy vọng báo giá này sẽ làm hài lòng Quý Công ty. Mọi thắc mắc xin vui lòng
+                            liên lạc với chúng tôi
+                        </p>
+                        <p>Rất mong nhận được sự ủng hộ từ Quý Công ty.</p>
+                    </div>
+
+                    <div class="kflex-qp-sign">
+                        <div class="kflex-qp-sign-grid">
+                            <span></span>
+                            <span class="kflex-qp-sign-thanks">Many thanks &amp; Best regards</span>
+                            <span class="kflex-qp-sign-name">{{ kflexQuoteForm.contactName }}</span>
+                            <span class="kflex-qp-sign-label">HP</span>
+                            <span class="kflex-qp-sign-hp">{{ kflexQuoteForm.contactHp }}</span>
+                            <span class="kflex-qp-sign-label">Email :</span>
+                            <span class="kflex-qp-sign-email">{{ kflexQuoteForm.contactEmail }}</span>
+                        </div>
+                    </div>
+                </div>
             </div>
         </template>
     </AdminLayout>
 </template>
+
+<style scoped>
+.kflex-global-brand-box {
+    margin-top: 4px;
+    padding: 14px 16px;
+    border-radius: 10px;
+    border: 1px solid #d5c7ad;
+    background: #fcfaf5;
+}
+
+.kflex-global-brand-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+.kflex-global-brand-head strong {
+    display: block;
+    font-size: 13.5px;
+    color: #0f172a;
+    margin-bottom: 2px;
+}
+
+.kflex-global-brand-head p {
+    margin: 0;
+    font-size: 12px;
+    color: #475569;
+}
+
+.kflex-global-brand-quick {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.kflex-quick-line-btn {
+    border: 1px solid #cbd5e1;
+    border-radius: 7px;
+    padding: 6px 11px;
+    font-size: 12px;
+    font-weight: 600;
+    background: #ffffff;
+    color: #1e293b;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.kflex-quick-line-btn:hover {
+    border-color: #2563eb;
+    color: #2563eb;
+}
+
+.kflex-quick-line-btn.active {
+    background: #1e293b;
+    border-color: #1e293b;
+    color: #ffffff;
+}
+
+.kflex-global-brand-pills {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+}
+
+.kflex-brand-pill {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border-radius: 8px;
+    border: 1px solid #cbd5e1;
+    background: #ffffff;
+    cursor: pointer;
+    user-select: none;
+    transition: all 0.15s ease;
+}
+
+.kflex-brand-pill.checked {
+    border-color: #2563eb;
+    background: #eff6ff;
+    box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.2);
+}
+
+.kflex-brand-pill-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.kflex-brand-pill-info strong {
+    font-size: 13px;
+    color: #0f172a;
+}
+
+.kflex-brand-pill-info small {
+    font-size: 11.5px;
+    color: #475569;
+}
+
+.kflex-readonly-chip {
+    display: inline-block;
+    padding: 4px 8px;
+    border-radius: 5px;
+    background: #f1f5f9;
+    border: 1px solid #e2e8f0;
+    font-weight: 600;
+    font-size: 12px;
+    color: #0f172a;
+}
+
+.kflex-readonly-origin {
+    display: inline-block;
+    font-size: 12px;
+    font-weight: 500;
+    color: #334155;
+}
+
+.kflex-groups-container {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.kflex-group-card {
+    border: 1px solid #d5c7ad;
+    border-radius: 12px;
+    background: #fcfaf5;
+    padding: 12px;
+    box-shadow: 0 2px 6px rgba(15, 23, 42, 0.04);
+}
+
+.kflex-group-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 10px;
+    padding-bottom: 10px;
+    border-bottom: 1px dashed #d8cbb3;
+}
+
+.kflex-group-bar-left {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+    flex: 1;
+    min-width: 280px;
+}
+
+.kflex-group-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 10px;
+    border-radius: 6px;
+    background: #1e293b;
+    color: #ffffff;
+    font-weight: 700;
+    font-size: 12px;
+}
+
+.kflex-group-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: #334155;
+    cursor: pointer;
+    user-select: none;
+}
+
+.kflex-group-title-input {
+    flex: 1;
+    min-width: 260px;
+    max-width: 520px;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    padding: 6px 10px;
+    font-size: 13px;
+    font-weight: 700;
+    text-transform: uppercase;
+    background: #ffffff;
+    color: #0f172a;
+}
+
+.kflex-group-title-input:focus {
+    outline: none;
+    border-color: #2563eb;
+    box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.12);
+}
+
+.kflex-group-no-title-hint {
+    font-size: 12px;
+    font-style: italic;
+    color: #64748b;
+}
+
+.kflex-group-bar-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.kflex-btn-sm {
+    padding: 6px 12px;
+    font-size: 12.5px;
+}
+
+.kflex-cell-name {
+    font-weight: 500;
+}
+
+.kflex-entry-table-wrap {
+    width: 100%;
+    overflow-x: auto;
+    border: 1px solid #d9cfb8;
+    border-radius: 8px;
+    background: #ffffff;
+}
+
+.kflex-entry-table {
+    width: 100%;
+    min-width: 1320px;
+    border-collapse: collapse;
+    font-size: 12.5px;
+}
+
+.kflex-entry-table th,
+.kflex-entry-table td {
+    border: 1px solid #e2d9c5;
+    padding: 6px 6px;
+    vertical-align: middle;
+}
+
+.kflex-entry-table thead th {
+    background: #fef08a;
+    color: #1f2937;
+    font-weight: 700;
+    text-align: center;
+    font-size: 11.5px;
+    line-height: 1.25;
+}
+
+.kflex-entry-tt {
+    text-align: center;
+    font-weight: 700;
+    color: #4b5563;
+    background: #faf7f0;
+}
+
+.kflex-cell-input,
+.kflex-cell-select {
+    width: 100%;
+    border: 1px solid #cbd5e1;
+    border-radius: 5px;
+    padding: 5px 6px;
+    font-size: 12.5px;
+    background: #ffffff;
+    color: #111827;
+}
+
+.kflex-cell-input:focus,
+.kflex-cell-select:focus {
+    outline: none;
+    border-color: #2563eb;
+    box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.12);
+}
+
+.kflex-cell-subinput {
+    width: 100%;
+    margin-top: 3px;
+    border: 1px dashed #cbd5e1;
+    border-radius: 4px;
+    padding: 2px 5px;
+    font-size: 11px;
+    color: #475569;
+    background: #f8fafc;
+}
+
+.kflex-cell-sec {
+    font-weight: 700;
+    text-transform: uppercase;
+    font-size: 11.5px;
+}
+
+.kflex-cell-center {
+    text-align: center;
+}
+
+.kflex-cell-right {
+    text-align: right;
+}
+
+.kflex-entry-total {
+    text-align: right;
+    font-weight: 700;
+    color: #111827;
+    background: #fafaf9;
+    white-space: nowrap;
+}
+
+.kflex-entry-actions {
+    text-align: center;
+    white-space: nowrap;
+}
+
+.kflex-icon-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    border: 1px solid #cbd5e1;
+    border-radius: 5px;
+    background: #f8fafc;
+    color: #1e293b;
+    font-weight: 700;
+    cursor: pointer;
+    margin: 0 2px;
+}
+
+.kflex-icon-btn:hover {
+    background: #e2e8f0;
+}
+
+.kflex-icon-btn.danger {
+    color: #dc2626;
+    border-color: #fecaca;
+    background: #fef2f2;
+}
+
+.kflex-icon-btn.danger:hover {
+    background: #fee2e2;
+}
+
+/* Live Preview Paper — Khớp từng kích thước & căn lề với bản PDF mẫu */
+.kflex-quote-paper {
+    width: 960px;
+    min-width: 960px;
+    padding: 46px 68px;
+    font-family: 'Times New Roman', Times, serif;
+    color: #000000;
+}
+
+.kflex-qp-header {
+    grid-template-columns: 165px 1fr 165px !important;
+}
+
+.kflex-qp-header .qp-logo-left {
+    padding-left: 8px;
+}
+
+.kflex-qp-header .qp-logo-right {
+    padding-right: 18px;
+}
+
+.qp-kflex-logo {
+    width: 132px;
+    height: auto;
+    object-fit: contain;
+    display: block;
+}
+
+.kflex-qp-title {
+    text-align: center;
+    font-size: 16.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    margin: 4px 0 6px;
+}
+
+.kflex-qp-meta {
+    width: 100%;
+    margin-bottom: 5px;
+    font-size: 12px;
+}
+
+.kflex-qp-meta-row {
+    display: grid;
+    grid-template-columns: 6.0% 1fr;
+    column-gap: 4px;
+    margin-bottom: 2px;
+    align-items: baseline;
+}
+
+.kflex-qp-meta-row > span {
+    min-width: 0;
+    white-space: normal;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+}
+
+.kflex-qp-kinhgui-label {
+    font-weight: 700;
+    font-style: italic;
+    text-decoration: underline;
+    font-size: 11px;
+}
+
+.kflex-qp-kinhgui-val {
+    font-weight: 700;
+    font-style: italic;
+}
+
+.kflex-qp-meta-label-sub {
+    font-style: italic;
+    font-size: 9.8px;
+    line-height: 1.15;
+}
+
+.kflex-qp-italic {
+    font-style: italic;
+}
+
+.kflex-qp-intro {
+    text-align: center;
+    font-weight: 700;
+    font-style: italic;
+    color: #0070c0;
+    font-size: 12.5px;
+    margin: 4px 0 5px;
+}
+
+.kflex-qp-table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+    font-size: 10px;
+}
+
+.kflex-qp-table th,
+.kflex-qp-table td {
+    border: 1px solid #000000;
+    padding: 3px 4px;
+    vertical-align: middle;
+    line-height: 1.2;
+    white-space: normal;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    word-break: break-word;
+}
+
+.kflex-qp-table thead th {
+    background: #ffff00;
+    text-align: center;
+    font-weight: 700;
+    font-size: 9.5px;
+    line-height: 1.16;
+    padding: 4px 2px;
+}
+
+.kflex-qp-sec-row td {
+    background: #c5d9f1;
+    padding: 3.5px 5px;
+}
+
+.kflex-qp-sec-name {
+    font-weight: 700;
+    text-transform: uppercase;
+    text-align: left;
+}
+
+.kflex-qp-item-name {
+    text-align: left;
+    white-space: pre-line;
+}
+
+.kflex-qp-right {
+    text-align: right;
+}
+
+.kflex-qp-note {
+    font-size: 9.5px;
+    line-height: 1.2;
+}
+
+.kflex-qp-summary-row td {
+    font-weight: 700;
+    padding: 4px 5px;
+    font-size: 10.5px;
+}
+
+.kflex-qp-summary-val {
+    text-align: right;
+    color: #c00000;
+    font-weight: 700;
+}
+
+.kflex-qp-no-border {
+    border: 0 !important;
+    background: transparent !important;
+}
+
+.kflex-qp-terms {
+    margin-top: 5px;
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 10.2px;
+    line-height: 1.3;
+}
+
+.kflex-qp-terms-head {
+    font-family: 'Times New Roman', Times, serif;
+    font-size: 11px;
+    font-weight: 700;
+    font-style: italic;
+    text-decoration: underline;
+    margin-bottom: 2px;
+}
+
+.kflex-qp-terms p {
+    margin: 1px 0;
+    font-weight: 400;
+}
+
+.kflex-qp-sign {
+    margin-top: 5px;
+    padding-left: 0;
+    font-family: 'Times New Roman', Times, serif;
+    font-size: 11px;
+    line-height: 1.32;
+    font-style: italic;
+}
+
+.kflex-qp-sign-grid {
+    display: grid;
+    grid-template-columns: 6.0% 1fr;
+    column-gap: 4px;
+    align-items: baseline;
+}
+
+.kflex-qp-sign-grid > span {
+    min-width: 0;
+    white-space: normal;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+}
+
+.kflex-qp-sign-label {
+    text-align: center;
+}
+
+.kflex-qp-sign-thanks {
+    font-weight: 400;
+}
+
+.kflex-qp-sign-name {
+    grid-column: 1 / -1;
+    padding-left: 8px;
+    color: #800000;
+}
+
+.kflex-qp-sign-hp {
+    text-decoration: underline;
+}
+
+.kflex-qp-sign-email {
+    color: #0070c0;
+}
+</style>

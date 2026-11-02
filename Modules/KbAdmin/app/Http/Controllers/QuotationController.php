@@ -4,6 +4,7 @@ namespace Modules\KbAdmin\Http\Controllers;
 
 use App\Http\Controllers\Controller;
 use App\Models\Category;
+use App\Models\KflexPrice;
 use App\Models\Product;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -42,8 +43,29 @@ class QuotationController extends Controller
             ->orderBy('id')
             ->get();
 
+        $kflexPrices = KflexPrice::query()
+            ->orderBy('product_line')
+            ->orderBy('form_type')
+            ->orderBy('variant_type')
+            ->orderBy('id')
+            ->get()
+            ->sortBy([
+                ['product_line', 'asc'],
+                ['form_type', 'asc'],
+                ['variant_type', 'asc'],
+                fn (KflexPrice $a, KflexPrice $b): int => (int) preg_replace('/[^0-9]/', '', $a->thickness) <=> (int) preg_replace('/[^0-9]/', '', $b->thickness),
+                fn (KflexPrice $a, KflexPrice $b): int => (int) preg_replace('/[^0-9]/', '', (string) $a->diameter) <=> (int) preg_replace('/[^0-9]/', '', (string) $b->diameter),
+                ['id', 'asc'],
+            ])
+            ->values();
+
         return Inertia::render('quotations/Index', [
             'aristonProducts' => $aristonProducts,
+            'kflexPrices' => $kflexPrices,
+            'kflexProductLines' => KflexPrice::PRODUCT_LINES,
+            'kflexProductLineMeta' => KflexPrice::PRODUCT_LINE_META,
+            'kflexTubeVariants' => KflexPrice::TUBE_VARIANTS,
+            'kflexSheetVariants' => KflexPrice::SHEET_VARIANTS,
             ...$dashboardStats->summary(),
         ]);
     }

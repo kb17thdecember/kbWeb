@@ -2711,7 +2711,7 @@ body::-webkit-scrollbar-thumb:hover {
   margin: 0 auto;
   background: #ffffff;
   color: #000000;
-  padding: 26px 38px;
+  padding: 42px 58px;
   box-shadow: 0 14px 36px rgba(0, 0, 0, .12);
   font-family: "Times New Roman", Times, serif;
   font-size: 13px;
@@ -2722,26 +2722,30 @@ body::-webkit-scrollbar-thumb:hover {
 .kb-quote-paper.is-portrait {
   width: 820px;
   min-width: 820px;
-  padding: 28px 26px;
+  padding: 44px 52px;
 }
 
 .qp-header {
   display: grid;
-  grid-template-columns: 210px 1fr 220px;
+  grid-template-columns: 190px 1fr 190px;
   align-items: center;
   gap: 10px;
   margin-bottom: 6px;
+}
+
+.kb-quote-paper.is-portrait .qp-header {
+  grid-template-columns: 145px 1fr 145px;
 }
 
 .qp-logo-left {
   display: flex;
   align-items: center;
   justify-content: flex-start;
-  padding-left: 18px;
+  padding-left: 8px;
 }
 
 .qp-starlight-logo {
-  width: 115px;
+  width: 112px;
   height: auto;
   object-fit: contain;
   display: block;
@@ -2769,14 +2773,18 @@ body::-webkit-scrollbar-thumb:hover {
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  padding-right: 10px;
+  padding-right: 8px;
 }
 
 .qp-ariston-logo {
-  width: 192px;
+  width: 180px;
   height: auto;
   object-fit: contain;
   display: block;
+}
+
+.kb-quote-paper.is-portrait .qp-ariston-logo {
+  width: 140px;
 }
 
 .qp-title {
@@ -2797,8 +2805,16 @@ body::-webkit-scrollbar-thumb:hover {
 .qp-meta-row {
   display: grid;
   grid-template-columns: 9.5% 1fr;
+  column-gap: 4px;
   margin-bottom: 3px;
   align-items: baseline;
+}
+
+.qp-meta-row > span {
+  min-width: 0;
+  white-space: normal;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
 }
 
 .qp-meta-label-kinhgui {
@@ -2813,7 +2829,8 @@ body::-webkit-scrollbar-thumb:hover {
 
 .qp-meta-label-italic {
   font-style: italic;
-  padding-left: 3px;
+  font-size: 11.5px;
+  line-height: 1.2;
 }
 
 .qp-meta-val-italic {
@@ -2844,7 +2861,10 @@ body::-webkit-scrollbar-thumb:hover {
   border: 1px solid #000000;
   padding: 5px 6px;
   vertical-align: middle;
+  white-space: normal;
   word-wrap: break-word;
+  overflow-wrap: break-word;
+  word-break: break-word;
 }
 
 .qp-table thead th {

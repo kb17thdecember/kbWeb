@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Head, router, useForm } from '@inertiajs/vue3';
+import { router, useForm } from '@inertiajs/vue3';
 import { computed, ref, watch } from 'vue';
 import AdminPagination from '../../components/AdminPagination.Vue';
 import { useClientPagination } from '../../composables/useClientPagination';
@@ -78,6 +78,19 @@ const getProductLineMeta = (line: string): ProductLineMetaItem => {
     );
 };
 
+const getProductLineShortCode = (line: string): string => {
+    if (line === 'st') {
+        return 'ST';
+    }
+    if (line === 'k_protect') {
+        return 'KP';
+    }
+    if (line === 'm_flex') {
+        return 'MF';
+    }
+    return 'KF';
+};
+
 const buildDefaultName = (
     productLine: string,
     formType: 'sheet' | 'tube',
@@ -95,9 +108,230 @@ const buildDefaultName = (
     return `Ống bảo ôn K-Flex ${lineLabel} kích thước ${cleanThickness}x${cleanDiameter}`;
 };
 
+const formatCurrency = (val: number): string => {
+    return new Intl.NumberFormat('vi-VN').format(val || 0) + ' ₫';
+};
+
 // ============================================================================
-// STEP-BY-STEP BÁO GIÁ BẢO ÔN BUILDER
+// LIST FILTERING & PAGINATION
 // ============================================================================
+const searchQuery = ref('');
+const filterProductLine = ref('all');
+const filterFormType = ref('all');
+const filterVariantType = ref('all');
+const filterThickness = ref('all');
+const selectedIds = ref<number[]>([]);
+
+const filterVariantOptions = computed<Record<string, string>>(() => {
+    if (filterFormType.value === 'sheet') {
+        return props.sheetVariants;
+    }
+    if (filterFormType.value === 'tube') {
+        return props.tubeVariants;
+    }
+    return allVariantLabels;
+});
+
+watch(filterFormType, () => {
+    if (
+        filterVariantType.value !== 'all' &&
+        !(filterVariantType.value in filterVariantOptions.value)
+    ) {
+        filterVariantType.value = 'all';
+    }
+});
+
+const availableThicknesses = computed(() => {
+    const set = new Set<string>();
+    props.kflexPrices.forEach((item) => {
+        const matchesLine =
+            filterProductLine.value === 'all' || item.product_line === filterProductLine.value;
+        const matchesForm =
+            filterFormType.value === 'all' || item.form_type === filterFormType.value;
+        const matchesVariant =
+            filterVariantType.value === 'all' || item.variant_type === filterVariantType.value;
+
+        if (matchesLine && matchesForm && matchesVariant && item.thickness) {
+            set.add(item.thickness);
+        }
+    });
+
+    return Array.from(set).sort(
+        (a, b) => Number(a.replace(/\D/g, '')) - Number(b.replace(/\D/g, '')),
+    );
+});
+
+watch([filterProductLine, filterFormType, filterVariantType], () => {
+    if (
+        filterThickness.value !== 'all' &&
+        !availableThicknesses.value.includes(filterThickness.value)
+    ) {
+        filterThickness.value = 'all';
+    }
+});
+
+const filteredPrices = computed(() => {
+    return props.kflexPrices.filter((item) => {
+        const matchesLine =
+            filterProductLine.value === 'all' || item.product_line === filterProductLine.value;
+        const matchesForm =
+            filterFormType.value === 'all' || item.form_type === filterFormType.value;
+        const matchesVariant =
+            filterVariantType.value === 'all' || item.variant_type === filterVariantType.value;
+        const matchesThickness =
+            filterThickness.value === 'all' || item.thickness === filterThickness.value;
+
+        const q = searchQuery.value.trim().toLowerCase();
+        const matchesSearch =
+            !q ||
+            item.product_name.toLowerCase().includes(q) ||
+            item.thickness.toLowerCase().includes(q) ||
+            (item.diameter ?? '').toLowerCase().includes(q) ||
+            `${item.thickness}x${item.diameter ?? ''}`.toLowerCase().includes(q) ||
+            item.brand.toLowerCase().includes(q) ||
+            item.origin.toLowerCase().includes(q);
+
+        return (
+            matchesLine && matchesForm && matchesVariant && matchesThickness && matchesSearch
+        );
+    });
+});
+
+const {
+    currentPage,
+    paginatedItems: paginatedPrices,
+    goToPage,
+    resetPage,
+} = useClientPagination(filteredPrices);
+
+watch(
+    [searchQuery, filterProductLine, filterFormType, filterVariantType, filterThickness],
+    resetPage,
+);
+
+const hasActiveFilters = computed(() => {
+    return (
+        filterProductLine.value !== 'all' ||
+        filterFormType.value !== 'all' ||
+        filterVariantType.value !== 'all' ||
+        filterThickness.value !== 'all' ||
+        searchQuery.value.trim() !== ''
+    );
+});
+
+const resetFilters = () => {
+    filterProductLine.value = 'all';
+    filterFormType.value = 'all';
+    filterVariantType.value = 'all';
+    filterThickness.value = 'all';
+    searchQuery.value = '';
+};
+
+const isAllSelected = computed(() => {
+    return (
+        filteredPrices.value.length > 0 &&
+        filteredPrices.value.every((item) => selectedIds.value.includes(item.id))
+    );
+});
+
+const toggleSelectAll = () => {
+    if (isAllSelected.value) {
+        const filteredIdSet = new Set(filteredPrices.value.map((i) => i.id));
+        selectedIds.value = selectedIds.value.filter((id) => !filteredIdSet.has(id));
+    } else {
+        const next = new Set(selectedIds.value);
+        filteredPrices.value.forEach((i) => next.add(i.id));
+        selectedIds.value = Array.from(next);
+    }
+};
+
+// ============================================================================
+// SINGLE ROW EDIT & DELETE
+// ============================================================================
+const showEditModal = ref(false);
+const editingItem = ref<KflexPriceItem | null>(null);
+const editForm = useForm({
+    product_line: 'st' as 'st' | 'k_protect' | 'm_flex',
+    form_type: 'tube' as 'sheet' | 'tube',
+    variant_type: 'foam',
+    thickness: '',
+    diameter: '',
+    brand: 'Ý',
+    origin: 'Malaysia',
+    product_name: '',
+    unit: 'm',
+    price: 0,
+});
+
+const editModalVariants = computed(() => {
+    return editForm.form_type === 'sheet' ? props.sheetVariants : props.tubeVariants;
+});
+
+const openEditModal = (item: KflexPriceItem) => {
+    editingItem.value = item;
+    editForm.product_line = item.product_line;
+    editForm.form_type = item.form_type;
+    editForm.variant_type = item.variant_type;
+    editForm.thickness = item.thickness;
+    editForm.diameter = item.diameter ?? '';
+    editForm.brand = item.brand;
+    editForm.origin = item.origin;
+    editForm.product_name = item.product_name;
+    editForm.unit = item.unit;
+    editForm.price = item.price;
+    showEditModal.value = true;
+};
+
+const submitEdit = () => {
+    if (!editingItem.value) {
+        return;
+    }
+
+    editForm.put(route('admin.kflex-prices.update', editingItem.value.id), {
+        preserveScroll: true,
+        onSuccess: () => {
+            showEditModal.value = false;
+            editingItem.value = null;
+        },
+    });
+};
+
+const deleteItem = (item: KflexPriceItem) => {
+    if (!confirm(`Bạn có chắc muốn xóa "${item.product_name}"?`)) {
+        return;
+    }
+
+    router.delete(route('admin.kflex-prices.destroy', item.id), {
+        preserveScroll: true,
+    });
+};
+
+const bulkDeleteSelected = () => {
+    if (selectedIds.value.length === 0) {
+        return;
+    }
+
+    if (
+        !confirm(
+            `Bạn có chắc muốn xóa ${selectedIds.value.length} kích thước báo giá bảo ôn đã chọn?`,
+        )
+    ) {
+        return;
+    }
+
+    router.delete(route('admin.kflex-prices.bulk-destroy'), {
+        data: { ids: selectedIds.value },
+        preserveScroll: true,
+        onSuccess: () => {
+            selectedIds.value = [];
+        },
+    });
+};
+
+// ============================================================================
+// BULK ADD / UPDATE MODAL
+// ============================================================================
+const showBulkModal = ref(false);
 const stepProductLine = ref<'st' | 'k_protect' | 'm_flex'>('st');
 const stepFormType = ref<'sheet' | 'tube'>('sheet');
 const stepVariantType = ref<string>('foam');
@@ -105,57 +339,27 @@ const stepThickness = ref<string>('13');
 const stepBrand = ref<string>('Ý');
 const stepOrigin = ref<string>('Malaysia');
 
-// Tấm có 3 phân loại: Chỉ Foam, Có keo/nhôm, Có cả keo và nhôm
-// Ống chỉ có 2 phân loại: Chỉ Foam và Phủ nhôm
-const primaryVariantOptions = computed(() => {
-    if (stepFormType.value === 'sheet') {
-        return [
-            {
-                key: 'foam',
-                badge: '01',
-                label: 'Chỉ Foam',
-                desc: 'Tấm bảo ôn cao su lưu hóa tiêu chuẩn chỉ có lớp Foam',
-            },
-            {
-                key: 'alu_or_glue',
-                badge: '02',
-                label: 'Có keo/nhôm',
-                desc: 'Tấm bảo ôn tích hợp sẵn lớp keo dán hoặc phủ nhôm',
-            },
-            {
-                key: 'alu_and_glue',
-                badge: '03',
-                label: 'Có cả keo và nhôm',
-                desc: 'Tấm bảo ôn cao cấp tích hợp cả keo dán và phủ nhôm',
-            },
-        ];
-    }
-
-    return [
-        {
-            key: 'foam',
-            badge: '01',
-            label: 'Chỉ Foam',
-            desc: 'Ống bảo ôn tiêu chuẩn chỉ có lớp Foam cách nhiệt',
-        },
-        {
-            key: 'alu',
-            badge: '02',
-            label: 'Phủ nhôm',
-            desc: 'Ống bảo ôn bề mặt ngoài phủ nhôm bảo vệ',
-        },
-    ];
+const bulkVariantOptions = computed(() => {
+    return stepFormType.value === 'sheet' ? props.sheetVariants : props.tubeVariants;
 });
 
-const commonThicknessPresets = ['6', '9', '13', '16', '19', '25', '32', '40', '50'];
+const commonThicknessPresets = ['6', '09', '10', '13', '16', '19', '20', '25', '32', '40', '50'];
 const standardTubeDiameters = [
-    '6', '10', '12', '16', '19', '22', '25', '28', '32', '35', '42', '48', '54', '60', '76', '89', '108', '114', '133', '140', '165',
+    '06', '10', '13', '16', '19', '22', '25', '28', '32', '35', '42', '48', '54', '60', '67', '76', '79', '89', '108', '114', '140', '168',
 ];
 
-// --- Sheet multi-thickness rows state (when stepFormType === 'sheet') ---
 interface SheetThicknessRow {
     id?: number | null;
     thickness: string;
+    product_name: string;
+    unit: string;
+    price: number;
+    existingPrice?: number | null;
+}
+
+interface TubeDiameterRow {
+    id?: number | null;
+    diameter: string;
     product_name: string;
     unit: string;
     price: number;
@@ -168,25 +372,14 @@ const sheetRows = ref<SheetThicknessRow[]>([
     { thickness: '25', product_name: '', unit: 'm²', price: 0, existingPrice: null },
 ]);
 
-const quickThicknessesInput = ref('');
-const quickDefaultSheetPrice = ref<number>(0);
-
-// --- Tube unlimited diameters state (when stepFormType === 'tube') ---
-interface TubeDiameterRow {
-    id?: number | null;
-    diameter: string;
-    product_name: string;
-    unit: string;
-    price: number;
-    existingPrice?: number | null;
-}
-
 const tubeRows = ref<TubeDiameterRow[]>([
     { diameter: '22', product_name: '', unit: 'm', price: 0, existingPrice: null },
     { diameter: '28', product_name: '', unit: 'm', price: 0, existingPrice: null },
     { diameter: '35', product_name: '', unit: 'm', price: 0, existingPrice: null },
 ]);
 
+const quickThicknessesInput = ref('');
+const quickDefaultSheetPrice = ref<number>(0);
 const quickDiametersInput = ref('');
 const quickDefaultTubePrice = ref<number>(0);
 
@@ -298,7 +491,6 @@ watch([stepVariantType, stepThickness], () => {
     syncTubeExistingData();
 });
 
-// --- Sheet multi-thickness helpers ---
 const addSheetThicknessRow = (thickness = '', price = 0) => {
     const cleanT = thickness.trim().replace(/\s*mm$/i, '');
     const match = cleanT
@@ -390,25 +582,6 @@ const appendQuickSheetThicknesses = () => {
     quickThicknessesInput.value = '';
 };
 
-const loadStandardSheetThicknesses = () => {
-    if (
-        sheetRows.value.length === 1 &&
-        !sheetRows.value[0].thickness.trim() &&
-        sheetRows.value[0].price === 0
-    ) {
-        sheetRows.value = [];
-    }
-
-    const existingSet = new Set(sheetRows.value.map((r) => r.thickness.trim()));
-
-    commonThicknessPresets.forEach((t) => {
-        if (!existingSet.has(t)) {
-            addSheetThicknessRow(t, Number(quickDefaultSheetPrice.value) || 0);
-            existingSet.add(t);
-        }
-    });
-};
-
 const loadExistingSheetThicknesses = () => {
     const matches = props.kflexPrices.filter(
         (item) =>
@@ -431,7 +604,6 @@ const loadExistingSheetThicknesses = () => {
     }));
 };
 
-// --- Tube multi-diameter helpers ---
 const addTubeDiameterRow = (diameter = '', price = 0) => {
     const cleanD = diameter.trim();
     const match = cleanD
@@ -565,6 +737,46 @@ const loadExistingDiametersForCurrentThickness = () => {
     }));
 };
 
+const openBulkModalFromFilters = () => {
+    if (filterProductLine.value !== 'all') {
+        stepProductLine.value = filterProductLine.value as 'st' | 'k_protect' | 'm_flex';
+    }
+    if (filterFormType.value !== 'all') {
+        stepFormType.value = filterFormType.value as 'sheet' | 'tube';
+    }
+    if (filterVariantType.value !== 'all') {
+        stepVariantType.value = filterVariantType.value;
+    }
+    if (filterThickness.value !== 'all' && stepFormType.value === 'tube') {
+        stepThickness.value = filterThickness.value;
+    }
+
+    if (stepFormType.value === 'sheet') {
+        loadExistingSheetThicknesses();
+    } else {
+        loadExistingDiametersForCurrentThickness();
+    }
+
+    showBulkModal.value = true;
+};
+
+const openBulkModalForRecord = (item: KflexPriceItem) => {
+    stepProductLine.value = item.product_line;
+    stepFormType.value = item.form_type;
+    stepVariantType.value = item.variant_type;
+    stepBrand.value = item.brand;
+    stepOrigin.value = item.origin;
+
+    if (item.form_type === 'sheet') {
+        loadExistingSheetThicknesses();
+    } else {
+        stepThickness.value = item.thickness;
+        loadExistingDiametersForCurrentThickness();
+    }
+
+    showBulkModal.value = true;
+};
+
 const builderForm = useForm<{
     items: Array<{
         id?: number | null;
@@ -660,244 +872,15 @@ const submitBuilderPricing = () => {
     builderForm.post(route('admin.kflex-prices.bulk'), {
         preserveScroll: true,
         onSuccess: () => {
+            showBulkModal.value = false;
             syncSheetExistingData();
             syncTubeExistingData();
         },
     });
 };
-
-const loadRecordIntoBuilder = (item: KflexPriceItem) => {
-    stepProductLine.value = item.product_line;
-    stepFormType.value = item.form_type;
-    stepVariantType.value = item.variant_type;
-    stepBrand.value = item.brand;
-    stepOrigin.value = item.origin;
-
-    if (item.form_type === 'sheet') {
-        const siblings = props.kflexPrices.filter(
-            (p) =>
-                p.product_line === item.product_line &&
-                p.form_type === 'sheet' &&
-                p.variant_type === item.variant_type,
-        );
-
-        sheetRows.value =
-            siblings.length > 0
-                ? siblings.map((s) => ({
-                      id: s.id,
-                      thickness: s.thickness,
-                      product_name: '',
-                      unit: s.unit || 'm²',
-                      price: s.price,
-                      existingPrice: s.price,
-                  }))
-                : [
-                      {
-                          id: item.id,
-                          thickness: item.thickness,
-                          product_name: '',
-                          unit: item.unit || 'm²',
-                          price: item.price,
-                          existingPrice: item.price,
-                      },
-                  ];
-    } else {
-        stepThickness.value = item.thickness;
-
-        const siblings = props.kflexPrices.filter(
-            (p) =>
-                p.product_line === item.product_line &&
-                p.form_type === 'tube' &&
-                p.variant_type === item.variant_type &&
-                p.thickness === item.thickness,
-        );
-
-        tubeRows.value =
-            siblings.length > 0
-                ? siblings.map((s) => ({
-                      id: s.id,
-                      diameter: s.diameter || '',
-                      product_name: '',
-                      unit: s.unit || 'm',
-                      price: s.price,
-                      existingPrice: s.price,
-                  }))
-                : [
-                      {
-                          id: item.id,
-                          diameter: item.diameter || '',
-                          product_name: '',
-                          unit: item.unit || 'm',
-                          price: item.price,
-                          existingPrice: item.price,
-                      },
-                  ];
-    }
-
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-};
-
-// ============================================================================
-// TABLE FILTERING & PAGINATION
-// ============================================================================
-const searchQuery = ref('');
-const filterProductLine = ref('all');
-const filterFormType = ref('all');
-const filterVariantType = ref('all');
-const filterThickness = ref('all');
-const selectedIds = ref<number[]>([]);
-
-const availableThicknesses = computed(() => {
-    const set = new Set<string>();
-    props.kflexPrices.forEach((item) => {
-        if (item.thickness) {
-            set.add(item.thickness);
-        }
-    });
-    return Array.from(set).sort(
-        (a, b) => Number(a.replace(/\D/g, '')) - Number(b.replace(/\D/g, '')),
-    );
-});
-
-const filteredPrices = computed(() => {
-    return props.kflexPrices.filter((item) => {
-        const matchesLine =
-            filterProductLine.value === 'all' || item.product_line === filterProductLine.value;
-        const matchesForm =
-            filterFormType.value === 'all' || item.form_type === filterFormType.value;
-        const matchesVariant =
-            filterVariantType.value === 'all' || item.variant_type === filterVariantType.value;
-        const matchesThickness =
-            filterThickness.value === 'all' || item.thickness === filterThickness.value;
-
-        const q = searchQuery.value.trim().toLowerCase();
-        const matchesSearch =
-            !q ||
-            item.product_name.toLowerCase().includes(q) ||
-            item.thickness.toLowerCase().includes(q) ||
-            (item.diameter ?? '').toLowerCase().includes(q) ||
-            item.brand.toLowerCase().includes(q) ||
-            item.origin.toLowerCase().includes(q);
-
-        return (
-            matchesLine && matchesForm && matchesVariant && matchesThickness && matchesSearch
-        );
-    });
-});
-
-const {
-    currentPage,
-    paginatedItems: paginatedPrices,
-    goToPage,
-} = useClientPagination(filteredPrices);
-
-const isAllSelected = computed(() => {
-    return (
-        filteredPrices.value.length > 0 &&
-        filteredPrices.value.every((item) => selectedIds.value.includes(item.id))
-    );
-});
-
-const toggleSelectAll = () => {
-    if (isAllSelected.value) {
-        const filteredIdSet = new Set(filteredPrices.value.map((i) => i.id));
-        selectedIds.value = selectedIds.value.filter((id) => !filteredIdSet.has(id));
-    } else {
-        const next = new Set(selectedIds.value);
-        filteredPrices.value.forEach((i) => next.add(i.id));
-        selectedIds.value = Array.from(next);
-    }
-};
-
-// Single Row Edit Modal
-const showEditModal = ref(false);
-const editingItem = ref<KflexPriceItem | null>(null);
-const editForm = useForm({
-    product_line: 'st' as 'st' | 'k_protect' | 'm_flex',
-    form_type: 'tube' as 'sheet' | 'tube',
-    variant_type: 'foam',
-    thickness: '',
-    diameter: '',
-    brand: 'Ý',
-    origin: 'Malaysia',
-    product_name: '',
-    unit: 'm',
-    price: 0,
-});
-
-const editModalVariants = computed(() => {
-    return editForm.form_type === 'sheet' ? props.sheetVariants : props.tubeVariants;
-});
-
-const openEditModal = (item: KflexPriceItem) => {
-    editingItem.value = item;
-    editForm.product_line = item.product_line;
-    editForm.form_type = item.form_type;
-    editForm.variant_type = item.variant_type;
-    editForm.thickness = item.thickness;
-    editForm.diameter = item.diameter ?? '';
-    editForm.brand = item.brand;
-    editForm.origin = item.origin;
-    editForm.product_name = item.product_name;
-    editForm.unit = item.unit;
-    editForm.price = item.price;
-    showEditModal.value = true;
-};
-
-const submitEdit = () => {
-    if (!editingItem.value) {
-        return;
-    }
-
-    editForm.put(route('admin.kflex-prices.update', editingItem.value.id), {
-        preserveScroll: true,
-        onSuccess: () => {
-            showEditModal.value = false;
-            editingItem.value = null;
-        },
-    });
-};
-
-const deleteItem = (item: KflexPriceItem) => {
-    if (!confirm(`Bạn có chắc muốn xóa "${item.product_name}"?`)) {
-        return;
-    }
-
-    router.delete(route('admin.kflex-prices.destroy', item.id), {
-        preserveScroll: true,
-    });
-};
-
-const bulkDeleteSelected = () => {
-    if (selectedIds.value.length === 0) {
-        return;
-    }
-
-    if (
-        !confirm(
-            `Bạn có chắc muốn xóa ${selectedIds.value.length} kích thước báo giá bảo ôn đã chọn?`,
-        )
-    ) {
-        return;
-    }
-
-    router.delete(route('admin.kflex-prices.bulk-destroy'), {
-        data: { ids: selectedIds.value },
-        preserveScroll: true,
-        onSuccess: () => {
-            selectedIds.value = [];
-        },
-    });
-};
-
-const formatCurrency = (val: number) => {
-    return new Intl.NumberFormat('vi-VN').format(val || 0) + ' ₫';
-};
 </script>
 
 <template>
-    <Head title="Báo Giá Bảo Ôn K-Flex (ST / K-Protect / M-Flex)" />
-
     <AdminLayout
         :stats="props.stats"
         :open-requests-count="props.openRequestsCount"
@@ -907,10 +890,10 @@ const formatCurrency = (val: number) => {
         <!-- Page Header -->
         <div class="page-head">
             <div>
-                <h2>Báo Giá Bảo Ôn K-Flex (ST · K-Protect · M-Flex)</h2>
+                <h2>Bảng giá chi tiết K-Flex</h2>
                 <p>
-                    Chọn dòng sản phẩm → chọn loại hình (Tấm / Ống) → chọn phân loại bề mặt → cập nhật
-                    cùng lúc nhiều độ dày Tấm hoặc nhiều đường kính Ống không giới hạn số lượng.
+                    Danh sách đơn giá bảo ôn K-Flex theo dòng sản phẩm (ST, K-Protect, M-Flex),
+                    loại hình (Tấm, Ống) và phân loại bề mặt.
                 </p>
             </div>
             <div class="actions">
@@ -920,637 +903,31 @@ const formatCurrency = (val: number) => {
                     type="button"
                     @click="bulkDeleteSelected"
                 >
-                    <FontAwesomeIcon icon="fa-solid fa-trash" /> Xóa đã chọn ({{ selectedIds.length }})
-                </button>
-                <button
-                    class="btn primary"
-                    type="button"
-                    :disabled="builderForm.processing"
-                    @click="submitBuilderPricing"
-                >
-                    <FontAwesomeIcon icon="fa-solid fa-floppy-disk" />
-                    {{
-                        builderForm.processing
-                            ? 'Đang lưu...'
-                            : stepFormType === 'sheet'
-                              ? `Lưu Báo Giá (${validSheetRowCount} độ dày Tấm)`
-                              : `Lưu Báo Giá (${validTubeRowCount} đường kính Ống)`
-                    }}
-                </button>
-            </div>
-        </div>
-
-        <!-- ======================================================================= -->
-        <!-- BƯỚC 1: CHỌN DÒNG SẢN PHẨM (ST / K-PROTECT / M-FLEX) -->
-        <!-- ======================================================================= -->
-        <div class="kb-quote-builder-card kflex-step-card">
-            <div class="kflex-step-header">
-                <div class="kb-quote-section-title" style="margin-bottom: 0">
-                    1. Chọn Dòng Sản Phẩm Bảo Ôn K-Flex
-                </div>
-                <div class="kflex-summary-pills">
-                    <span class="kflex-pill gold">
-                        Dòng: <b>{{ getProductLineMeta(stepProductLine).label }}</b>
-                    </span>
-                    <span class="kflex-pill">
-                        Thương hiệu: <b>{{ stepBrand }}</b> · Xuất xứ: <b>{{ stepOrigin }}</b>
-                    </span>
-                    <span class="kflex-pill dark">
-                        {{ stepFormType === 'sheet' ? 'Loại hình: Tấm' : 'Loại hình: Ống' }} ·
-                        {{ getVariantLabel(stepVariantType, stepFormType) }}
-                    </span>
-                </div>
-            </div>
-
-            <div class="kflex-3col-tabs">
-                <button
-                    type="button"
-                    class="kb-quote-tab-btn"
-                    :class="{ active: stepProductLine === 'st' }"
-                    @click="stepProductLine = 'st'"
-                >
-                    <span class="kb-quote-tab-badge">ST</span>
-                    <div>
-                        <strong>Dòng sản phẩm ST</strong>
-                        <small>Thương hiệu: Ý · Xuất xứ: Malaysia</small>
-                    </div>
-                </button>
-
-                <button
-                    type="button"
-                    class="kb-quote-tab-btn"
-                    :class="{ active: stepProductLine === 'k_protect' }"
-                    @click="stepProductLine = 'k_protect'"
-                >
-                    <span class="kb-quote-tab-badge">KP</span>
-                    <div>
-                        <strong>Dòng sản phẩm K-Protect</strong>
-                        <small>Thương hiệu: Ý · Xuất xứ: Malaysia</small>
-                    </div>
-                </button>
-
-                <button
-                    type="button"
-                    class="kb-quote-tab-btn"
-                    :class="{ active: stepProductLine === 'm_flex' }"
-                    @click="stepProductLine = 'm_flex'"
-                >
-                    <span class="kb-quote-tab-badge">MF</span>
-                    <div>
-                        <strong>Dòng sản phẩm M-Flex</strong>
-                        <small>Thương hiệu: Ý · Xuất xứ: VN</small>
-                    </div>
-                </button>
-            </div>
-        </div>
-
-        <!-- ======================================================================= -->
-        <!-- BƯỚC 2 & 3: CHỌN LOẠI HÌNH (TẤM / ỐNG) & LOẠI NHÔM KEO -->
-        <!-- ======================================================================= -->
-        <div class="kflex-dual-grid">
-            <!-- BƯỚC 2: CHỌN TẤM HAY ỐNG -->
-            <div class="kb-quote-builder-card" style="margin-bottom: 0">
-                <div class="kb-quote-section-title">2. Chọn Loại Hình (Tấm hay Ống)</div>
-                <div class="kflex-2col-tabs">
-                    <button
-                        type="button"
-                        class="kb-quote-tab-btn"
-                        :class="{ active: stepFormType === 'sheet' }"
-                        @click="stepFormType = 'sheet'"
-                    >
-                        <span class="kb-quote-tab-badge">
-                            <FontAwesomeIcon icon="fa-solid fa-layer-group" />
-                        </span>
-                        <div>
-                            <strong>Bảo ôn dạng Tấm (3 phân loại)</strong>
-                            <small>
-                                Chỉ Foam / Có keo/nhôm / Có cả keo và nhôm · Tên: Tấm bảo ôn K-Flex
-                                {{ getProductLineMeta(stepProductLine).label }} dày ...mm
-                            </small>
-                        </div>
-                    </button>
-
-                    <button
-                        type="button"
-                        class="kb-quote-tab-btn"
-                        :class="{ active: stepFormType === 'tube' }"
-                        @click="stepFormType = 'tube'"
-                    >
-                        <span class="kb-quote-tab-badge">
-                            <FontAwesomeIcon icon="fa-solid fa-circle-dot" />
-                        </span>
-                        <div>
-                            <strong>Bảo ôn dạng Ống (2 phân loại)</strong>
-                            <small>
-                                Chỉ Foam / Phủ nhôm · Tên: Ống bảo ôn K-Flex
-                                {{ getProductLineMeta(stepProductLine).label }} kích thước độ dàyxđường kính
-                            </small>
-                        </div>
-                    </button>
-                </div>
-            </div>
-
-            <!-- BƯỚC 3: CHỌN PHÂN LOẠI NHÔM / KEO / FOAM -->
-            <div class="kb-quote-builder-card" style="margin-bottom: 0">
-                <div class="kb-quote-section-title">
-                    3. Chọn Phân Loại ({{
-                        stepFormType === 'sheet'
-                            ? 'Tấm: 3 phân loại Chỉ Foam, Có keo/nhôm, Có cả keo và nhôm'
-                            : 'Ống: 2 phân loại Chỉ Foam và Phủ nhôm'
+                    <FontAwesomeIcon icon="fa-solid fa-trash" /> Xóa đã chọn ({{
+                        selectedIds.length
                     }})
-                </div>
-                <div class="kflex-variant-grid">
-                    <button
-                        v-for="option in primaryVariantOptions"
-                        :key="option.key"
-                        type="button"
-                        class="kflex-variant-card"
-                        :class="{ active: stepVariantType === option.key }"
-                        @click="stepVariantType = option.key"
-                    >
-                        <span class="kflex-variant-check">
-                            {{ stepVariantType === option.key ? '✓' : option.badge }}
-                        </span>
-                        <div class="kflex-variant-meta">
-                            <strong>{{ option.label }}</strong>
-                            <small>{{ option.desc }}</small>
-                        </div>
-                    </button>
-                </div>
-            </div>
-        </div>
-
-        <!-- ======================================================================= -->
-        <!-- BƯỚC 4 & 5: CẬP NHẬT GIÁ NHIỀU ĐỘ DÀY (TẤM) HOẶC NHIỀU ĐƯỜNG KÍNH (ỐNG) -->
-        <!-- ======================================================================= -->
-        <div class="kb-quote-builder-card">
-            <!-- =================================================================== -->
-            <!-- TRƯỜNG HỢP 1: NẾU LÀ TẤM (SHEET) - UPDATE NHIỀU ĐỘ DÀY 1 LÚC -->
-            <!-- =================================================================== -->
-            <template v-if="stepFormType === 'sheet'">
-                <div class="kflex-meta-inputs-grid" style="grid-template-columns: repeat(2, minmax(0, 1fr))">
-                    <label class="kb-quote-field">
-                        <span>
-                            Thương hiệu (Mặc định dòng {{ getProductLineMeta(stepProductLine).label }})
-                        </span>
-                        <input v-model="stepBrand" type="text" placeholder="Ý" />
-                    </label>
-
-                    <label class="kb-quote-field">
-                        <span>
-                            Xuất xứ (Mặc định dòng {{ getProductLineMeta(stepProductLine).label }})
-                        </span>
-                        <input v-model="stepOrigin" type="text" placeholder="Malaysia / VN" />
-                    </label>
-                </div>
-
-                <hr class="kflex-divider" />
-
-                <div class="kb-quote-items-head">
-                    <div>
-                        <div class="kb-quote-section-title">
-                            4. Cập Nhật Nhiều Độ Dày &amp; Giá Cùng Lúc Cho Tấm Bảo Ôn K-Flex
-                            {{ getProductLineMeta(stepProductLine).label }} ({{
-                                getVariantLabel(stepVariantType, 'sheet')
-                            }})
-                        </div>
-                        <small class="kb-quote-section-sub">
-                            Không giới hạn số lượng độ dày · Tên tự động:
-                            <b style="color: var(--ink)">
-                                Tấm bảo ôn K-Flex {{ getProductLineMeta(stepProductLine).label }} dày
-                                {độ dày}mm
-                            </b>
-                        </small>
-                    </div>
-                    <div class="kb-quote-items-actions">
-                        <button
-                            type="button"
-                            class="btn"
-                            @click="loadExistingSheetThicknesses"
-                        >
-                            ↻ Nạp các độ dày đã lưu
-                        </button>
-                        <button type="button" class="btn" @click="loadStandardSheetThicknesses">
-                            ＋ Nạp bộ độ dày chuẩn (6mm → 50mm)
-                        </button>
-                        <button type="button" class="btn primary" @click="addSheetThicknessRow()">
-                            ＋ Thêm dòng độ dày
-                        </button>
-                    </div>
-                </div>
-
-                <!-- Thanh tạo nhanh hàng loạt độ dày Tấm -->
-                <div class="kflex-quick-generator">
-                    <label class="kb-quote-field" style="flex: 1">
-                        <span>
-                            Nhập nhanh nhiều độ dày Tấm cùng lúc (cách nhau bởi dấu phẩy hoặc khoảng trắng)
-                        </span>
-                        <input
-                            v-model="quickThicknessesInput"
-                            type="text"
-                            placeholder="VD: 6, 9, 13, 16, 19, 25, 32, 40, 50..."
-                            @keydown.enter.prevent="appendQuickSheetThicknesses"
-                        />
-                    </label>
-                    <label class="kb-quote-field" style="width: 210px">
-                        <span>Giá mặc định (VNĐ/m² - Tùy chọn)</span>
-                        <input
-                            v-model.number="quickDefaultSheetPrice"
-                            type="number"
-                            min="0"
-                            step="500"
-                            placeholder="0"
-                        />
-                    </label>
-                    <button
-                        type="button"
-                        class="btn primary"
-                        style="height: 39px; align-self: flex-end"
-                        @click="appendQuickSheetThicknesses"
-                    >
-                        ＋ Tạo danh sách độ dày
-                    </button>
-                </div>
-
-                <!-- Danh sách các dòng độ dày Tấm -->
-                <div class="kb-quote-items-list">
-                    <div v-for="(row, index) in sheetRows" :key="index" class="kb-quote-item-box">
-                        <div class="kflex-tube-row">
-                            <span class="kb-quote-item-index">#{{ index + 1 }}</span>
-
-                            <label class="kb-quote-field">
-                                <span>Độ dày (mm) *</span>
-                                <input
-                                    v-model="row.thickness"
-                                    type="text"
-                                    placeholder="VD: 13, 19, 25..."
-                                    @input="onSheetThicknessInput(row)"
-                                />
-                            </label>
-
-                            <label class="kb-quote-field">
-                                <span>
-                                    Tên tấm tự động
-                                    <em
-                                        v-if="
-                                            row.existingPrice !== null &&
-                                            row.existingPrice !== undefined
-                                        "
-                                        class="kflex-existing-tag"
-                                    >
-                                        (Giá cũ: {{ formatCurrency(row.existingPrice) }})
-                                    </em>
-                                </span>
-                                <input
-                                    v-model="row.product_name"
-                                    type="text"
-                                    :placeholder="
-                                        buildDefaultName(
-                                            stepProductLine,
-                                            'sheet',
-                                            row.thickness,
-                                        )
-                                    "
-                                />
-                            </label>
-
-                            <label class="kb-quote-field">
-                                <span>Đơn vị</span>
-                                <input v-model="row.unit" type="text" placeholder="m²" />
-                            </label>
-
-                            <label class="kb-quote-field">
-                                <span>Đơn giá (VNĐ) *</span>
-                                <input
-                                    v-model.number="row.price"
-                                    type="number"
-                                    min="0"
-                                    step="500"
-                                    placeholder="Nhập giá tấm..."
-                                />
-                            </label>
-
-                            <div class="kb-quote-field">
-                                <span>Hiển thị giá</span>
-                                <div class="kb-quote-computed-amount">
-                                    {{ formatCurrency(row.price) }} / {{ row.unit || 'm²' }}
-                                </div>
-                            </div>
-
-                            <div class="kb-quote-compact-btns">
-                                <button
-                                    type="button"
-                                    class="mini danger"
-                                    @click="removeSheetThicknessRow(index)"
-                                >
-                                    Xóa
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </template>
-
-            <!-- =================================================================== -->
-            <!-- TRƯỜNG HỢP 2: NẾU LÀ ỐNG (TUBE) - GIỮ NGUYÊN NHƯ ĐANG ĐÚNG -->
-            <!-- =================================================================== -->
-            <template v-else>
-                <div class="kflex-thickness-bar">
-                    <div>
-                        <div class="kb-quote-section-title" style="margin-bottom: 4px">
-                            4. Nhập Độ Dày Ống (mm) &amp; Thông Tin Xuất Xứ
-                        </div>
-                        <small class="kb-quote-section-sub">
-                            Chọn nhanh độ dày tiêu chuẩn bên phải hoặc tự nhập độ dày bất kỳ vào ô bên dưới.
-                        </small>
-                    </div>
-
-                    <div class="kflex-preset-list">
-                        <span class="kflex-preset-label">Chọn nhanh độ dày:</span>
-                        <button
-                            v-for="preset in commonThicknessPresets"
-                            :key="preset"
-                            type="button"
-                            class="mini"
-                            :class="{ 'kflex-preset-active': stepThickness.trim() === preset }"
-                            @click="stepThickness = preset"
-                        >
-                            {{ preset }} mm
-                        </button>
-                    </div>
-                </div>
-
-                <div class="kflex-meta-inputs-grid">
-                    <label class="kb-quote-field">
-                        <span>Độ dày bảo ôn (mm) *</span>
-                        <input
-                            v-model="stepThickness"
-                            type="text"
-                            placeholder="VD: 13, 19, 25, 32..."
-                        />
-                    </label>
-
-                    <label class="kb-quote-field">
-                        <span>
-                            Thương hiệu (Mặc định dòng {{ getProductLineMeta(stepProductLine).label }})
-                        </span>
-                        <input v-model="stepBrand" type="text" placeholder="Ý" />
-                    </label>
-
-                    <label class="kb-quote-field">
-                        <span>
-                            Xuất xứ (Mặc định dòng {{ getProductLineMeta(stepProductLine).label }})
-                        </span>
-                        <input v-model="stepOrigin" type="text" placeholder="Malaysia / VN" />
-                    </label>
-                </div>
-
-                <hr class="kflex-divider" />
-
-                <div class="kb-quote-items-head">
-                    <div>
-                        <div class="kb-quote-section-title">
-                            5. Cập Nhật 1 Loạt Đường Kính &amp; Giá Cho Ống Bảo Ôn K-Flex
-                            {{ getProductLineMeta(stepProductLine).label }} (Dày
-                            {{ stepThickness || '...' }} mm · {{ getVariantLabel(stepVariantType, 'tube') }})
-                        </div>
-                        <small class="kb-quote-section-sub">
-                            Không giới hạn số lượng đường kính · Tên tự động:
-                            <b style="color: var(--ink)">
-                                Ống bảo ôn K-Flex {{ getProductLineMeta(stepProductLine).label }} kích thước
-                                {{ stepThickness || '...' }}x{đường kính}
-                            </b>
-                        </small>
-                    </div>
-                    <div class="kb-quote-items-actions">
-                        <button
-                            type="button"
-                            class="btn"
-                            @click="loadExistingDiametersForCurrentThickness"
-                        >
-                            ↻ Nạp đường kính đã lưu của độ dày {{ stepThickness }}mm
-                        </button>
-                        <button type="button" class="btn" @click="loadStandardTubeDiameters">
-                            ＋ Nạp bộ đường kính chuẩn (Ø6 → Ø165)
-                        </button>
-                        <button type="button" class="btn primary" @click="addTubeDiameterRow()">
-                            ＋ Thêm dòng đường kính
-                        </button>
-                    </div>
-                </div>
-
-                <!-- Thanh tạo nhanh hàng loạt đường kính không giới hạn -->
-                <div class="kflex-quick-generator">
-                    <label class="kb-quote-field" style="flex: 1">
-                        <span>
-                            Nhập nhanh 1 loạt đường kính (cách nhau bởi dấu phẩy hoặc khoảng trắng — không giới hạn số lượng)
-                        </span>
-                        <input
-                            v-model="quickDiametersInput"
-                            type="text"
-                            placeholder="VD: 6, 10, 12, 16, 19, 22, 25, 28, 32, 35, 42, 48, 54, 60, 76, 89, 108, 114, 133, 140, 165..."
-                            @keydown.enter.prevent="appendQuickTubeDiameters"
-                        />
-                    </label>
-                    <label class="kb-quote-field" style="width: 210px">
-                        <span>Giá mặc định (VNĐ/m - Tùy chọn)</span>
-                        <input
-                            v-model.number="quickDefaultTubePrice"
-                            type="number"
-                            min="0"
-                            step="500"
-                            placeholder="0"
-                        />
-                    </label>
-                    <button
-                        type="button"
-                        class="btn primary"
-                        style="height: 39px; align-self: flex-end"
-                        @click="appendQuickTubeDiameters"
-                    >
-                        ＋ Tạo danh sách đường kính
-                    </button>
-                </div>
-
-                <!-- Danh sách các dòng đường kính ống -->
-                <div class="kb-quote-items-list">
-                    <div v-for="(row, index) in tubeRows" :key="index" class="kb-quote-item-box">
-                        <div class="kflex-tube-row">
-                            <span class="kb-quote-item-index">#{{ index + 1 }}</span>
-
-                            <label class="kb-quote-field">
-                                <span>Đường kính (Ø mm) *</span>
-                                <input
-                                    v-model="row.diameter"
-                                    type="text"
-                                    placeholder="VD: 22, 28, 35..."
-                                    @input="onTubeDiameterInput(row)"
-                                />
-                            </label>
-
-                            <label class="kb-quote-field">
-                                <span>
-                                    Tên ống tự động
-                                    <em
-                                        v-if="
-                                            row.existingPrice !== null &&
-                                            row.existingPrice !== undefined
-                                        "
-                                        class="kflex-existing-tag"
-                                    >
-                                        (Giá cũ: {{ formatCurrency(row.existingPrice) }})
-                                    </em>
-                                </span>
-                                <input
-                                    v-model="row.product_name"
-                                    type="text"
-                                    :placeholder="
-                                        buildDefaultName(
-                                            stepProductLine,
-                                            'tube',
-                                            stepThickness,
-                                            row.diameter,
-                                        )
-                                    "
-                                />
-                            </label>
-
-                            <label class="kb-quote-field">
-                                <span>Đơn vị</span>
-                                <input v-model="row.unit" type="text" placeholder="m" />
-                            </label>
-
-                            <label class="kb-quote-field">
-                                <span>Đơn giá (VNĐ/m) *</span>
-                                <input
-                                    v-model.number="row.price"
-                                    type="number"
-                                    min="0"
-                                    step="500"
-                                    placeholder="Nhập giá..."
-                                />
-                            </label>
-
-                            <div class="kb-quote-field">
-                                <span>Thành tiền / m</span>
-                                <div class="kb-quote-computed-amount">
-                                    {{ formatCurrency(row.price) }}
-                                </div>
-                            </div>
-
-                            <div class="kb-quote-compact-btns">
-                                <button
-                                    type="button"
-                                    class="mini danger"
-                                    @click="removeTubeDiameterRow(index)"
-                                >
-                                    Xóa
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </template>
-
-            <!-- Thông báo lỗi (nếu có) -->
-            <div
-                v-if="builderError || Object.keys(builderForm.errors).length > 0"
-                class="kflex-error-box"
-            >
-                <div v-if="builderError">{{ builderError }}</div>
-                <div v-for="(err, key) in builderForm.errors" :key="key">{{ err }}</div>
-            </div>
-
-            <!-- Thanh nút Lưu dưới chân card -->
-            <div class="kflex-builder-footer">
-                <div class="kflex-builder-summary">
-                    <template v-if="stepFormType === 'sheet'">
-                        Đang thiết lập:
-                        <b>{{ validSheetRowCount }} độ dày</b>
-                        cho
-                        <b>
-                            Tấm bảo ôn K-Flex {{ getProductLineMeta(stepProductLine).label }}
-                        </b>
-                        · Phân loại: <b>{{ getVariantLabel(stepVariantType, 'sheet') }}</b> · Thương hiệu:
-                        <b>{{ stepBrand }}</b> · Xuất xứ: <b>{{ stepOrigin }}</b>
-                    </template>
-                    <template v-else>
-                        Đang thiết lập:
-                        <b>{{ validTubeRowCount }} đường kính</b>
-                        cho
-                        <b>
-                            Ống bảo ôn K-Flex {{ getProductLineMeta(stepProductLine).label }} dày
-                            {{ stepThickness || '...' }} mm
-                        </b>
-                        · Phân loại: <b>{{ getVariantLabel(stepVariantType, 'tube') }}</b> · Thương hiệu:
-                        <b>{{ stepBrand }}</b> · Xuất xứ: <b>{{ stepOrigin }}</b>
-                    </template>
-                </div>
-
-                <div class="actions">
-                    <button
-                        v-if="stepFormType === 'sheet'"
-                        type="button"
-                        class="btn"
-                        @click="addSheetThicknessRow()"
-                    >
-                        ＋ Thêm độ dày
-                    </button>
-                    <button
-                        v-else
-                        type="button"
-                        class="btn"
-                        @click="addTubeDiameterRow()"
-                    >
-                        ＋ Thêm đường kính
-                    </button>
-                    <button
-                        type="button"
-                        class="btn primary"
-                        :disabled="builderForm.processing"
-                        @click="submitBuilderPricing"
-                    >
-                        <FontAwesomeIcon icon="fa-solid fa-floppy-disk" />
-                        {{
-                            builderForm.processing
-                                ? 'Đang lưu báo giá...'
-                                : stepFormType === 'sheet'
-                                  ? `Lưu Báo Giá ${validSheetRowCount} Độ Dày Tấm`
-                                  : `Lưu Báo Giá ${validTubeRowCount} Đường Kính Ống`
-                        }}
-                    </button>
-                </div>
-            </div>
-        </div>
-
-        <!-- ======================================================================= -->
-        <!-- BỘ LỌC & BẢNG DANH SÁCH GIÁ BẢO ÔN ĐÃ LƯU -->
-        <!-- ======================================================================= -->
-        <div class="page-head" style="margin-top: 26px">
-            <div>
-                <h2>Danh Sách Bảng Giá Bảo Ôn Đã Lưu</h2>
-                <p>
-                    Tra cứu, lọc theo dòng sản phẩm, loại hình, độ dày hoặc bấm
-                    <b>Nạp vào khung</b> để sửa hàng loạt.
-                </p>
-            </div>
-            <div class="actions">
+                </button>
+                <button class="btn primary" type="button" @click="openBulkModalFromFilters">
+                    ＋ Thêm / Cập nhật giá hàng loạt
+                </button>
                 <input
                     v-model="searchQuery"
                     class="search"
                     type="search"
-                    placeholder="Tìm tên, độ dày, đường kính..."
+                    placeholder="Tìm tên, kích thước (VD: 13x22)..."
+                    aria-label="Tìm kiếm kích thước K-Flex"
                 />
             </div>
         </div>
 
+        <!-- Filter Bar -->
         <div class="filters kflex-filters">
             <div class="filter-group">
-                <span>DÒNG SP</span>
+                <span>DÒNG SẢN PHẨM</span>
                 <select v-model="filterProductLine" class="kflex-filter-select">
-                    <option value="all">Tất cả (ST, K-Protect, M-Flex)</option>
+                    <option value="all">Tất cả dòng (ST, K-Protect, M-Flex)</option>
                     <option v-for="(label, key) in productLines" :key="key" :value="key">
-                        Dòng {{ label }}
+                        K-Flex {{ label }}
                     </option>
                 </select>
             </div>
@@ -1558,17 +935,21 @@ const formatCurrency = (val: number) => {
             <div class="filter-group">
                 <span>LOẠI HÌNH</span>
                 <select v-model="filterFormType" class="kflex-filter-select">
-                    <option value="all">Tất cả (Tấm & Ống)</option>
+                    <option value="all">Tất cả (Tấm &amp; Ống)</option>
                     <option value="sheet">Tấm</option>
                     <option value="tube">Ống</option>
                 </select>
             </div>
 
             <div class="filter-group">
-                <span>NHÔM / KEO</span>
+                <span>PHÂN LOẠI</span>
                 <select v-model="filterVariantType" class="kflex-filter-select">
                     <option value="all">Tất cả phân loại</option>
-                    <option v-for="(label, key) in allVariantLabels" :key="key" :value="key">
+                    <option
+                        v-for="(label, key) in filterVariantOptions"
+                        :key="key"
+                        :value="key"
+                    >
                         {{ label }}
                     </option>
                 </select>
@@ -1585,22 +966,10 @@ const formatCurrency = (val: number) => {
             </div>
 
             <button
-                v-if="
-                    filterProductLine !== 'all' ||
-                    filterFormType !== 'all' ||
-                    filterVariantType !== 'all' ||
-                    filterThickness !== 'all' ||
-                    searchQuery
-                "
+                v-if="hasActiveFilters"
                 class="btn"
                 type="button"
-                @click="
-                    filterProductLine = 'all';
-                    filterFormType = 'all';
-                    filterVariantType = 'all';
-                    filterThickness = 'all';
-                    searchQuery = '';
-                "
+                @click="resetFilters"
             >
                 Xóa bộ lọc
             </button>
@@ -1608,95 +977,107 @@ const formatCurrency = (val: number) => {
             <em>{{ filteredPrices.length }} / {{ kflexPrices.length }} kích thước</em>
         </div>
 
-        <div v-if="filteredPrices.length > 0" class="tablewrap">
-            <table class="table">
+        <!-- Table List -->
+        <div v-if="filteredPrices.length > 0" class="tablewrap kflex-tablewrap">
+            <table class="table kflex-table">
                 <thead>
                     <tr>
-                        <th style="width: 42px; text-align: center">
+                        <th class="col-check">
                             <input
                                 type="checkbox"
+                                class="kflex-checkbox"
                                 :checked="isAllSelected"
+                                aria-label="Chọn tất cả"
                                 @change="toggleSelectAll"
                             />
                         </th>
-                        <th>Sản phẩm bảo ôn</th>
-                        <th>Dòng / Loại hình</th>
-                        <th>Phân loại</th>
-                        <th>Kích thước</th>
-                        <th>Thương hiệu / Xuất xứ</th>
-                        <th>Đơn giá</th>
-                        <th>Thao tác</th>
+                        <th class="col-product">Sản phẩm bảo ôn</th>
+                        <th class="col-line">Dòng sản phẩm</th>
+                        <th class="col-form">Loại hình</th>
+                        <th class="col-variant">Phân loại</th>
+                        <th class="col-size">Kích thước</th>
+                        <th class="col-price">Đơn giá</th>
+                        <th class="col-actions">Thao tác</th>
                     </tr>
                 </thead>
                 <tbody>
                     <tr v-for="item in paginatedPrices" :key="item.id">
-                        <td style="text-align: center">
+                        <td class="col-check">
                             <input
                                 v-model="selectedIds"
                                 type="checkbox"
+                                class="kflex-checkbox"
                                 :value="item.id"
+                                :aria-label="`Chọn ${item.product_name}`"
                             />
                         </td>
-                        <td>
-                            <div class="item">
-                                <div class="thumb">
-                                    <span>{{ productLines[item.product_line] || 'KF' }}</span>
-                                </div>
-                                <div>
-                                    <b>{{ item.product_name }}</b>
-                                    <small>Đơn vị tính: {{ item.unit || 'm' }}</small>
-                                </div>
+                        <td class="col-product">
+                            <div class="kflex-product-cell">
+                                <b class="kflex-product-title">{{ item.product_name }}</b>
+                                <small class="kflex-product-sub">
+                                    Mã #{{ item.id }} · Đơn vị: {{ item.unit || 'm' }} ·
+                                    {{ item.brand || getProductLineMeta(item.product_line).brand }} ({{
+                                        item.origin || getProductLineMeta(item.product_line).origin
+                                    }})
+                                </small>
                             </div>
                         </td>
-                        <td>
-                            <b>Dòng {{ productLines[item.product_line] || item.product_line }}</b>
-                            <small class="muted">
-                                Loại hình: {{ item.form_type === 'sheet' ? 'Tấm' : 'Ống' }}
-                            </small>
+                        <td class="col-line">
+                            <b class="kflex-nowrap">
+                                K-Flex {{ productLines[item.product_line] || item.product_line }}
+                            </b>
                         </td>
-                        <td>
-                            <span class="badge">
+                        <td class="col-form">
+                            <span
+                                class="kflex-type-badge"
+                                :class="item.form_type === 'sheet' ? 'sheet' : 'tube'"
+                            >
+                                {{ item.form_type === 'sheet' ? 'Tấm' : 'Ống' }}
+                            </span>
+                        </td>
+                        <td class="col-variant">
+                            <span class="badge kflex-variant-badge">
                                 {{ getVariantLabel(item.variant_type, item.form_type) }}
                             </span>
                         </td>
-                        <td>
-                            <b v-if="item.form_type === 'tube' || item.diameter">
-                                {{ item.thickness }}x{{ item.diameter }}
-                            </b>
-                            <b v-else>Dày {{ item.thickness }}mm</b>
-                            <small class="muted">
-                                Độ dày: {{ item.thickness }}mm
-                                <template v-if="item.diameter">
-                                    · Đường kính: Ø{{ item.diameter }}
-                                </template>
-                            </small>
+                        <td class="col-size">
+                            <div class="kflex-size-cell">
+                                <b v-if="item.form_type === 'tube' || item.diameter">
+                                    {{ item.thickness }}x{{ item.diameter }}
+                                </b>
+                                <b v-else>Dày {{ item.thickness }}mm</b>
+                                <small class="muted">
+                                    Độ dày: {{ item.thickness }}mm
+                                    <template v-if="item.diameter">
+                                        · Ø{{ item.diameter }}
+                                    </template>
+                                </small>
+                            </div>
                         </td>
-                        <td>
-                            <b>{{ item.brand }}</b>
-                            <small class="muted">Xuất xứ: {{ item.origin }}</small>
+                        <td class="col-price">
+                            <div class="kflex-price-cell">
+                                <b class="kflex-price-text">
+                                    {{ formatCurrency(item.price) }}
+                                </b>
+                                <span class="kflex-price-unit">/ {{ item.unit || 'm' }}</span>
+                            </div>
                         </td>
-                        <td>
-                            <b style="color: #8e7443; font-size: 14px">
-                                {{ formatCurrency(item.price) }}
-                            </b>
-                            <small class="muted">/ {{ item.unit || 'm' }}</small>
-                        </td>
-                        <td>
-                            <div class="row-actions">
-                                <button
-                                    class="mini"
-                                    type="button"
-                                    title="Nạp lên khung trên để sửa hàng loạt"
-                                    @click="loadRecordIntoBuilder(item)"
-                                >
-                                    Nạp vào khung
-                                </button>
+                        <td class="col-actions">
+                            <div class="row-actions kflex-row-actions">
                                 <button
                                     class="mini"
                                     type="button"
                                     @click="openEditModal(item)"
                                 >
                                     Sửa
+                                </button>
+                                <button
+                                    class="mini"
+                                    type="button"
+                                    title="Sửa hàng loạt theo nhóm độ dày / đường kính này"
+                                    @click="openBulkModalForRecord(item)"
+                                >
+                                    Sửa lô
                                 </button>
                                 <button
                                     class="mini danger"
@@ -1714,8 +1095,8 @@ const formatCurrency = (val: number) => {
         <div v-else class="empty">
             {{
                 kflexPrices.length
-                    ? 'Không tìm thấy kích thước bảo ôn nào khớp với bộ lọc.'
-                    : 'Chưa có dữ liệu báo giá bảo ôn K-Flex. Hãy chọn dòng sản phẩm và nhập giá ở khung phía trên.'
+                    ? 'Không tìm thấy kích thước bảo ôn nào phù hợp với điều kiện lọc.'
+                    : 'Chưa có dữ liệu bảng giá K-Flex.'
             }}
         </div>
 
@@ -1726,7 +1107,7 @@ const formatCurrency = (val: number) => {
         />
 
         <!-- ======================================================================= -->
-        <!-- MODAL SỬA NHANH 1 DÒNG -->
+        <!-- MODAL SỬA NHANH 1 KÍCH THƯỚC -->
         <!-- ======================================================================= -->
         <div
             v-if="showEditModal && editingItem"
@@ -1865,151 +1246,582 @@ const formatCurrency = (val: number) => {
                 </form>
             </section>
         </div>
+
+        <!-- ======================================================================= -->
+        <!-- MODAL THÊM / CẬP NHẬT GIÁ HÀNG LOẠT -->
+        <!-- ======================================================================= -->
+        <div
+            v-if="showBulkModal"
+            class="modal open"
+            role="presentation"
+            @click.self="showBulkModal = false"
+        >
+            <section class="dialog kflex-bulk-dialog" role="dialog" aria-modal="true">
+                <button
+                    class="close"
+                    type="button"
+                    aria-label="Đóng"
+                    @click="showBulkModal = false"
+                >
+                    <FontAwesomeIcon :icon="['fas', 'xmark']" />
+                </button>
+                <div class="dialog-head">
+                    <div class="eyebrow">K-FLEX PRICING / BULK UPDATE</div>
+                    <h2>Thêm / Cập nhật bảng giá K-Flex hàng loạt</h2>
+                    <p>
+                        Chọn dòng sản phẩm, loại hình và phân loại để thêm hoặc cập nhật nhiều kích
+                        thước cùng lúc.
+                    </p>
+                </div>
+
+                <div class="kflex-bulk-body">
+                    <!-- Chọn Dòng SP / Loại hình / Phân loại -->
+                    <div class="kflex-bulk-selectors">
+                        <label class="kb-quote-field">
+                            <span>Dòng sản phẩm</span>
+                            <select v-model="stepProductLine">
+                                <option v-for="(label, key) in productLines" :key="key" :value="key">
+                                    K-Flex {{ label }}
+                                </option>
+                            </select>
+                        </label>
+
+                        <label class="kb-quote-field">
+                            <span>Loại hình</span>
+                            <select v-model="stepFormType">
+                                <option value="sheet">Tấm (Sheet)</option>
+                                <option value="tube">Ống (Tube)</option>
+                            </select>
+                        </label>
+
+                        <label class="kb-quote-field">
+                            <span>Phân loại</span>
+                            <select v-model="stepVariantType">
+                                <option
+                                    v-for="(label, key) in bulkVariantOptions"
+                                    :key="key"
+                                    :value="key"
+                                >
+                                    {{ label }}
+                                </option>
+                            </select>
+                        </label>
+
+                        <label v-if="stepFormType === 'tube'" class="kb-quote-field">
+                            <span>Độ dày ống (mm) *</span>
+                            <input
+                                v-model="stepThickness"
+                                type="text"
+                                placeholder="VD: 09, 13, 19, 25..."
+                            />
+                        </label>
+
+                        <label class="kb-quote-field">
+                            <span>Thương hiệu</span>
+                            <input v-model="stepBrand" type="text" placeholder="Ý" />
+                        </label>
+
+                        <label class="kb-quote-field">
+                            <span>Xuất xứ</span>
+                            <input v-model="stepOrigin" type="text" placeholder="Malaysia / VN" />
+                        </label>
+                    </div>
+
+                    <!-- Preset độ dày cho Ống -->
+                    <div v-if="stepFormType === 'tube'" class="kflex-preset-list" style="margin-bottom: 14px">
+                        <span class="kflex-preset-label">Chọn nhanh độ dày ống:</span>
+                        <button
+                            v-for="preset in commonThicknessPresets"
+                            :key="preset"
+                            type="button"
+                            class="mini"
+                            :class="{ 'kflex-preset-active': stepThickness.trim() === preset }"
+                            @click="stepThickness = preset"
+                        >
+                            {{ preset }} mm
+                        </button>
+                    </div>
+
+                    <!-- TẤM: Danh sách độ dày -->
+                    <template v-if="stepFormType === 'sheet'">
+                        <div class="kb-quote-items-head">
+                            <div>
+                                <div class="kb-quote-section-title" style="margin-bottom: 2px">
+                                    Danh sách độ dày Tấm K-Flex {{ getProductLineMeta(stepProductLine).label }}
+                                    ({{ getVariantLabel(stepVariantType, 'sheet') }})
+                                </div>
+                            </div>
+                            <div class="kb-quote-items-actions">
+                                <button
+                                    type="button"
+                                    class="btn"
+                                    @click="loadExistingSheetThicknesses"
+                                >
+                                    ↻ Nạp độ dày đã lưu
+                                </button>
+                                <button type="button" class="btn primary" @click="addSheetThicknessRow()">
+                                    ＋ Thêm dòng độ dày
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="kflex-quick-generator">
+                            <label class="kb-quote-field" style="flex: 1">
+                                <span>Nhập nhanh nhiều độ dày (cách nhau bởi dấu phẩy)</span>
+                                <input
+                                    v-model="quickThicknessesInput"
+                                    type="text"
+                                    placeholder="VD: 6, 10, 13, 16, 19, 25, 32, 40, 50"
+                                    @keydown.enter.prevent="appendQuickSheetThicknesses"
+                                />
+                            </label>
+                            <button
+                                type="button"
+                                class="btn"
+                                style="height: 39px; align-self: flex-end"
+                                @click="appendQuickSheetThicknesses"
+                            >
+                                ＋ Tạo nhanh
+                            </button>
+                        </div>
+
+                        <div class="kb-quote-items-list kflex-bulk-scroll">
+                            <div
+                                v-for="(row, index) in sheetRows"
+                                :key="index"
+                                class="kb-quote-item-box"
+                            >
+                                <div class="kflex-tube-row">
+                                    <span class="kb-quote-item-index">#{{ index + 1 }}</span>
+
+                                    <label class="kb-quote-field">
+                                        <span>Độ dày (mm) *</span>
+                                        <input
+                                            v-model="row.thickness"
+                                            type="text"
+                                            placeholder="VD: 13"
+                                            @input="onSheetThicknessInput(row)"
+                                        />
+                                    </label>
+
+                                    <label class="kb-quote-field">
+                                        <span>
+                                            Tên sản phẩm
+                                            <em
+                                                v-if="
+                                                    row.existingPrice !== null &&
+                                                    row.existingPrice !== undefined
+                                                "
+                                                class="kflex-existing-tag"
+                                            >
+                                                (Giá cũ: {{ formatCurrency(row.existingPrice) }})
+                                            </em>
+                                        </span>
+                                        <input
+                                            v-model="row.product_name"
+                                            type="text"
+                                            :placeholder="
+                                                buildDefaultName(
+                                                    stepProductLine,
+                                                    'sheet',
+                                                    row.thickness,
+                                                )
+                                            "
+                                        />
+                                    </label>
+
+                                    <label class="kb-quote-field">
+                                        <span>Đơn vị</span>
+                                        <input v-model="row.unit" type="text" placeholder="m²" />
+                                    </label>
+
+                                    <label class="kb-quote-field">
+                                        <span>Đơn giá (VNĐ) *</span>
+                                        <input
+                                            v-model.number="row.price"
+                                            type="number"
+                                            min="0"
+                                            step="500"
+                                        />
+                                    </label>
+
+                                    <div class="kb-quote-compact-btns">
+                                        <button
+                                            type="button"
+                                            class="mini danger"
+                                            @click="removeSheetThicknessRow(index)"
+                                        >
+                                            Xóa
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </template>
+
+                    <!-- ỐNG: Danh sách đường kính -->
+                    <template v-else>
+                        <div class="kb-quote-items-head">
+                            <div>
+                                <div class="kb-quote-section-title" style="margin-bottom: 2px">
+                                    Danh sách đường kính Ống K-Flex
+                                    {{ getProductLineMeta(stepProductLine).label }} dày
+                                    {{ stepThickness || '...' }}mm ({{
+                                        getVariantLabel(stepVariantType, 'tube')
+                                    }})
+                                </div>
+                            </div>
+                            <div class="kb-quote-items-actions">
+                                <button
+                                    type="button"
+                                    class="btn"
+                                    @click="loadExistingDiametersForCurrentThickness"
+                                >
+                                    ↻ Nạp đường kính đã lưu
+                                </button>
+                                <button type="button" class="btn" @click="loadStandardTubeDiameters">
+                                    ＋ Bộ đường kính chuẩn
+                                </button>
+                                <button type="button" class="btn primary" @click="addTubeDiameterRow()">
+                                    ＋ Thêm dòng đường kính
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="kflex-quick-generator">
+                            <label class="kb-quote-field" style="flex: 1">
+                                <span>Nhập nhanh nhiều đường kính (cách nhau bởi dấu phẩy)</span>
+                                <input
+                                    v-model="quickDiametersInput"
+                                    type="text"
+                                    placeholder="VD: 06, 10, 13, 16, 19, 22, 25, 28, 32, 35, 42, 48..."
+                                    @keydown.enter.prevent="appendQuickTubeDiameters"
+                                />
+                            </label>
+                            <button
+                                type="button"
+                                class="btn"
+                                style="height: 39px; align-self: flex-end"
+                                @click="appendQuickTubeDiameters"
+                            >
+                                ＋ Tạo nhanh
+                            </button>
+                        </div>
+
+                        <div class="kb-quote-items-list kflex-bulk-scroll">
+                            <div
+                                v-for="(row, index) in tubeRows"
+                                :key="index"
+                                class="kb-quote-item-box"
+                            >
+                                <div class="kflex-tube-row">
+                                    <span class="kb-quote-item-index">#{{ index + 1 }}</span>
+
+                                    <label class="kb-quote-field">
+                                        <span>Đường kính (Ø mm) *</span>
+                                        <input
+                                            v-model="row.diameter"
+                                            type="text"
+                                            placeholder="VD: 22"
+                                            @input="onTubeDiameterInput(row)"
+                                        />
+                                    </label>
+
+                                    <label class="kb-quote-field">
+                                        <span>
+                                            Tên sản phẩm
+                                            <em
+                                                v-if="
+                                                    row.existingPrice !== null &&
+                                                    row.existingPrice !== undefined
+                                                "
+                                                class="kflex-existing-tag"
+                                            >
+                                                (Giá cũ: {{ formatCurrency(row.existingPrice) }})
+                                            </em>
+                                        </span>
+                                        <input
+                                            v-model="row.product_name"
+                                            type="text"
+                                            :placeholder="
+                                                buildDefaultName(
+                                                    stepProductLine,
+                                                    'tube',
+                                                    stepThickness,
+                                                    row.diameter,
+                                                )
+                                            "
+                                        />
+                                    </label>
+
+                                    <label class="kb-quote-field">
+                                        <span>Đơn vị</span>
+                                        <input v-model="row.unit" type="text" placeholder="m" />
+                                    </label>
+
+                                    <label class="kb-quote-field">
+                                        <span>Đơn giá (VNĐ/m) *</span>
+                                        <input
+                                            v-model.number="row.price"
+                                            type="number"
+                                            min="0"
+                                            step="500"
+                                        />
+                                    </label>
+
+                                    <div class="kb-quote-compact-btns">
+                                        <button
+                                            type="button"
+                                            class="mini danger"
+                                            @click="removeTubeDiameterRow(index)"
+                                        >
+                                            Xóa
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </template>
+
+                    <div
+                        v-if="builderError || Object.keys(builderForm.errors).length > 0"
+                        class="kflex-error-box"
+                    >
+                        <div v-if="builderError">{{ builderError }}</div>
+                        <div v-for="(err, key) in builderForm.errors" :key="key">{{ err }}</div>
+                    </div>
+
+                    <div class="request-detail-actions" style="margin-top: 18px">
+                        <button class="btn" type="button" @click="showBulkModal = false">
+                            Đóng
+                        </button>
+                        <button
+                            class="btn primary"
+                            type="button"
+                            :disabled="builderForm.processing"
+                            @click="submitBuilderPricing"
+                        >
+                            {{
+                                builderForm.processing
+                                    ? 'Đang lưu...'
+                                    : stepFormType === 'sheet'
+                                      ? `Lưu ${validSheetRowCount} độ dày Tấm`
+                                      : `Lưu ${validTubeRowCount} đường kính Ống`
+                            }}
+                        </button>
+                    </div>
+                </div>
+            </section>
+        </div>
     </AdminLayout>
 </template>
 
 <style scoped>
-.kflex-step-card {
-    margin-bottom: 18px;
-}
-
-.kflex-step-header {
+.kflex-filters {
     display: flex;
     align-items: center;
-    justify-content: space-between;
     gap: 12px;
     flex-wrap: wrap;
     margin-bottom: 14px;
 }
 
-.kflex-summary-pills {
+.kflex-filter-select {
+    border: 1px solid #d8cfbd;
+    border-radius: 6px;
+    background: var(--surface);
+    color: var(--ink);
+    padding: 7px 11px;
+    font-size: 12.5px;
+    font-weight: 600;
+    outline: none;
+}
+
+.kflex-tablewrap {
+    overflow-x: auto;
+    width: 100%;
+}
+
+.kflex-table {
+    width: 100%;
+    min-width: 1020px;
+    border-collapse: collapse;
+    table-layout: auto;
+}
+
+.kflex-table th,
+.kflex-table td {
+    padding: 13px 14px;
+    vertical-align: middle;
+    box-sizing: border-box;
+}
+
+.kflex-table .col-check {
+    width: 46px;
+    min-width: 46px;
+    max-width: 46px;
+    text-align: center;
+    padding-left: 10px;
+    padding-right: 10px;
+}
+
+.kflex-checkbox {
+    width: 16px !important;
+    height: 16px !important;
+    margin: 0;
+    cursor: pointer;
+    vertical-align: middle;
+}
+
+.kflex-table .col-product {
+    min-width: 260px;
+    width: 30%;
+}
+
+.kflex-product-cell {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.kflex-product-title {
+    display: block;
+    font-size: 13.5px;
+    line-height: 1.4;
+    color: var(--ink);
+    word-break: break-word;
+}
+
+.kflex-product-sub {
+    display: block;
+    color: var(--muted);
+    font-size: 11.5px;
+    line-height: 1.35;
+}
+
+.kflex-table .col-line {
+    min-width: 125px;
+    white-space: nowrap;
+}
+
+.kflex-table .col-form {
+    min-width: 90px;
+    white-space: nowrap;
+}
+
+.kflex-table .col-variant {
+    width: 115px;
+    min-width: 105px;
+    white-space: nowrap;
+}
+
+.kflex-table .col-size {
+    min-width: 130px;
+    white-space: nowrap;
+}
+
+.kflex-size-cell {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.kflex-price-cell {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 4px;
+    white-space: nowrap;
+}
+
+.kflex-price-unit {
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: 500;
+    white-space: nowrap;
+}
+
+.kflex-table .col-price {
+    min-width: 130px;
+    white-space: nowrap;
+}
+
+.kflex-table .col-actions {
+    width: 185px;
+    min-width: 185px;
+    white-space: nowrap;
+}
+
+.kflex-row-actions {
     display: flex;
     align-items: center;
-    gap: 8px;
-    flex-wrap: wrap;
+    gap: 6px;
+    flex-wrap: nowrap;
 }
 
-.kflex-pill {
+.kflex-nowrap {
+    white-space: nowrap;
+}
+
+.kflex-variant-badge {
     display: inline-flex;
     align-items: center;
-    gap: 4px;
-    padding: 5px 11px;
+    padding: 3px 8px;
+    font-size: 11px;
+    white-space: nowrap;
+}
+
+.kflex-type-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 10px;
     border-radius: 99px;
-    font-size: 12px;
-    border: 1px solid var(--line);
-    background: var(--bg);
-    color: var(--ink);
-}
-
-.kflex-pill.gold {
-    background: var(--blue2);
-    border-color: #d8c8a8;
-    color: #5b4b2a;
-}
-
-.kflex-pill.dark {
-    background: #18352e;
-    border-color: #18352e;
-    color: #f5f1e8;
+    font-size: 11.5px;
     font-weight: 700;
+    white-space: nowrap;
 }
 
-.kflex-3col-tabs {
+.kflex-type-badge.sheet {
+    background: #efe6d5;
+    color: #5b4b2a;
+    border: 1px solid #d8c8a8;
+}
+
+.kflex-type-badge.tube {
+    background: #e1ede8;
+    color: #18352e;
+    border: 1px solid #b8d0c6;
+}
+
+.kflex-price-text {
+    color: #8e7443;
+    font-size: 14px;
+    white-space: nowrap;
+}
+
+.kflex-modal-form,
+.kflex-bulk-body {
+    padding: 20px 25px 25px;
+}
+
+.kflex-modal-grid {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 12px;
 }
 
-.kflex-3col-tabs .kb-quote-tab-btn,
-.kflex-2col-tabs .kb-quote-tab-btn {
-    display: flex;
-    align-items: center;
+.kflex-span-2 {
+    grid-column: span 2;
 }
 
-.kflex-dual-grid {
+.kflex-bulk-dialog {
+    width: min(1040px, 95vw);
+    max-height: 90vh;
+    overflow-y: auto;
+}
+
+.kflex-bulk-selectors {
     display: grid;
-    grid-template-columns: 5fr 7fr;
-    gap: 18px;
-    margin-bottom: 18px;
-}
-
-.kflex-2col-tabs {
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: 10px;
-}
-
-.kflex-variant-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
-    gap: 10px;
-}
-
-.kflex-variant-card {
-    display: flex;
-    align-items: flex-start;
-    gap: 10px;
-    padding: 12px 14px;
-    border-radius: 10px;
-    border: 1px solid var(--line);
-    background: #ffffff;
-    color: var(--ink);
-    text-align: left;
-    transition: all 0.18s ease;
-}
-
-.kflex-variant-card:hover {
-    border-color: var(--gold);
-}
-
-.kflex-variant-card.active {
-    background: linear-gradient(135deg, #18352e 0%, #23473b 100%);
-    border-color: #18352e;
-    color: #f5f1e8;
-    box-shadow: 0 8px 20px rgba(24, 53, 46, 0.15);
-}
-
-.kflex-variant-check {
-    width: 26px;
-    height: 26px;
-    border-radius: 7px;
-    background: var(--blue2);
-    color: #5b4b2a;
-    display: grid;
-    place-items: center;
-    font-size: 11px;
-    font-weight: 800;
-    flex-shrink: 0;
-}
-
-.kflex-variant-card.active .kflex-variant-check {
-    background: var(--gold);
-    color: #171714;
-}
-
-.kflex-variant-meta strong {
-    display: block;
-    font-size: 13px;
-    margin-bottom: 2px;
-}
-
-.kflex-variant-meta small {
-    display: block;
-    font-size: 11.5px;
-    color: var(--muted);
-    line-height: 1.4;
-}
-
-.kflex-variant-card.active .kflex-variant-meta small {
-    color: #c8d8ce;
-}
-
-.kflex-thickness-bar {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 14px;
-    flex-wrap: wrap;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
     margin-bottom: 14px;
 }
 
@@ -2033,18 +1845,6 @@ const formatCurrency = (val: number) => {
     color: #ffffff !important;
 }
 
-.kflex-meta-inputs-grid {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 14px;
-}
-
-.kflex-divider {
-    border: 0;
-    border-top: 1px solid var(--line);
-    margin: 20px 0;
-}
-
 .kflex-existing-tag {
     color: #2c6e49;
     font-weight: 700;
@@ -2053,7 +1853,7 @@ const formatCurrency = (val: number) => {
 
 .kflex-tube-row {
     display: grid;
-    grid-template-columns: 38px 150px 1.8fr 90px 1fr 1fr auto;
+    grid-template-columns: 38px 140px 1.8fr 90px 1.2fr auto;
     gap: 10px;
     align-items: end;
 }
@@ -2063,11 +1863,17 @@ const formatCurrency = (val: number) => {
     align-items: flex-end;
     gap: 12px;
     flex-wrap: wrap;
-    padding: 14px 16px;
-    border-radius: 12px;
+    padding: 12px 14px;
+    border-radius: 10px;
     border: 1px dashed #c8ba9e;
     background: #f8f4eb;
-    margin-bottom: 14px;
+    margin-bottom: 12px;
+}
+
+.kflex-bulk-scroll {
+    max-height: 360px;
+    overflow-y: auto;
+    padding-right: 4px;
 }
 
 .kflex-error-box {
@@ -2081,64 +1887,14 @@ const formatCurrency = (val: number) => {
     font-size: 13px;
 }
 
-.kflex-builder-footer {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 14px;
-    flex-wrap: wrap;
-    margin-top: 18px;
-    padding-top: 16px;
-    border-top: 1px solid var(--line);
-}
-
-.kflex-builder-summary {
-    font-size: 13px;
-    color: var(--muted);
-}
-
-.kflex-builder-summary b {
-    color: var(--ink);
-}
-
-.kflex-filters {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    flex-wrap: wrap;
-    margin-bottom: 14px;
-}
-
-.kflex-filter-select {
-    border: 1px solid #d8cfbd;
-    border-radius: 6px;
-    background: var(--surface);
-    color: var(--ink);
-    padding: 7px 11px;
-    font-size: 12.5px;
-    font-weight: 600;
-    outline: none;
-}
-
-.kflex-modal-form {
-    margin-top: 12px;
-}
-
-.kflex-modal-grid {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 12px;
-}
-
-.kflex-span-2 {
-    grid-column: span 2;
-}
-
-@media (max-width: 1100px) {
-    .kflex-3col-tabs,
-    .kflex-dual-grid,
-    .kflex-meta-inputs-grid {
+@media (max-width: 900px) {
+    .kflex-bulk-selectors,
+    .kflex-modal-grid {
         grid-template-columns: 1fr;
+    }
+
+    .kflex-span-2 {
+        grid-column: span 1;
     }
 
     .kflex-tube-row {

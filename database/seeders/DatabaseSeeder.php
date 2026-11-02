@@ -24,6 +24,7 @@ class DatabaseSeeder extends Seeder
             ArticleSeeder::class,
             CatalogueSeeder::class,
             AdminUserSeeder::class,
+            KflexPriceSeeder::class,
         ]);
 
         if (! app()->isProduction()) {
