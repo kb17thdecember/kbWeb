@@ -1451,6 +1451,15 @@ const printKflexQuotationPdf = (): void => {
                 }
 
                 var closePrintWindow = function () {
+                    try {
+                        if (window.opener && !window.opener.closed) {
+                            window.opener.dispatchEvent(
+                                new CustomEvent('kbadmin-toast', {
+                                    detail: { message: 'Đã xuất báo giá bảo ôn K-Flex PDF thành công.' }
+                                })
+                            );
+                        }
+                    } catch (e) {}
                     setTimeout(function () {
                         window.close();
                     }, 100);
@@ -1507,9 +1516,12 @@ const printKflexQuotationPdf = (): void => {
         notified = true;
         notifyToast('Đã xuất báo giá bảo ôn K-Flex PDF thành công.');
     };
-    printWindow.addEventListener('afterprint', notifyCompleted);
-    printWindow.addEventListener('beforeunload', notifyCompleted);
-    notifyToast('Đã xuất báo giá bảo ôn K-Flex PDF thành công.');
+    const watchClosedTimer = window.setInterval(() => {
+        if (printWindow.closed) {
+            window.clearInterval(watchClosedTimer);
+            notifyCompleted();
+        }
+    }, 200);
 };
 
 const printQuotationPdf = (): void => {
@@ -1929,6 +1941,15 @@ const printQuotationPdf = (): void => {
                 }
 
                 var closePrintWindow = function () {
+                    try {
+                        if (window.opener && !window.opener.closed) {
+                            window.opener.dispatchEvent(
+                                new CustomEvent('kbadmin-toast', {
+                                    detail: { message: 'Đã xuất báo giá Ariston PDF thành công.' }
+                                })
+                            );
+                        }
+                    } catch (e) {}
                     setTimeout(function () {
                         window.close();
                     }, 100);
@@ -1983,11 +2004,14 @@ const printQuotationPdf = (): void => {
             return;
         }
         notified = true;
-        notifyToast('Đã xuất báo giá PDF thành công.');
+        notifyToast('Đã xuất báo giá Ariston PDF thành công.');
     };
-    printWindow.addEventListener('afterprint', notifyCompleted);
-    printWindow.addEventListener('beforeunload', notifyCompleted);
-    notifyToast('Đã xuất báo giá PDF thành công.');
+    const watchClosedTimer = window.setInterval(() => {
+        if (printWindow.closed) {
+            window.clearInterval(watchClosedTimer);
+            notifyCompleted();
+        }
+    }, 200);
 };
 </script>
 

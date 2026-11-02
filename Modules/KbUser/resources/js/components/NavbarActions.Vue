@@ -615,6 +615,15 @@ const printCartQuote = (): void => {
     <script>
         (function () {
             var closePrintWindow = function () {
+                try {
+                    if (window.opener && !window.opener.closed) {
+                        window.opener.dispatchEvent(
+                            new CustomEvent('kbuser-toast', {
+                                detail: { message: 'Đã xuất báo giá PDF thành công.' }
+                            })
+                        );
+                    }
+                } catch (e) {}
                 setTimeout(function () {
                     window.close();
                 }, 100);
@@ -646,10 +655,13 @@ const printCartQuote = (): void => {
         notified = true;
         notifyToast('Đã xuất báo giá PDF thành công.');
     };
-    win.addEventListener('afterprint', notifyCompleted);
-    win.addEventListener('beforeunload', notifyCompleted);
+    const watchClosedTimer = window.setInterval(() => {
+        if (win.closed) {
+            window.clearInterval(watchClosedTimer);
+            notifyCompleted();
+        }
+    }, 200);
 
-    notifyToast('Đã xuất báo giá PDF thành công.');
     win.focus();
     win.print();
 };
