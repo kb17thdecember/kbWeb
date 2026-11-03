@@ -21,6 +21,9 @@ type FeaturedProject = {
     slug?: string;
     name: string;
     description: string;
+    seo_title?: string | null;
+    seo_description?: string | null;
+    seo_keywords?: string | null;
     location: string;
     category: string;
     subcategory: string;
@@ -205,7 +208,7 @@ onUnmounted(() => {
 
 <template>
     <div>
-        <Head :title="`HVAC Mart | ${project.name} - Dự án tiêu biểu`" />
+        <Head :title="project.seo_title || `HVAC Mart | ${project.name} - Dự án tiêu biểu`" />
 
         <UserLayout :cart-count="cartCount" active-page="projects">
             <main>

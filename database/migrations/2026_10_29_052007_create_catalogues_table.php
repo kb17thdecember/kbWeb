@@ -13,6 +13,10 @@ return new class extends Migration
     {
         Schema::create('catalogues', function (Blueprint $table) {
             $table->id();
+            $table->foreignId('category_id')
+                ->nullable()
+                ->constrained('categories')
+                ->nullOnDelete();
             $table->string('title');
             $table->text('description')->nullable();
             $table->string('file_path');

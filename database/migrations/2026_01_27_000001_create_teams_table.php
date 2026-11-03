@@ -20,6 +20,14 @@ return new class extends Migration
             $table->softDeletes();
         });
 
+        Schema::table('users', function (Blueprint $table) {
+            $table->foreignId('current_team_id')
+                ->nullable()
+                ->after('password')
+                ->constrained('teams')
+                ->nullOnDelete();
+        });
+
         Schema::create('team_members', function (Blueprint $table) {
             $table->id();
             $table->foreignId('team_id')->constrained()->cascadeOnDelete();
@@ -50,6 +58,11 @@ return new class extends Migration
     {
         Schema::dropIfExists('team_invitations');
         Schema::dropIfExists('team_members');
+
+        Schema::table('users', function (Blueprint $table) {
+            $table->dropConstrainedForeignId('current_team_id');
+        });
+
         Schema::dropIfExists('teams');
     }
 };

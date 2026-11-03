@@ -263,17 +263,58 @@
     } elseif ($componentName === 'featured projects/Show' && ! empty($pageProps['project'])) {
         $proj = $toArrayPayload($pageProps['project']) ?? [];
         $projName = trim((string) ($proj['name'] ?? 'Dự án tiêu biểu'));
+        $projSlug = trim((string) ($proj['slug'] ?? $proj['id'] ?? ''));
         $projLocation = trim((string) ($proj['location'] ?? ''));
-        $seoTitle = $projName . ($projLocation !== '' ? ' (' . $projLocation . ')' : '') . ' - Dự Án Tiêu Biểu | ' . $companyName;
+        $customProjTitle = trim((string) ($proj['seo_title'] ?? ''));
+        $customProjDesc = trim((string) ($proj['seo_description'] ?? ''));
+        $customProjKeywords = trim((string) ($proj['seo_keywords'] ?? ''));
+
+        $seoTitle = $customProjTitle !== ''
+            ? $customProjTitle
+            : ($projName . ($projLocation !== '' ? ' (' . $projLocation . ')' : '') . ' - Dự Án Tiêu Biểu | ' . $companyName);
         $rawDesc = strip_tags((string) ($proj['description'] ?? ''));
-        $seoDescription = $rawDesc !== ''
-            ? \Illuminate\Support\Str::limit($rawDesc, 160)
-            : ('Hồ sơ cung ứng vật tư cơ điện MEP cho dự án ' . $projName . ' tại ' . $companyName . '.');
+        $seoDescription = $customProjDesc !== ''
+            ? $customProjDesc
+            : ($rawDesc !== ''
+                ? \Illuminate\Support\Str::limit($rawDesc, 160)
+                : ('Hồ sơ cung ứng vật tư cơ điện MEP cho dự án ' . $projName . ' tại ' . $companyName . '.'));
+        if ($customProjKeywords !== '') {
+            $seoKeywords = $customProjKeywords;
+        }
+        if ($projSlug !== '') {
+            $canonicalUrl = $canonicalBase . '/featured-projects/' . $projSlug;
+        }
         $projImg = $resolveAbsImage((string) ($proj['image_url'] ?? $proj['image'] ?? ''));
         if ($projImg !== null) {
             $seoImage = $projImg;
         }
         $ogType = 'article';
+        $extraSchemas[] = [
+            '@context' => 'https://schema.org',
+            '@type' => 'Article',
+            'headline' => $projName,
+            'description' => $seoDescription,
+            'keywords' => $seoKeywords,
+            'image' => [$seoImage],
+            'url' => $canonicalUrl,
+            'author' => [
+                '@type' => 'Organization',
+                'name' => $companyName,
+            ],
+            'publisher' => [
+                '@type' => 'Organization',
+                'name' => $companyName,
+            ],
+        ];
+        $extraSchemas[] = [
+            '@context' => 'https://schema.org',
+            '@type' => 'BreadcrumbList',
+            'itemListElement' => [
+                ['@type' => 'ListItem', 'position' => 1, 'name' => 'Trang chủ', 'item' => $canonicalBase . '/'],
+                ['@type' => 'ListItem', 'position' => 2, 'name' => 'Dự án tiêu biểu', 'item' => $canonicalBase . '/featured-projects'],
+                ['@type' => 'ListItem', 'position' => 3, 'name' => $projName, 'item' => $canonicalUrl],
+            ],
+        ];
     } elseif ($componentName === 'news/Index') {
         $seoTitle = $siteSettings['seo_news_title'] ?: $seoTitle;
         $seoDescription = $siteSettings['seo_news_description'] ?: $seoDescription;

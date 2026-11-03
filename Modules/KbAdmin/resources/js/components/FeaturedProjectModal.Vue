@@ -28,30 +28,105 @@
                         <label for="featuredProjectLocation">Vị trí</label>
                         <input id="featuredProjectLocation" v-model="location" name="location" maxlength="255" required placeholder="Ví dụ: Hà Nội">
                     </div>
-                    <div class="field">
-                        <label for="featuredProjectCategory">Hạng mục</label>
-                        <select id="featuredProjectCategory" v-model="selectedCategory" name="category" required>
-                            <option value="" disabled>Chọn hạng mục</option>
-                            <option v-for="item in categories" :key="item.id" :value="item.name">
-                                {{ item.name }}
-                            </option>
-                        </select>
+                    <div class="field full">
+                        <div class="product-picker-head">
+                            <label>
+                                Hạng mục (có thể chọn nhiều)
+                                <span v-if="selectedCategories.length" class="product-picker-badge">
+                                    Đã chọn {{ selectedCategories.length }}
+                                </span>
+                            </label>
+                            <div class="product-picker-controls">
+                                <button
+                                    v-if="categories.length && selectedCategories.length < categories.length"
+                                    type="button"
+                                    class="product-filter-toggle"
+                                    @click="selectAllCategories"
+                                >
+                                    Chọn tất cả
+                                </button>
+                                <button
+                                    v-if="selectedCategories.length"
+                                    type="button"
+                                    class="product-clear-btn"
+                                    @click="clearCategories"
+                                >
+                                    Bỏ chọn hết
+                                </button>
+                            </div>
+                        </div>
+                        <div v-if="categories.length" class="multi-choice-grid" role="group" aria-label="Chọn hạng mục">
+                            <button
+                                v-for="item in categories"
+                                :key="item.id"
+                                type="button"
+                                class="multi-choice-chip"
+                                :class="{ selected: selectedCategories.includes(item.name) }"
+                                :aria-pressed="selectedCategories.includes(item.name)"
+                                @click="toggleCategorySelection(item.name)"
+                            >
+                                <span class="product-picker-check" aria-hidden="true">
+                                    {{ selectedCategories.includes(item.name) ? '✓' : '+' }}
+                                </span>
+                                <span class="multi-choice-copy">
+                                    <b>{{ item.name }}</b>
+                                    <small>{{ item.children.length }} loại sản phẩm</small>
+                                </span>
+                            </button>
+                        </div>
                     </div>
-                    <div class="field">
-                        <label for="featuredProjectSubcategory">Nhóm</label>
-                        <select
-                            id="featuredProjectSubcategory"
-                            v-model="selectedSubcategory"
-                            name="subcategory"
-                            required
-                            :disabled="!selectedCategory || !visibleSubcategories.length"
-                        >
-                            <option value="" disabled>{{ selectedCategory ? 'Chọn nhóm' : 'Chọn hạng mục trước' }}</option>
-                            <option v-for="item in visibleSubcategories" :key="item.id" :value="item.name">
-                                {{ item.name }}
-                            </option>
-                        </select>
+
+                    <div class="field full">
+                        <div class="product-picker-head">
+                            <label>
+                                Loại sản phẩm / Nhóm vật tư (có thể chọn nhiều)
+                                <span v-if="selectedSubcategories.length" class="product-picker-badge">
+                                    Đã chọn {{ selectedSubcategories.length }}
+                                </span>
+                            </label>
+                            <div class="product-picker-controls">
+                                <button
+                                    v-if="visibleSubcategories.length && selectedSubcategories.length < visibleSubcategories.length"
+                                    type="button"
+                                    class="product-filter-toggle"
+                                    @click="selectAllSubcategories"
+                                >
+                                    Chọn tất cả loại
+                                </button>
+                                <button
+                                    v-if="selectedSubcategories.length"
+                                    type="button"
+                                    class="product-clear-btn"
+                                    @click="selectedSubcategories = []"
+                                >
+                                    Bỏ chọn hết
+                                </button>
+                            </div>
+                        </div>
+                        <div v-if="visibleSubcategories.length" class="multi-choice-grid" role="group" aria-label="Chọn loại sản phẩm">
+                            <button
+                                v-for="item in visibleSubcategories"
+                                :key="`${item.parentName}-${item.id}`"
+                                type="button"
+                                class="multi-choice-chip"
+                                :class="{ selected: selectedSubcategories.includes(item.name) }"
+                                :aria-pressed="selectedSubcategories.includes(item.name)"
+                                @click="toggleSubcategorySelection(item.name)"
+                            >
+                                <span class="product-picker-check" aria-hidden="true">
+                                    {{ selectedSubcategories.includes(item.name) ? '✓' : '+' }}
+                                </span>
+                                <span class="multi-choice-copy">
+                                    <b>{{ item.name }}</b>
+                                    <small>{{ item.parentName }}</small>
+                                </span>
+                            </button>
+                        </div>
+                        <p v-else class="image-help">
+                            Vui lòng chọn ít nhất một Hạng mục ở trên để hiển thị các loại sản phẩm tương ứng.
+                        </p>
                     </div>
+
                     <div class="field full">
                         <label for="featuredProjectType">Loại dự án</label>
                         <select id="featuredProjectType" v-model="type" name="type" required>
@@ -64,20 +139,28 @@
                     <div class="field full">
                         <div class="product-picker-head">
                             <label for="featuredProjectProductSearch">
-                                Vật tư &amp; sản phẩm thực tế sử dụng
+                                Vật tư &amp; sản phẩm thực tế sử dụng (có thể chọn nhiều)
                                 <span v-if="selectedProducts.length" class="product-picker-badge">
                                     Đã chọn {{ selectedProducts.length }}
                                 </span>
                             </label>
                             <div class="product-picker-controls">
                                 <button
-                                    v-if="selectedCategory"
+                                    v-if="selectedCategories.length || selectedSubcategories.length"
                                     type="button"
                                     class="product-filter-toggle"
                                     :class="{ active: filterBySelectedCategory }"
                                     @click="filterBySelectedCategory = !filterBySelectedCategory"
                                 >
-                                    {{ filterBySelectedCategory ? `Đang lọc: ${selectedCategory}` : 'Tất cả danh mục' }}
+                                    {{ filterBySelectedCategory ? `Đang lọc theo hạng mục & loại (${selectedCategories.length})` : 'Tất cả danh mục & loại' }}
+                                </button>
+                                <button
+                                    v-if="filteredPickerProducts.length"
+                                    type="button"
+                                    class="product-filter-toggle"
+                                    @click="selectAllFilteredProducts"
+                                >
+                                    Chọn hết đang hiển thị
                                 </button>
                                 <button
                                     v-if="selectedProducts.length"
@@ -105,12 +188,23 @@
                             </span>
                         </div>
 
-                        <input
-                            id="featuredProjectProductSearch"
-                            v-model="productSearchQuery"
-                            type="search"
-                            placeholder="Tìm sản phẩm theo tên hoặc nhóm vật tư..."
-                        >
+                        <div class="product-search-row">
+                            <input
+                                id="featuredProjectProductSearch"
+                                v-model="productSearchQuery"
+                                type="search"
+                                placeholder="Tìm sản phẩm theo tên, hạng mục, loại vật tư hoặc nhập tên mới..."
+                                @keydown.enter.prevent="addCustomProductFromSearch"
+                            >
+                            <button
+                                v-if="canAddCustomProduct"
+                                type="button"
+                                class="product-filter-toggle active"
+                                @click="addCustomProductFromSearch"
+                            >
+                                ＋ Thêm "{{ productSearchQuery.trim() }}"
+                            </button>
+                        </div>
 
                         <div v-if="filteredPickerProducts.length" class="product-picker-grid" role="group" aria-label="Danh sách sản phẩm">
                             <button
@@ -135,7 +229,7 @@
                             Không tìm thấy sản phẩm phù hợp. Bạn có thể tắt bộ lọc hạng mục hoặc đổi từ khóa tìm kiếm.
                         </p>
                         <p class="image-help">
-                            Chọn các sản phẩm thực tế đã cung ứng cho dự án. Nếu để trống, hệ thống sẽ tự động gợi ý sản phẩm theo Hạng mục &amp; Nhóm.
+                            Chọn nhiều loại vật tư &amp; sản phẩm thực tế đã cung ứng cho dự án. Nếu để trống, hệ thống sẽ tự động gợi ý sản phẩm theo các Hạng mục &amp; Loại sản phẩm đã chọn.
                         </p>
                     </div>
                     <div class="field full">
@@ -172,6 +266,18 @@
                         </div>
                         <p v-if="project" class="image-help">Không chọn ảnh mới để giữ nguyên bộ ảnh hiện tại.</p>
                     </div>
+                    <div class="field full">
+                        <label for="featuredProjectSeoTitle">Tiêu đề SEO (Tùy chọn - để trống hệ thống sẽ tự tạo chuẩn Google)</label>
+                        <input id="featuredProjectSeoTitle" v-model="seoTitle" name="seo_title" maxlength="180" placeholder="Tự động tạo theo tên dự án + địa điểm + thương hiệu">
+                    </div>
+                    <div class="field full">
+                        <label for="featuredProjectSeoDesc">Mô tả SEO Meta Description (Tùy chọn - để trống tự tạo)</label>
+                        <textarea id="featuredProjectSeoDesc" v-model="seoDescription" name="seo_description" rows="2" maxlength="350" placeholder="Tự động tóm tắt mô tả công trình, hạng mục & vật tư cung ứng"></textarea>
+                    </div>
+                    <div class="field full">
+                        <label for="featuredProjectSeoKeywords">Từ khóa SEO Meta Keywords (Tùy chọn - để trống tự tạo)</label>
+                        <input id="featuredProjectSeoKeywords" v-model="seoKeywords" name="seo_keywords" maxlength="500" placeholder="Tự động tạo từ tên dự án, địa điểm, hạng mục và sản phẩm thực tế">
+                    </div>
                 </div>
                 <div class="formfoot">
                     <button type="button" class="btn" :disabled="isSubmitting || isProcessingImage" @click="closeModal">Hủy</button>
@@ -193,6 +299,9 @@
         id: number;
         name: string;
         description: string;
+        seo_title?: string | null;
+        seo_description?: string | null;
+        seo_keywords?: string | null;
         location: string;
         category: string;
         subcategory: string;
@@ -242,9 +351,12 @@
 
     const name = ref('');
     const description = ref('');
+    const seoTitle = ref('');
+    const seoDescription = ref('');
+    const seoKeywords = ref('');
     const location = ref('');
-    const selectedCategory = ref('');
-    const selectedSubcategory = ref('');
+    const selectedCategories = ref<string[]>([]);
+    const selectedSubcategories = ref<string[]>([]);
     const selectedProducts = ref<string[]>([]);
     const productSearchQuery = ref('');
     const filterBySelectedCategory = ref(true);
@@ -257,20 +369,46 @@
     const isToastVisible = ref(false);
     let toastTimeout: ReturnType<typeof setTimeout> | undefined;
 
-    const visibleSubcategories = computed(() =>
-        props.categories.find((item) => item.name === selectedCategory.value)?.children ?? [],
-    );
+    const visibleSubcategories = computed(() => {
+        const list: Array<{ id: number; name: string; parent_id: number; parentName: string }> = [];
+        for (const cat of props.categories) {
+            if (!selectedCategories.value.includes(cat.name)) {
+                continue;
+            }
+            for (const child of cat.children ?? []) {
+                list.push({
+                    ...child,
+                    parentName: cat.name,
+                });
+            }
+        }
+        return list;
+    });
+
+    const canAddCustomProduct = computed(() => {
+        const trimmed = productSearchQuery.value.trim();
+        if (!trimmed) {
+            return false;
+        }
+        const lower = trimmed.toLocaleLowerCase();
+        return !selectedProducts.value.some((name) => name.toLocaleLowerCase() === lower)
+            && !props.products.some((prod) => prod.name.toLocaleLowerCase() === lower);
+    });
 
     const filteredPickerProducts = computed(() => {
         const query = productSearchQuery.value.trim().toLocaleLowerCase();
-        const catLower = selectedCategory.value.trim().toLocaleLowerCase();
-        const subLower = selectedSubcategory.value.trim().toLocaleLowerCase();
+        const catLowers = selectedCategories.value.map((c) => c.trim().toLocaleLowerCase());
+        const subLowers = selectedSubcategories.value.map((s) => s.trim().toLocaleLowerCase());
 
         return [...props.products]
             .filter((product) => {
-                if (filterBySelectedCategory.value && catLower !== '') {
+                if (filterBySelectedCategory.value && catLowers.length > 0 && !selectedProducts.value.includes(product.name)) {
                     const pCat = (product.category?.name ?? '').trim().toLocaleLowerCase();
-                    if (pCat !== catLower && !selectedProducts.value.includes(product.name)) {
+                    const pSub = (product.subcategory?.name ?? '').trim().toLocaleLowerCase();
+                    const matchesCat = catLowers.includes(pCat);
+                    const matchesSub = subLowers.length === 0 || subLowers.includes(pSub);
+
+                    if (!matchesCat || !matchesSub) {
                         return false;
                     }
                 }
@@ -290,8 +428,8 @@
                     return bSelected - aSelected;
                 }
 
-                const aSub = (a.subcategory?.name ?? '').trim().toLocaleLowerCase() === subLower ? 1 : 0;
-                const bSub = (b.subcategory?.name ?? '').trim().toLocaleLowerCase() === subLower ? 1 : 0;
+                const aSub = subLowers.includes((a.subcategory?.name ?? '').trim().toLocaleLowerCase()) ? 1 : 0;
+                const bSub = subLowers.includes((b.subcategory?.name ?? '').trim().toLocaleLowerCase()) ? 1 : 0;
                 if (aSub !== bSub) {
                     return bSub - aSub;
                 }
@@ -319,14 +457,6 @@
     });
 
     watch(
-        selectedCategory,
-        () => {
-            selectedSubcategory.value = visibleSubcategories.value[0]?.name ?? '';
-        },
-        { flush: 'sync' },
-    );
-
-    watch(
         () => props.open,
         (isOpen) => {
             if (isOpen) {
@@ -334,6 +464,67 @@
             }
         },
     );
+
+    function splitCsvValues(raw?: string | null): string[] {
+        if (!raw) {
+            return [];
+        }
+        return raw
+            .split(',')
+            .map((item) => item.trim())
+            .filter(Boolean);
+    }
+
+    function syncSubcategoriesWithCategories(): void {
+        const validSubNames = new Set(visibleSubcategories.value.map((sub) => sub.name));
+        selectedSubcategories.value = selectedSubcategories.value.filter((subName) => validSubNames.has(subName));
+    }
+
+    function toggleCategorySelection(categoryName: string): void {
+        const index = selectedCategories.value.indexOf(categoryName);
+        if (index >= 0) {
+            selectedCategories.value.splice(index, 1);
+            syncSubcategoriesWithCategories();
+            return;
+        }
+
+        selectedCategories.value.push(categoryName);
+        const catObj = props.categories.find((c) => c.name === categoryName);
+        if (catObj?.children?.length) {
+            const hasSubForCat = catObj.children.some((child) => selectedSubcategories.value.includes(child.name));
+            if (!hasSubForCat) {
+                selectedSubcategories.value.push(catObj.children[0].name);
+            }
+        }
+    }
+
+    function selectAllCategories(): void {
+        selectedCategories.value = props.categories.map((c) => c.name);
+        for (const cat of props.categories) {
+            if (cat.children?.length && !cat.children.some((child) => selectedSubcategories.value.includes(child.name))) {
+                selectedSubcategories.value.push(cat.children[0].name);
+            }
+        }
+    }
+
+    function clearCategories(): void {
+        selectedCategories.value = [];
+        selectedSubcategories.value = [];
+    }
+
+    function toggleSubcategorySelection(subcategoryName: string): void {
+        const index = selectedSubcategories.value.indexOf(subcategoryName);
+        if (index >= 0) {
+            selectedSubcategories.value.splice(index, 1);
+            return;
+        }
+
+        selectedSubcategories.value.push(subcategoryName);
+    }
+
+    function selectAllSubcategories(): void {
+        selectedSubcategories.value = Array.from(new Set(visibleSubcategories.value.map((item) => item.name)));
+    }
 
     function toggleProductSelection(productName: string): void {
         const index = selectedProducts.value.indexOf(productName);
@@ -345,14 +536,39 @@
         selectedProducts.value.push(productName);
     }
 
+    function selectAllFilteredProducts(): void {
+        for (const prod of filteredPickerProducts.value) {
+            if (!selectedProducts.value.includes(prod.name)) {
+                selectedProducts.value.push(prod.name);
+            }
+        }
+    }
+
+    function addCustomProductFromSearch(): void {
+        const trimmed = productSearchQuery.value.trim();
+        if (!trimmed) {
+            return;
+        }
+        if (!selectedProducts.value.includes(trimmed)) {
+            selectedProducts.value.push(trimmed);
+        }
+        productSearchQuery.value = '';
+    }
+
     function resetForm(): void {
         name.value = props.project?.name ?? '';
         description.value = props.project?.description ?? '';
+        seoTitle.value = props.project?.seo_title ?? '';
+        seoDescription.value = props.project?.seo_description ?? '';
+        seoKeywords.value = props.project?.seo_keywords ?? '';
         location.value = props.project?.location ?? '';
-        const parentCategory = props.categories.find((item) => item.name === props.project?.category);
-        const childCategory = parentCategory?.children.find((item) => item.name === props.project?.subcategory);
-        selectedCategory.value = parentCategory?.name ?? '';
-        selectedSubcategory.value = childCategory?.name ?? '';
+
+        const validCatNames = new Set(props.categories.map((c) => c.name));
+        selectedCategories.value = splitCsvValues(props.project?.category).filter((c) => validCatNames.has(c));
+
+        const validSubNames = new Set(visibleSubcategories.value.map((s) => s.name));
+        selectedSubcategories.value = splitCsvValues(props.project?.subcategory).filter((s) => validSubNames.has(s));
+
         selectedProducts.value = Array.isArray(props.project?.products) ? [...props.project.products] : [];
         productSearchQuery.value = '';
         filterBySelectedCategory.value = true;
@@ -483,6 +699,14 @@
         if (isSubmitting.value || isProcessingImage.value) {
             return;
         }
+        if (selectedCategories.value.length === 0) {
+            showToast('Vui lòng chọn ít nhất một hạng mục.');
+            return;
+        }
+        if (selectedSubcategories.value.length === 0) {
+            showToast('Vui lòng chọn ít nhất một loại sản phẩm / nhóm vật tư.');
+            return;
+        }
         if (!props.project && selectedImages.value.length === 0) {
             showToast('Vui lòng chọn ít nhất một ảnh cho dự án.');
             return;
@@ -492,9 +716,14 @@
         const data = {
             name: name.value,
             description: description.value,
+            seo_title: seoTitle.value,
+            seo_description: seoDescription.value,
+            seo_keywords: seoKeywords.value,
             location: location.value,
-            category: selectedCategory.value,
-            subcategory: selectedSubcategory.value,
+            category: selectedCategories.value.join(', '),
+            subcategory: selectedSubcategories.value.join(', '),
+            categories: selectedCategories.value,
+            subcategories: selectedSubcategories.value,
             products: selectedProducts.value,
             type: type.value,
             images: selectedImages.value.length ? selectedImages.value : null,
@@ -636,6 +865,83 @@
         border: 1px solid #e2dbcc;
         border-radius: 4px;
         background: #faf7f0;
+    }
+
+    .multi-choice-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 7px;
+        max-height: 168px;
+        overflow-y: auto;
+        padding: 8px;
+        border: 1px solid #e2dbcc;
+        border-radius: 4px;
+        background: #faf7f0;
+    }
+
+    .multi-choice-chip {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        padding: 8px 10px;
+        border: 1px solid #e5decb;
+        border-radius: 3px;
+        background: #fffdf9;
+        color: #353026;
+        text-align: left;
+        cursor: pointer;
+        transition: border-color .18s, background .18s, box-shadow .18s;
+    }
+
+    .multi-choice-chip:hover {
+        border-color: #b59a65;
+        background: #fcf8ef;
+    }
+
+    .multi-choice-chip.selected {
+        border-color: #b59a65;
+        background: #f4ecda;
+        box-shadow: inset 0 0 0 1px #b59a65;
+    }
+
+    .multi-choice-chip.selected .product-picker-check {
+        border-color: #9e824c;
+        background: #9e824c;
+        color: #fff;
+    }
+
+    .multi-choice-copy {
+        min-width: 0;
+        display: grid;
+        gap: 2px;
+    }
+
+    .multi-choice-copy b {
+        font-size: 12px;
+        font-weight: 700;
+        color: #2f2b21;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .multi-choice-copy small {
+        font-size: 10.5px;
+        color: #7c7463;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .product-search-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .product-search-row input {
+        flex: 1;
+        min-width: 0;
     }
 
     .product-picker-item {

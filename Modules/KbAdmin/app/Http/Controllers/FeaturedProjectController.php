@@ -44,6 +44,7 @@ class FeaturedProjectController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
+        $this->prepareCategoryInputs($request);
         $validated = $request->validate($this->rules($request));
         $uploadedImages = $validated['images'] ?? [$validated['image']];
         unset($validated['image'], $validated['images']);
@@ -57,6 +58,7 @@ class FeaturedProjectController extends Controller
 
     public function update(Request $request, FeaturedProject $featuredProject): RedirectResponse
     {
+        $this->prepareCategoryInputs($request);
         $validated = $request->validate($this->rules($request, false));
         $uploadedImages = $validated['images'] ?? [];
         if ($uploadedImages === [] && ($validated['image'] ?? null) instanceof UploadedFile) {
@@ -81,34 +83,105 @@ class FeaturedProjectController extends Controller
         return to_route('admin.case-studies.index');
     }
 
+    private function prepareCategoryInputs(Request $request): void
+    {
+        $categories = $this->parseSelectionList($request->input('categories', $request->input('category')));
+        $subcategories = $this->parseSelectionList($request->input('subcategories', $request->input('subcategory')));
+
+        if ($categories !== [] || is_array($request->input('category')) || $request->has('categories')) {
+            $request->merge([
+                'category' => implode(', ', $categories),
+            ]);
+        }
+
+        if ($subcategories !== [] || is_array($request->input('subcategory')) || $request->has('subcategories')) {
+            $request->merge([
+                'subcategory' => implode(', ', $subcategories),
+            ]);
+        }
+    }
+
     /**
-     * @return array<string, array<int, string|Illuminate\Validation\Rules\Exists>>
+     * @return list<string>
+     */
+    private function parseSelectionList(mixed $value): array
+    {
+        $rawItems = is_array($value)
+            ? $value
+            : (is_string($value) ? explode(',', $value) : []);
+
+        return array_values(array_unique(array_filter(array_map(
+            static fn (mixed $item): string => trim((string) $item),
+            $rawItems,
+        ))));
+    }
+
+    /**
+     * @return array<string, array<int, mixed>>
      */
     private function rules(Request $request, bool $imageRequired = true): array
     {
-        $rawCategory = $request->input('category');
-        $parentCategory = is_string($rawCategory)
-            ? Category::query()->whereNull('parent_id')->where('name', $rawCategory)->first(['id'])
-            : null;
-        $parentCategoryId = $parentCategory?->id ?? 0;
+        $categoryNames = $this->parseSelectionList($request->input('categories', $request->input('category')));
+        $parentCategoryIds = $categoryNames !== []
+            ? Category::query()
+                ->whereNull('parent_id')
+                ->whereIn('name', $categoryNames)
+                ->pluck('id')
+                ->all()
+            : [];
 
         return [
             'name' => ['required', 'string', 'max:255'],
             'description' => ['required', 'string'],
+            'seo_title' => ['nullable', 'string', 'max:180'],
+            'seo_description' => ['nullable', 'string', 'max:350'],
+            'seo_keywords' => ['nullable', 'string', 'max:500'],
             'location' => ['required', 'string', 'max:255'],
             'category' => [
                 'required',
                 'string',
                 'max:255',
-                Rule::exists('categories', 'name')->whereNull('parent_id'),
+                function (string $attribute, mixed $value, \Closure $fail): void {
+                    $selected = $this->parseSelectionList($value);
+                    if ($selected === []) {
+                        $fail('Vui lòng chọn ít nhất một hạng mục.');
+
+                        return;
+                    }
+
+                    $validCount = Category::query()
+                        ->whereNull('parent_id')
+                        ->whereIn('name', $selected)
+                        ->count();
+
+                    if ($validCount !== count($selected)) {
+                        $fail('Hạng mục đã chọn không hợp lệ.');
+                    }
+                },
             ],
             'subcategory' => [
                 'required',
                 'string',
                 'max:255',
-                Rule::exists('categories', 'name')->where(
-                    fn ($query) => $query->where('parent_id', $parentCategoryId),
-                ),
+                function (string $attribute, mixed $value, \Closure $fail) use ($parentCategoryIds): void {
+                    $selected = $this->parseSelectionList($value);
+                    if ($selected === [] || $parentCategoryIds === []) {
+                        $fail('Nhóm sản phẩm đã chọn không hợp lệ.');
+
+                        return;
+                    }
+
+                    $validNames = Category::query()
+                        ->whereIn('parent_id', $parentCategoryIds)
+                        ->whereIn('name', $selected)
+                        ->pluck('name')
+                        ->unique()
+                        ->all();
+
+                    if (count($validNames) !== count($selected)) {
+                        $fail('Nhóm sản phẩm đã chọn không thuộc hạng mục đã chọn.');
+                    }
+                },
             ],
             'type' => ['required', 'string', Rule::in(['1', '2', '3'])],
             'products' => ['nullable', 'array'],
@@ -134,6 +207,9 @@ class FeaturedProjectController extends Controller
      */
     private function normalizeProductsPayload(array $validated): array
     {
+        $validated['category'] = implode(', ', $this->parseSelectionList($validated['category'] ?? ''));
+        $validated['subcategory'] = implode(', ', $this->parseSelectionList($validated['subcategory'] ?? ''));
+
         if (! Schema::hasColumn('featured_projects', 'products')) {
             unset($validated['products']);
 

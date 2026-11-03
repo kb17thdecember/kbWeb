@@ -43,6 +43,12 @@ class SeoController extends Controller
             ->whereNotNull('description')
             ->whereRaw('LENGTH(TRIM(description)) >= 30')
             ->count();
+        $projectsWithSeoCount = FeaturedProject::query()
+            ->whereNotNull('seo_title')
+            ->whereRaw('LENGTH(TRIM(seo_title)) >= 10')
+            ->whereNotNull('seo_description')
+            ->whereRaw('LENGTH(TRIM(seo_description)) >= 30')
+            ->count();
 
         $articlesCount = Article::query()->published()->count();
         $articlesWithExcerptCount = Article::query()
@@ -146,12 +152,31 @@ class SeoController extends Controller
             ])
             ->values();
 
+        $allProjects = FeaturedProject::query()
+            ->orderByDesc('id')
+            ->get(['id', 'name', 'location', 'category', 'subcategory', 'description', 'seo_title', 'seo_description', 'seo_keywords'])
+            ->map(fn (FeaturedProject $project): array => [
+                'id' => $project->id,
+                'name' => $project->name,
+                'slug' => $project->slug,
+                'location' => $project->location,
+                'category' => $project->category,
+                'subcategory' => $project->subcategory,
+                'seo_title' => (string) ($project->seo_title ?? ''),
+                'seo_description' => (string) ($project->seo_description ?? ''),
+                'seo_keywords' => (string) ($project->seo_keywords ?? ''),
+                'url' => SiteSetting::canonicalUrl('/featured-projects/'.$project->slug),
+                'path' => '/featured-projects/'.$project->slug,
+            ])
+            ->values();
+
         return Inertia::render('seo/Index', [
             'settings' => SiteSetting::allSettings(),
             'defaults' => SiteSetting::defaults(),
             'seoEntities' => [
                 'products' => $allProducts,
                 'categories' => $allCategories,
+                'projects' => $allProjects,
                 'articles' => $allArticles,
             ],
             'seoAudit' => [
@@ -164,6 +189,7 @@ class SeoController extends Controller
                 'productsWithSeoCount' => $productsWithSeoCount,
                 'projectsCount' => $projectsCount,
                 'projectsWithDescCount' => $projectsWithDescCount,
+                'projectsWithSeoCount' => $projectsWithSeoCount,
                 'articlesCount' => $articlesCount,
                 'articlesTotalCount' => $allArticles->count(),
                 'articlesWithExcerptCount' => $articlesWithExcerptCount,
@@ -250,9 +276,10 @@ class SeoController extends Controller
             ->with(
                 'toast',
                 sprintf(
-                    'Đã tự động tạo & chuẩn hóa SEO cho %d sản phẩm, %d danh mục và %d bài viết.',
+                    'Đã tự động tạo & chuẩn hóa SEO cho %d sản phẩm, %d danh mục, %d dự án tiêu biểu và %d bài viết.',
                     $counts['products'],
                     $counts['categories'],
+                    $counts['projects'] ?? 0,
                     $counts['articles'],
                 ),
             );
@@ -260,7 +287,7 @@ class SeoController extends Controller
 
     public function updateEntity(Request $request, string $type, int $id): RedirectResponse
     {
-        abort_unless(in_array($type, ['product', 'category', 'article'], true), 404);
+        abort_unless(in_array($type, ['product', 'category', 'project', 'article'], true), 404);
 
         $autoGenerate = $request->boolean('auto_generate');
 
@@ -302,6 +329,23 @@ class SeoController extends Controller
 
             return to_route('admin.seo.index')
                 ->with('toast', 'Đã cập nhật SEO cho danh mục: '.$category->name);
+        }
+
+        if ($type === 'project') {
+            $project = FeaturedProject::query()->findOrFail($id);
+            if ($autoGenerate) {
+                $generated = SeoAutoIndexService::generateProjectSeo($project);
+                $project->forceFill($generated)->save();
+            } else {
+                $project->forceFill([
+                    'seo_title' => trim((string) $validated['seo_title']),
+                    'seo_description' => trim((string) $validated['seo_description']),
+                    'seo_keywords' => trim((string) ($validated['seo_keywords'] ?? '')),
+                ])->save();
+            }
+
+            return to_route('admin.seo.index')
+                ->with('toast', 'Đã cập nhật SEO cho dự án tiêu biểu: '.$project->name);
         }
 
         $article = Article::query()->findOrFail($id);

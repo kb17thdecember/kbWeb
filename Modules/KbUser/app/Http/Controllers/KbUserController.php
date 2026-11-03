@@ -386,6 +386,11 @@ class KbUserController extends Controller
         if (Schema::hasColumn('featured_projects', 'products')) {
             $columns[] = 'products';
         }
+        if (Schema::hasColumn('featured_projects', 'seo_title')) {
+            $columns[] = 'seo_title';
+            $columns[] = 'seo_description';
+            $columns[] = 'seo_keywords';
+        }
 
         $normalizedSlug = Str::slug($projectSlug);
 
@@ -447,6 +452,11 @@ class KbUserController extends Controller
         if (Schema::hasColumn('featured_projects', 'products')) {
             $columns[] = 'products';
         }
+        if (Schema::hasColumn('featured_projects', 'seo_title')) {
+            $columns[] = 'seo_title';
+            $columns[] = 'seo_description';
+            $columns[] = 'seo_keywords';
+        }
 
         return FeaturedProject::query()
             ->with('images')
@@ -492,19 +502,25 @@ class KbUserController extends Controller
                 ->values()
                 ->all();
         } else {
-            $catLower = mb_strtolower(trim((string) $project->category));
-            $subLower = mb_strtolower(trim((string) $project->subcategory));
+            $catList = array_values(array_filter(array_map(
+                static fn (string $item): string => mb_strtolower(trim($item)),
+                explode(',', (string) $project->category),
+            )));
+            $subList = array_values(array_filter(array_map(
+                static fn (string $item): string => mb_strtolower(trim($item)),
+                explode(',', (string) $project->subcategory),
+            )));
 
-            $relatedProducts = $allProducts->filter(function (Product $product) use ($catLower, $subLower): bool {
+            $relatedProducts = $allProducts->filter(function (Product $product) use ($catList, $subList): bool {
                 $pCat = mb_strtolower(trim((string) $product->category?->name));
                 $pSub = mb_strtolower(trim((string) $product->subcategory?->name));
 
-                return ($subLower !== '' && $pSub === $subLower)
-                    || ($catLower !== '' && $pCat === $catLower);
-            })->sortByDesc(function (Product $product) use ($subLower): int {
+                return ($pSub !== '' && in_array($pSub, $subList, true))
+                    || ($pCat !== '' && in_array($pCat, $catList, true));
+            })->sortByDesc(function (Product $product) use ($subList): int {
                 $pSub = mb_strtolower(trim((string) $product->subcategory?->name));
 
-                return ($subLower !== '' && $pSub === $subLower) ? 1 : 0;
+                return ($pSub !== '' && in_array($pSub, $subList, true)) ? 1 : 0;
             })->take(4)->values()->toArray();
         }
 
@@ -669,8 +685,10 @@ class KbUserController extends Controller
         ];
 
         $preset = $presets[$refKey] ?? null;
-        $categoryName = $preset['category'] ?? ((string) $project->category ?: 'HVAC');
-        $subcategoryName = $preset['subcategory'] ?? ((string) $project->subcategory ?: 'Vật tư dự án');
+        $firstCategory = trim(explode(',', (string) $project->category)[0] ?? '');
+        $firstSubcategory = trim(explode(',', (string) $project->subcategory)[0] ?? '');
+        $categoryName = $preset['category'] ?? ($firstCategory !== '' ? $firstCategory : 'HVAC');
+        $subcategoryName = $preset['subcategory'] ?? ($firstSubcategory !== '' ? $firstSubcategory : 'Vật tư dự án');
 
         $parentCategory = Category::query()->firstOrCreate([
             'name' => $categoryName,

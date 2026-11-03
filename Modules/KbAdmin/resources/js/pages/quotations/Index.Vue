@@ -2,6 +2,7 @@
 import { computed, ref, watch } from 'vue';
 import aristonLogoAsset from '../../../assets/images/ariston_quote_logo.png';
 import kflexLogoAsset from '../../../assets/images/kflex_quote_logo.png';
+import dayMemAsset from '../../../assets/images/products/DAYMEM.jpg';
 import starLightLogoAsset from '../../../assets/images/starlight_logo.png';
 import AdminLayout from '../../layout/AdminLayout.Vue';
 
@@ -319,7 +320,7 @@ const addAccessoryRow = (): void => {
         productLabel: 'Dây mềm cấp nước 40cm',
         modelCode: '',
         origin: 'Thủy Sanh-\nVN',
-        imageUrl: '',
+        imageUrl: resolveImageUrl(dayMemAsset),
         unit: 'Dây',
         specifications:
             '-Dây cấp 4T lạnh\n-Dây cấp inox 40cm chịu nhiệt, ốc nối đồng, lớp trong nhựa PVC, lớp ngoài inox\n-Chiều dài dây 40cm',

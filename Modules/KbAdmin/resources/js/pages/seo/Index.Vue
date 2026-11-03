@@ -49,7 +49,7 @@
                 <span class="seo-metric-label">TỔNG URL TRONG SITEMAP.XML</span>
                 <strong class="seo-metric-value">{{ props.seoAudit.totalIndexedUrls }}</strong>
                 <small>
-                    {{ props.seoAudit.staticPagesCount }} trang tĩnh · {{ props.seoAudit.categoriesCount }} danh mục · {{ props.seoAudit.productsCount }} sản phẩm · {{ props.seoAudit.articlesCount }} bài viết
+                    {{ props.seoAudit.staticPagesCount }} trang tĩnh · {{ props.seoAudit.categoriesCount }} danh mục · {{ props.seoAudit.productsCount }} sản phẩm · {{ props.seoAudit.projectsCount }} dự án tiêu biểu · {{ props.seoAudit.articlesCount }} bài viết
                 </small>
             </div>
 
@@ -81,7 +81,7 @@
                 @click="activeTab = 'entities'"
             >
                 <FontAwesomeIcon icon="fa-solid fa-boxes-stacked" />
-                SEO Sản phẩm, Danh mục &amp; Bài viết ({{ totalEntitiesCount }})
+                SEO Sản phẩm, Danh mục, Dự án &amp; Bài viết ({{ totalEntitiesCount }})
             </button>
             <button
                 type="button"
@@ -119,7 +119,7 @@
                             </span>
                             <div class="seo-page-card-title-wrap">
                                 <div>
-                                    <h3>Quản lý &amp; Tự động hóa SEO cho từng Sản phẩm, Danh mục, Bài viết</h3>
+                                    <h3>Quản lý &amp; Tự động hóa SEO cho từng Sản phẩm, Danh mục, Dự án tiêu biểu, Bài viết</h3>
                                     <p>Mỗi mục đều có Meta Title, Meta Description, Meta Keywords, Schema.org và Canonical URL riêng biệt trên Google.</p>
                                 </div>
                                 <button
@@ -157,6 +157,15 @@
                                 <button
                                     type="button"
                                     class="seo-tab-btn"
+                                    :class="{ active: entitySubTab === 'project' }"
+                                    @click="entitySubTab = 'project'"
+                                >
+                                    <FontAwesomeIcon icon="fa-solid fa-building" />
+                                    Tất cả Dự án tiêu biểu ({{ props.seoEntities.projects.length }})
+                                </button>
+                                <button
+                                    type="button"
+                                    class="seo-tab-btn"
                                     :class="{ active: entitySubTab === 'article' }"
                                     @click="entitySubTab = 'article'"
                                 >
@@ -169,7 +178,7 @@
                                 v-model="entitySearch"
                                 class="search"
                                 type="search"
-                                placeholder="Tìm theo tên sản phẩm, danh mục, bài viết, từ khóa..."
+                                placeholder="Tìm theo tên sản phẩm, danh mục, dự án, bài viết, từ khóa..."
                                 aria-label="Tìm mục cần chỉnh sửa SEO"
                             >
                         </div>
@@ -188,7 +197,7 @@
                         <div class="site-settings-card-head">
                             <span class="site-settings-card-icon">
                                 <FontAwesomeIcon
-                                    :icon="item.type === 'product' ? 'fa-solid fa-box' : (item.type === 'category' ? 'fa-solid fa-folder-tree' : 'fa-solid fa-newspaper')"
+                                    :icon="item.type === 'product' ? 'fa-solid fa-box' : (item.type === 'category' ? 'fa-solid fa-folder-tree' : (item.type === 'project' ? 'fa-solid fa-building' : 'fa-solid fa-newspaper'))"
                                 />
                             </span>
                             <div class="seo-page-card-title-wrap">
@@ -639,11 +648,11 @@
                                             <td><strong>Dự án tiêu biểu (Case Studies)</strong></td>
                                             <td>{{ props.seoAudit.projectsCount }} URL</td>
                                             <td>
-                                                <span class="seo-pill" :class="props.seoAudit.projectsWithDescCount === props.seoAudit.projectsCount ? 'is-good' : 'is-warn'">
-                                                    {{ props.seoAudit.projectsWithDescCount }}/{{ props.seoAudit.projectsCount }} có mô tả chi tiết
+                                                <span class="seo-pill" :class="props.seoAudit.projectsWithSeoCount === props.seoAudit.projectsCount ? 'is-good' : 'is-warn'">
+                                                    {{ props.seoAudit.projectsWithSeoCount }}/{{ props.seoAudit.projectsCount }} có SEO chuẩn · {{ props.seoAudit.projectsWithDescCount }}/{{ props.seoAudit.projectsCount }} có mô tả chi tiết
                                                 </span>
                                             </td>
-                                            <td><code>/featured-projects/{ten-du-an}</code> (URL chuẩn Slug)</td>
+                                            <td><code>/featured-projects/{ten-du-an}</code> (URL chuẩn Slug + Schema CaseStudy)</td>
                                         </tr>
                                         <tr>
                                             <td><strong>Bài viết &amp; Tin tức kỹ thuật</strong></td>
@@ -847,8 +856,22 @@ type SeoArticleEntity = {
     path: string;
 };
 
+type SeoProjectEntity = {
+    id: number;
+    name: string;
+    slug: string;
+    location?: string | null;
+    category?: string | null;
+    subcategory?: string | null;
+    seo_title: string;
+    seo_description: string;
+    seo_keywords: string;
+    url: string;
+    path: string;
+};
+
 type UnifiedSeoEntity = {
-    type: 'product' | 'category' | 'article';
+    type: 'product' | 'category' | 'project' | 'article';
     id: number;
     displayName: string;
     badgeLabel: string;
@@ -869,6 +892,7 @@ type SeoAuditPayload = {
     productsWithSeoCount: number;
     projectsCount: number;
     projectsWithDescCount: number;
+    projectsWithSeoCount: number;
     articlesCount: number;
     articlesTotalCount: number;
     articlesWithExcerptCount: number;
@@ -892,6 +916,7 @@ const props = defineProps<{
     seoEntities: {
         products: SeoProductEntity[];
         categories: SeoCategoryEntity[];
+        projects: SeoProjectEntity[];
         articles: SeoArticleEntity[];
     };
     seoAudit: SeoAuditPayload;
@@ -902,7 +927,7 @@ const props = defineProps<{
 }>();
 
 const activeTab = ref<'entities' | 'general' | 'pages' | 'audit'>('entities');
-const entitySubTab = ref<'product' | 'category' | 'article'>('product');
+const entitySubTab = ref<'product' | 'category' | 'project' | 'article'>('product');
 const entitySearch = ref('');
 const previewPageKey = ref<'default' | 'home' | 'categories' | 'products' | 'projects' | 'news' | 'catalogues' | 'contacts'>('home');
 const activeEntityPreview = ref<UnifiedSeoEntity | null>(null);
@@ -927,6 +952,13 @@ const syncDraftsFromProps = (): void => {
             seo_title: cat.seo_title || '',
             seo_description: cat.seo_description || '',
             seo_keywords: cat.seo_keywords || '',
+        };
+    }
+    for (const proj of props.seoEntities.projects ?? []) {
+        entityDrafts[`project-${proj.id}`] = {
+            seo_title: proj.seo_title || '',
+            seo_description: proj.seo_description || '',
+            seo_keywords: proj.seo_keywords || '',
         };
     }
     for (const art of props.seoEntities.articles) {
@@ -962,7 +994,10 @@ function getEntityDraft(item: UnifiedSeoEntity): { seo_title: string; seo_descri
 }
 
 const totalEntitiesCount = computed<number>(
-    () => props.seoEntities.products.length + props.seoEntities.categories.length + props.seoEntities.articles.length,
+    () => props.seoEntities.products.length
+        + props.seoEntities.categories.length
+        + (props.seoEntities.projects?.length ?? 0)
+        + props.seoEntities.articles.length,
 );
 
 const currentSubTabEntities = computed<UnifiedSeoEntity[]>(() => {
@@ -991,6 +1026,20 @@ const currentSubTabEntities = computed<UnifiedSeoEntity[]>(() => {
             seo_title: cat.seo_title,
             seo_description: cat.seo_description,
             seo_keywords: cat.seo_keywords,
+        }));
+    }
+
+    if (entitySubTab.value === 'project') {
+        return (props.seoEntities.projects ?? []).map((proj) => ({
+            type: 'project' as const,
+            id: proj.id,
+            displayName: proj.name,
+            badgeLabel: [proj.category, proj.location].filter(Boolean).join(' · ') || 'Dự án tiêu biểu',
+            path: proj.path,
+            url: proj.url,
+            seo_title: proj.seo_title,
+            seo_description: proj.seo_description,
+            seo_keywords: proj.seo_keywords,
         }));
     }
 
@@ -1279,11 +1328,12 @@ const seoChecklist = computed(() => {
 
     return [
         {
-            label: 'SEO cho 100% Sản phẩm, Danh mục & Bài viết',
-            detail: `${props.seoAudit.productsWithSeoCount}/${props.seoAudit.productsCount} sản phẩm · ${props.seoAudit.categoriesWithSeoCount}/${props.seoAudit.categoriesCount} danh mục · ${props.seoAudit.articlesWithSeoCount}/${props.seoAudit.articlesTotalCount} bài viết.`,
+            label: 'SEO cho 100% Sản phẩm, Danh mục, Dự án & Bài viết',
+            detail: `${props.seoAudit.productsWithSeoCount}/${props.seoAudit.productsCount} sản phẩm · ${props.seoAudit.categoriesWithSeoCount}/${props.seoAudit.categoriesCount} danh mục · ${props.seoAudit.projectsWithSeoCount}/${props.seoAudit.projectsCount} dự án · ${props.seoAudit.articlesWithSeoCount}/${props.seoAudit.articlesTotalCount} bài viết.`,
             passed:
                 props.seoAudit.productsWithSeoCount === props.seoAudit.productsCount
                 && props.seoAudit.categoriesWithSeoCount === props.seoAudit.categoriesCount
+                && props.seoAudit.projectsWithSeoCount === props.seoAudit.projectsCount
                 && props.seoAudit.articlesWithSeoCount === props.seoAudit.articlesTotalCount,
         },
         {

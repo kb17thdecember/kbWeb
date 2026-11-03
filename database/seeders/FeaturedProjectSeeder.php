@@ -18,7 +18,7 @@ class FeaturedProjectSeeder extends Seeder
     {
         $projects = [
             [
-                'name' => 'Tổ Hợp Giáo Dục FPT Tại Hà Tĩnh.',
+                'name' => 'Tổ Hợp Giáo Dục FPT Tại Hà Tĩnh',
                 'description' => [
                     'Trường Tiểu học, THCS và THPT FPT Hà Tĩnh (FPT School Hà Tĩnh) là cơ sở đầu tiên của Hệ thống Phổ thông FPT (FPT Schools) tại tỉnh, đồng thời là cơ sở thứ 8 của hệ thống tại miền Trung.',
                     'Tổ hợp được xây dựng trên khu đất rộng 56.855,2 m2, theo mô hình khuôn viên giáo dục mở, kết hợp giảng đường, không gian sinh hoạt chung, khu thể thao và cảnh quan cây xanh. Khu trường phổ thông liên cấp gồm hai tòa giảng đường Beta và Gamma, mỗi tòa cao 5 tầng, tổng diện tích sàn khoảng 12.560 m2. Các công trình được bố trí quanh sân trung tâm, kết nối với sân vườn, đường dạo và không gian học tập ngoài trời.',

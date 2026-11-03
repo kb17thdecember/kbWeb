@@ -215,6 +215,59 @@ class SeoAutoIndexService
         ];
     }
 
+    /**
+     * @return array{seo_title: string, seo_description: string, seo_keywords: string}
+     */
+    public static function generateProjectSeo(FeaturedProject $project): array
+    {
+        $companyName = self::companyName();
+        $name = self::cleanPlainText((string) $project->name) ?: 'Dự án tiêu biểu';
+        $location = self::cleanPlainText((string) ($project->location ?? ''));
+        $category = self::cleanPlainText((string) ($project->category ?? ''));
+        $subcategory = self::cleanPlainText((string) ($project->subcategory ?? ''));
+
+        $candidateTitle = $location !== '' && ! Str::contains(mb_strtolower($name), mb_strtolower($location))
+            ? "{$name} ({$location}) - Dự Án Tiêu Biểu | {$companyName}"
+            : "{$name} - Dự Án Tiêu Biểu | {$companyName}";
+        if (mb_strlen($candidateTitle) > 70) {
+            $candidateTitle = "{$name} | {$companyName}";
+        }
+        $seoTitle = Str::limit($candidateTitle, 160, '');
+
+        $rawDesc = self::cleanSpecText((string) ($project->description ?? ''));
+        $scopeLabel = implode(' · ', array_filter([$category, $subcategory]));
+        $fallbackDesc = "Hồ sơ dự án tiêu biểu {$name}".($location !== '' ? " tại {$location}" : '').($scopeLabel !== '' ? ", cung ứng hạng mục {$scopeLabel}" : '')." do {$companyName} triển khai.";
+        $fullDesc = $rawDesc !== ''
+            ? "{$name}: {$rawDesc} Cung ứng vật tư {$scopeLabel} chính hãng tại {$companyName}."
+            : $fallbackDesc;
+
+        $seoDescription = Str::limit(preg_replace('/\s+/u', ' ', $fullDesc) ?? $fullDesc, 160, '...');
+
+        $productKeywords = is_array($project->products)
+            ? array_map(static fn (mixed $item): string => self::cleanPlainText((string) $item), $project->products)
+            : [];
+
+        $keywords = array_filter([
+            $name,
+            "dự án {$name}",
+            $location !== '' ? "dự án HVAC {$location}" : null,
+            $category,
+            $subcategory,
+            ...array_slice($productKeywords, 0, 5),
+            'dự án tiêu biểu HVAC',
+            'cung ứng vật tư MEP',
+            $companyName,
+        ]);
+
+        $seoKeywords = Str::limit(implode(', ', array_values(array_unique($keywords))), 500, '');
+
+        return [
+            'seo_title' => $seoTitle,
+            'seo_description' => $seoDescription,
+            'seo_keywords' => $seoKeywords,
+        ];
+    }
+
     public static function ensureProductSeo(Product $product, bool $overwrite = false): void
     {
         if (! self::tableHasSeoColumns('products')) {
@@ -272,14 +325,34 @@ class SeoAutoIndexService
         }
     }
 
+    public static function ensureProjectSeo(FeaturedProject $project, bool $overwrite = false): void
+    {
+        if (! self::tableHasSeoColumns('featured_projects')) {
+            return;
+        }
+
+        $generated = self::generateProjectSeo($project);
+
+        if ($overwrite || trim((string) ($project->seo_title ?? '')) === '') {
+            $project->seo_title = $generated['seo_title'];
+        }
+        if ($overwrite || trim((string) ($project->seo_description ?? '')) === '') {
+            $project->seo_description = $generated['seo_description'];
+        }
+        if ($overwrite || trim((string) ($project->seo_keywords ?? '')) === '') {
+            $project->seo_keywords = $generated['seo_keywords'];
+        }
+    }
+
     /**
-     * @return array{products: int, categories: int, articles: int}
+     * @return array{products: int, categories: int, articles: int, projects: int}
      */
     public static function syncAllEntitiesSeo(bool $overwrite = false): array
     {
         $categoriesUpdated = 0;
         $productsUpdated = 0;
         $articlesUpdated = 0;
+        $projectsUpdated = 0;
 
         if (self::tableHasSeoColumns('categories')) {
             $categories = Category::query()->with('parent:id,name')->get();
@@ -320,10 +393,24 @@ class SeoAutoIndexService
             }
         }
 
+        if (self::tableHasSeoColumns('featured_projects')) {
+            $projects = FeaturedProject::query()->get();
+            foreach ($projects as $project) {
+                $generated = self::generateProjectSeo($project);
+                $project->forceFill([
+                    'seo_title' => ($overwrite || trim((string) $project->seo_title) === '') ? $generated['seo_title'] : $project->seo_title,
+                    'seo_description' => ($overwrite || trim((string) $project->seo_description) === '') ? $generated['seo_description'] : $project->seo_description,
+                    'seo_keywords' => ($overwrite || trim((string) $project->seo_keywords) === '') ? $generated['seo_keywords'] : $project->seo_keywords,
+                ])->saveQuietly();
+                $projectsUpdated++;
+            }
+        }
+
         return [
             'products' => $productsUpdated,
             'categories' => $categoriesUpdated,
             'articles' => $articlesUpdated,
+            'projects' => $projectsUpdated,
         ];
     }
 

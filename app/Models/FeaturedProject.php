@@ -15,6 +15,9 @@ class FeaturedProject extends Model
     protected $fillable = [
         'name',
         'description',
+        'seo_title',
+        'seo_description',
+        'seo_keywords',
         'location',
         'category',
         'subcategory',
@@ -28,6 +31,10 @@ class FeaturedProject extends Model
 
     protected static function booted(): void
     {
+        static::saving(function (FeaturedProject $project): void {
+            SeoAutoIndexService::ensureProjectSeo($project);
+        });
+
         static::saved(function (FeaturedProject $project): void {
             SeoAutoIndexService::scheduleModelPing($project);
         });

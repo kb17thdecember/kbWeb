@@ -373,3 +373,38 @@ test('a featured project can save and update actual participating products', fun
 
     expect($project->fresh()->products)->toBe(['KFlex K-Protect']);
 });
+
+test('a featured project can select multiple categories, subcategories, and products', function () {
+    Storage::fake('public');
+    $kflex = Category::factory()->create(['name' => 'K-FLEX']);
+    $nbr = Category::factory()->create([
+        'name' => 'Cao su lưu hóa NBR',
+        'parent_id' => $kflex->id,
+    ]);
+    $xlpe = Category::factory()->create([
+        'name' => 'Polyolefin XLPE',
+        'parent_id' => $kflex->id,
+    ]);
+    $ariston = Category::factory()->create(['name' => 'ARISTON']);
+    $waterHeater = Category::factory()->create([
+        'name' => 'Bình nước nóng gián tiếp',
+        'parent_id' => $ariston->id,
+    ]);
+
+    $this->post(route('admin.case-studies.store'), [
+        'name' => 'Tổ hợp đa hạng mục',
+        'description' => 'Dự án sử dụng nhiều hạng mục và nhiều loại sản phẩm',
+        'location' => 'Hà Nội',
+        'categories' => ['K-FLEX', 'ARISTON'],
+        'subcategories' => ['Cao su lưu hóa NBR', 'Polyolefin XLPE', 'Bình nước nóng gián tiếp'],
+        'products' => ['K-Flex ST', 'K-Flex K-Protect', 'SLIM3 20 RS'],
+        'type' => '2',
+        'image' => fakeFeaturedProjectImage('office.png'),
+    ])->assertRedirect(route('admin.case-studies.index'));
+
+    $project = FeaturedProject::query()->sole();
+
+    expect($project->category)->toBe('K-FLEX, ARISTON')
+        ->and($project->subcategory)->toBe('Cao su lưu hóa NBR, Polyolefin XLPE, Bình nước nóng gián tiếp')
+        ->and($project->products)->toBe(['K-Flex ST', 'K-Flex K-Protect', 'SLIM3 20 RS']);
+});

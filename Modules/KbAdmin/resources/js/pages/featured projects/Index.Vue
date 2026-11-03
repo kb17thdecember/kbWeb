@@ -55,7 +55,14 @@
                                 </div>
                             </div>
                         </td>
-                        <td>{{ project.category }}</td>
+                        <td>
+                            <div class="project-admin-products">
+                                <span v-for="catName in splitCsv(project.category)" :key="catName" class="project-admin-product-chip">
+                                    {{ catName }}
+                                </span>
+                            </div>
+                            <small v-if="project.subcategory" class="muted">{{ project.subcategory }}</small>
+                        </td>
                         <td>{{ projectTypeLabel(project.type) }}</td>
                         <td>
                             <div v-if="project.products?.length" class="project-admin-products">
@@ -332,6 +339,17 @@
         };
 
         return labels[type] ?? type;
+    }
+
+    function splitCsv(value?: string | null): string[] {
+        if (!value) {
+            return [];
+        }
+
+        return value
+            .split(',')
+            .map((item) => item.trim())
+            .filter(Boolean);
     }
 
     function createProject(): void {

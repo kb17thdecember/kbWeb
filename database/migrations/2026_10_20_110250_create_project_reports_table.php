@@ -23,6 +23,7 @@ return new class extends Migration
             $table->string('progress')->nullable();
             $table->string('estimate_value')->nullable();
             $table->string('contact_person')->nullable();
+            $table->string('participating_products')->nullable();
             $table->string('project_update');
             $table->string('project_status')->default(1);
             $table->timestamps();

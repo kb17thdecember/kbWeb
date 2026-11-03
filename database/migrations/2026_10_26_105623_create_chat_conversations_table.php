@@ -16,6 +16,7 @@ return new class extends Migration
             $table->string('token', 64)->unique();
             $table->string('visitor_name')->nullable();
             $table->string('visitor_email')->nullable();
+            $table->string('visitor_phone', 30)->nullable();
             $table->string('status')->default('open');
             $table->timestamp('last_message_at')->nullable()->index();
             $table->timestamps();

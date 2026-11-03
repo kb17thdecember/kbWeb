@@ -17,6 +17,9 @@ return new class extends Migration
             $table->string('slug')->unique();
             $table->string('excerpt', 500);
             $table->longText('content');
+            $table->string('seo_title', 180)->nullable();
+            $table->string('seo_description', 350)->nullable();
+            $table->string('seo_keywords', 500)->nullable();
             $table->boolean('is_published')->default(true);
             $table->timestamp('published_at')->nullable();
             $table->timestamps();

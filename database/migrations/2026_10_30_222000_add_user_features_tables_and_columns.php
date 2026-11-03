@@ -11,12 +11,6 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('contacts', function (Blueprint $table) {
-            $table->foreignId('user_id')->nullable()->after('id')->constrained()->nullOnDelete();
-            $table->string('attachment_path')->nullable()->after('product');
-            $table->string('attachment_name')->nullable()->after('attachment_path');
-        });
-
         Schema::create('product_reviews', function (Blueprint $table) {
             $table->id();
             $table->foreignId('product_id')->constrained()->cascadeOnDelete();
@@ -54,10 +48,5 @@ return new class extends Migration
         Schema::dropIfExists('wishlists');
         Schema::dropIfExists('comments');
         Schema::dropIfExists('product_reviews');
-
-        Schema::table('contacts', function (Blueprint $table) {
-            $table->dropConstrainedForeignId('user_id');
-            $table->dropColumn(['attachment_path', 'attachment_name']);
-        });
     }
 };
