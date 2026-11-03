@@ -6,10 +6,11 @@ import RecentlyViewedProducts from '../../components/RecentlyViewedProducts.Vue'
 import UserLayout from '../../layout/UserLayout.Vue';
 import { exportProductComparisonPdf } from '../../utils/comparePdfExporter';
 import { lockPageScroll } from '../../utils/pageScrollLock';
-import { recordRecentlyViewedProduct } from '../../utils/recentlyViewedProducts';
+import { buildProductDetailUrl, recordRecentlyViewedProduct } from '../../utils/recentlyViewedProducts';
 
 type Product = {
     id: number;
+    slug?: string;
     name: string;
     product_title: string | null;
     description: string;
@@ -25,13 +26,16 @@ type Product = {
 
 type ProductCategory = {
     id: number;
+    slug?: string;
     name: string;
-    children: { id: number; name: string; parent_id: number }[];
+    children: { id: number; slug?: string; name: string; parent_id: number }[];
 };
 
 const props = defineProps<{
     categories: ProductCategory[];
     products: Product[];
+    selectedCategoryId?: number | null;
+    selectedSubcategoryId?: number | null;
 }>();
 
 const page = usePage<{
@@ -42,8 +46,8 @@ const authUser = computed(() => page.props.auth?.user ?? null);
 const wishlistIds = computed<number[]>(() => page.props.auth?.wishlistIds ?? []);
 const siteSettings = computed<Record<string, string>>(() => page.props.siteSettings ?? {});
 
-const activeFilter = ref('all');
-const activeSubcategoryId = ref<number | null>(null);
+const activeFilter = ref(props.selectedCategoryId ? String(props.selectedCategoryId) : 'all');
+const activeSubcategoryId = ref<number | null>(props.selectedSubcategoryId ?? null);
 const priceFilter = ref<'all' | 'under3m' | '3m-10m' | 'over10m' | 'contact'>('all');
 const sortBy = ref<'default' | 'price-asc' | 'price-desc' | 'name-asc'>('default');
 const searchQuery = ref('');
@@ -369,21 +373,34 @@ onMounted(() => {
 
     const params = new URLSearchParams(window.location.search);
     searchQuery.value = params.get('search') ?? '';
-    const requestedCategoryId = Number(params.get('category'));
-    const requestedCategory = props.categories.find(
-        (category) => category.id === requestedCategoryId,
-    );
+    const rawCategoryParam = (params.get('category') ?? '').trim();
 
-    if (requestedCategory) {
-        activeFilter.value = String(requestedCategory.id);
-        const requestedSubcategoryId = Number(params.get('subcategory'));
+    if (rawCategoryParam !== '') {
+        const requestedCategory = props.categories.find(
+            (category) =>
+                category.slug === rawCategoryParam ||
+                String(category.id) === rawCategoryParam,
+        );
 
-        if (requestedCategory.children.some((child) => child.id === requestedSubcategoryId)) {
-            activeSubcategoryId.value = requestedSubcategoryId;
+        if (requestedCategory) {
+            activeFilter.value = String(requestedCategory.id);
+            const rawSubcategoryParam = (params.get('subcategory') ?? '').trim();
+
+            if (rawSubcategoryParam !== '') {
+                const matchedChild = requestedCategory.children.find(
+                    (child) =>
+                        child.slug === rawSubcategoryParam ||
+                        String(child.id) === rawSubcategoryParam,
+                );
+
+                if (matchedChild) {
+                    activeSubcategoryId.value = matchedChild.id;
+                }
+            }
         }
     }
 
-    if (window.location.hash === '#products') {
+    if (window.location.hash === '#products' || props.selectedSubcategoryId || props.selectedCategoryId) {
         document.querySelector('#products')?.scrollIntoView({ behavior: 'smooth' });
     }
 });
@@ -581,7 +598,7 @@ onUnmounted(() => {
                                         </span>
                                     </div>
                                     <h3 class="product-name">
-                                        <Link :href="`/products/${product.id}`">{{ product.name }}</Link>
+                                        <Link :href="buildProductDetailUrl(product)">{{ product.name }}</Link>
                                     </h3>
                                     <p class="product-desc">{{ product.product_title }}</p>
                                     <div class="product-bottom">
@@ -590,7 +607,7 @@ onUnmounted(() => {
                                             <small v-if="product.price > 0">Giá tham khảo · / sản phẩm</small>
                                         </span>
                                         <div class="kb-card-bottom-btns">
-                                            <Link :href="`/products/${product.id}`" class="kb-card-detail-link">
+                                            <Link :href="buildProductDetailUrl(product)" class="kb-card-detail-link">
                                                 Chi tiết
                                             </Link>
                                             <button
@@ -788,7 +805,7 @@ onUnmounted(() => {
                                             <td v-for="item in compareProducts" :key="item.id">
                                                 <div class="kb-compare-cell-actions">
                                                     <button type="button" class="btn btn-primary" @click="addToCart(item)">+ Giỏ báo giá</button>
-                                                    <Link :href="`/products/${item.id}`" class="btn btn-outline">Xem chi tiết</Link>
+                                                    <Link :href="buildProductDetailUrl(item)" class="btn btn-outline">Xem chi tiết</Link>
                                                 </div>
                                             </td>
                                         </tr>
@@ -828,7 +845,7 @@ onUnmounted(() => {
                                         </div>
                                         <div class="kb-compare-mobile-card-actions">
                                             <button type="button" class="btn btn-primary" @click="addToCart(item)">+ Giỏ báo giá</button>
-                                            <Link :href="`/products/${item.id}`" class="btn btn-outline">Xem chi tiết</Link>
+                                            <Link :href="buildProductDetailUrl(item)" class="btn btn-outline">Xem chi tiết</Link>
                                         </div>
                                     </article>
                                 </div>
@@ -929,7 +946,7 @@ onUnmounted(() => {
                                     >Thêm vào giỏ</button>
                                     <Link
                                         class="btn btn-outline"
-                                        :href="`/products/${selectedProduct.id}`"
+                                        :href="buildProductDetailUrl(selectedProduct)"
                                         @click="selectedProduct = null"
                                     >Xem chi tiết &amp; Đánh giá</Link>
                                 </div>

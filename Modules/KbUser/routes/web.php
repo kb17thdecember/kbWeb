@@ -1,6 +1,8 @@
 <?php
 
 use App\Models\Article;
+use App\Models\Catalogue;
+use App\Models\Category;
 use App\Models\FeaturedProject;
 use App\Models\Product;
 use App\Models\SiteSetting;
@@ -41,6 +43,7 @@ Route::get('/sitemap.xml', function () {
         ['path' => '/news', 'priority' => '0.8', 'changefreq' => 'daily'],
         ['path' => '/about-us', 'priority' => '0.7', 'changefreq' => 'monthly'],
         ['path' => '/contacts', 'priority' => '0.8', 'changefreq' => 'monthly'],
+        ['path' => '/quotations', 'priority' => '0.7', 'changefreq' => 'weekly'],
     ];
 
     $today = now()->toAtomString();
@@ -53,9 +56,22 @@ Route::get('/sitemap.xml', function () {
             .'<priority>'.$page['priority'].'</priority>'
             .'</url>',
     )
-        ->concat(Product::query()->get(['id', 'updated_at'])->map(
+        ->concat(Category::query()->with('parent:id,name')->get(['id', 'parent_id', 'name', 'updated_at'])->map(
+            function (Category $category): string {
+                $lastmod = e(($category->updated_at ?? now())->toAtomString());
+
+                if ($category->parent_id === null) {
+                    return '<url><loc>'.e(SiteSetting::canonicalUrl('/categories/'.$category->slug)).'</loc><lastmod>'.$lastmod.'</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>';
+                }
+
+                $parentSlug = $category->parent?->slug ?? (string) $category->parent_id;
+
+                return '<url><loc>'.e(SiteSetting::canonicalUrl('/categories/'.$parentSlug.'/'.$category->slug)).'</loc><lastmod>'.$lastmod.'</lastmod><changefreq>weekly</changefreq><priority>0.7</priority></url>';
+            },
+        ))
+        ->concat(Product::query()->get(['id', 'name', 'updated_at'])->map(
             fn (Product $product): string => '<url>'
-                .'<loc>'.e(SiteSetting::canonicalUrl('/products/'.$product->id)).'</loc>'
+                .'<loc>'.e(SiteSetting::canonicalUrl('/products/'.$product->slug)).'</loc>'
                 .'<lastmod>'.e(($product->updated_at ?? now())->toAtomString()).'</lastmod>'
                 .'<changefreq>weekly</changefreq>'
                 .'<priority>0.8</priority>'
@@ -96,7 +112,7 @@ Route::get('/feed.xml', function () {
         ->concat(Product::query()->latest('updated_at')->limit(15)->get(['id', 'name', 'description', 'updated_at'])->map(
             fn (Product $product): array => [
                 'title' => '[Sản phẩm] '.$product->name,
-                'link' => SiteSetting::canonicalUrl('/products/'.$product->id),
+                'link' => SiteSetting::canonicalUrl('/products/'.$product->slug),
                 'description' => strip_tags((string) ($product->description ?: $product->name)),
                 'pubDate' => ($product->updated_at ?? now())->toRssString(),
                 'timestamp' => ($product->updated_at ?? now())->getTimestamp(),
@@ -118,6 +134,26 @@ Route::get('/feed.xml', function () {
                 'description' => strip_tags((string) ($article->excerpt ?: $article->title)),
                 'pubDate' => ($article->updated_at ?? now())->toRssString(),
                 'timestamp' => ($article->updated_at ?? now())->getTimestamp(),
+            ],
+        ))
+        ->concat(Category::query()->with('parent:id,name')->latest('updated_at')->limit(15)->get(['id', 'parent_id', 'name', 'description', 'updated_at'])->map(
+            fn (Category $category): array => [
+                'title' => '[Danh mục] '.$category->name,
+                'link' => $category->parent_id !== null
+                    ? SiteSetting::canonicalUrl('/categories/'.($category->parent?->slug ?? $category->parent_id).'/'.$category->slug)
+                    : SiteSetting::canonicalUrl('/categories/'.$category->slug),
+                'description' => strip_tags((string) ($category->description ?: $category->name)),
+                'pubDate' => ($category->updated_at ?? now())->toRssString(),
+                'timestamp' => ($category->updated_at ?? now())->getTimestamp(),
+            ],
+        ))
+        ->concat(Catalogue::query()->published()->latest('updated_at')->limit(10)->get(['id', 'title', 'description', 'updated_at'])->map(
+            fn (Catalogue $catalogue): array => [
+                'title' => '[Catalogue] '.$catalogue->title,
+                'link' => SiteSetting::canonicalUrl('/catalogues'),
+                'description' => strip_tags((string) ($catalogue->description ?: $catalogue->title)),
+                'pubDate' => ($catalogue->updated_at ?? now())->toRssString(),
+                'timestamp' => ($catalogue->updated_at ?? now())->getTimestamp(),
             ],
         ))
         ->sortByDesc('timestamp')
@@ -157,10 +193,12 @@ Route::get('/indexnow-{key}.txt', function (string $key) {
 Route::middleware(UseKbUserRootView::class)->group(function () {
     Route::get('/', [KbUserController::class, 'index'])->name('kbuser.home');
     Route::get('/categories', [KbUserController::class, 'categories'])->name('kbuser.categories');
+    Route::get('/categories/{categorySlug}/{subcategorySlug}', [KbUserController::class, 'products'])->name('kbuser.categories.subcategory');
+    Route::get('/categories/{categorySlug}', [KbUserController::class, 'categories'])->name('kbuser.categories.show');
     Route::get('/products/search', [KbUserController::class, 'searchProducts'])->name('kbuser.products.search');
     Route::get('/products', [KbUserController::class, 'products'])->name('kbuser.products');
     Route::get('/catalogues', [KbUserController::class, 'catalogues'])->name('kbuser.catalogues');
-    Route::get('/products/{product}', [KbUserController::class, 'showProduct'])->whereNumber('product')->name('kbuser.products.show');
+    Route::get('/products/{productSlug}', [KbUserController::class, 'showProduct'])->name('kbuser.products.show');
     Route::post('/products/{product}/reviews', [KbUserController::class, 'storeProductReview'])->whereNumber('product')->middleware('auth')->name('kbuser.products.reviews.store');
     Route::post('/products/{product}/comments', [KbUserController::class, 'storeProductComment'])->whereNumber('product')->middleware('auth')->name('kbuser.products.comments.store');
     Route::get('/featured-projects', [KbUserController::class, 'featuredProjects'])->name('kbuser.featured-projects');

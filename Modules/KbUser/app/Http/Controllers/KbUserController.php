@@ -63,7 +63,7 @@ class KbUserController extends Controller
         ]);
     }
 
-    public function categories(Request $request): InertiaResponse
+    public function categories(Request $request, ?string $categorySlug = null): InertiaResponse
     {
         $this->deduplicateLegacyKflexProducts();
 
@@ -80,24 +80,58 @@ class KbUserController extends Controller
             ->orderBy('name')
             ->get(['id', 'name', 'parent_id', 'description']);
 
-        $requestedCategoryId = $request->integer('category');
-        $selectedCategory = $categories->firstWhere('id', $requestedCategoryId);
+        $rawCategoryKey = trim((string) ($categorySlug ?: $request->query('category', '')));
+        $selectedCategory = null;
+
+        if ($rawCategoryKey !== '') {
+            $normalizedSlug = Str::slug($rawCategoryKey);
+            $selectedCategory = $categories->first(
+                fn (Category $category): bool => $category->slug === $rawCategoryKey
+                    || ($normalizedSlug !== '' && $category->slug === $normalizedSlug)
+                    || (ctype_digit($rawCategoryKey) && $category->id === (int) $rawCategoryKey),
+            );
+        }
 
         return Inertia::render('categories/Index', [
             'categories' => $categories,
             'selectedCategoryId' => $selectedCategory?->id,
+            'selectedCategory' => $selectedCategory,
         ]);
     }
 
-    public function products(): InertiaResponse
+    public function products(Request $request, ?string $categorySlug = null, ?string $subcategorySlug = null): InertiaResponse
     {
         $this->deduplicateLegacyKflexProducts();
 
         $categories = Category::query()
-            ->with(['images', 'children:id,name,parent_id'])
+            ->with(['images', 'children:id,name,parent_id,description'])
             ->whereNull('parent_id')
             ->orderBy('name')
             ->get(['id', 'name', 'description']);
+
+        $rawCategoryKey = trim((string) ($categorySlug ?: $request->query('category', '')));
+        $rawSubcategoryKey = trim((string) ($subcategorySlug ?: $request->query('subcategory', '')));
+
+        $selectedCategory = null;
+        $selectedSubcategory = null;
+
+        if ($rawCategoryKey !== '') {
+            $normalizedCatSlug = Str::slug($rawCategoryKey);
+            $selectedCategory = $categories->first(
+                fn (Category $category): bool => $category->slug === $rawCategoryKey
+                    || ($normalizedCatSlug !== '' && $category->slug === $normalizedCatSlug)
+                    || (ctype_digit($rawCategoryKey) && $category->id === (int) $rawCategoryKey),
+            );
+        }
+
+        if ($selectedCategory !== null && $rawSubcategoryKey !== '') {
+            $normalizedSubSlug = Str::slug($rawSubcategoryKey);
+            $selectedSubcategory = $selectedCategory->children->first(
+                fn (Category $child): bool => $child->slug === $rawSubcategoryKey
+                    || ($normalizedSubSlug !== '' && $child->slug === $normalizedSubSlug)
+                    || (ctype_digit($rawSubcategoryKey) && $child->id === (int) $rawSubcategoryKey),
+            );
+        }
 
         $products = Product::query()
             ->with(['category:id,name', 'subcategory:id,name', 'images'])
@@ -117,18 +151,31 @@ class KbUserController extends Controller
         return Inertia::render('products/Index', [
             'categories' => $categories,
             'products' => $products,
+            'selectedCategoryId' => $selectedCategory?->id,
+            'selectedSubcategoryId' => $selectedSubcategory?->id,
+            'selectedCategory' => $selectedCategory,
+            'selectedSubcategory' => $selectedSubcategory,
         ]);
     }
 
-    public function showProduct(Product $product): InertiaResponse
+    public function showProduct(string $productSlug): InertiaResponse
     {
-        $product->load([
-            'category:id,name',
-            'subcategory:id,name',
-            'images',
-            'reviews' => fn ($query) => $query->with('user:id,name,avatar')->latest(),
-            'comments' => fn ($query) => $query->with('user:id,name,avatar')->latest(),
-        ]);
+        $normalizedSlug = Str::slug($productSlug);
+
+        $product = Product::query()
+            ->with([
+                'category:id,name',
+                'subcategory:id,name',
+                'images',
+                'reviews' => fn ($query) => $query->with('user:id,name,avatar')->latest(),
+                'comments' => fn ($query) => $query->with('user:id,name,avatar')->latest(),
+            ])
+            ->get()
+            ->first(fn (Product $item): bool => $item->slug === $productSlug
+                || ($normalizedSlug !== '' && $item->slug === $normalizedSlug)
+                || (ctype_digit($productSlug) && $item->id === (int) $productSlug));
+
+        abort_if(! $product instanceof Product, 404);
 
         $relatedProducts = Product::query()
             ->with(['category:id,name', 'subcategory:id,name', 'images'])

@@ -437,7 +437,7 @@
                                                 {{ props.seoAudit.productsWithDescCount }}/{{ props.seoAudit.productsCount }} có mô tả · {{ props.seoAudit.productsWithImageCount }}/{{ props.seoAudit.productsCount }} có ảnh
                                             </span>
                                         </td>
-                                        <td><code>/products/{id}</code> (kèm Schema Product + Offer)</td>
+                                        <td><code>/products/{ten-san-pham}</code> (Slug + Schema Product)</td>
                                     </tr>
                                     <tr>
                                         <td><strong>Dự án tiêu biểu (Case Studies)</strong></td>
@@ -502,9 +502,9 @@
                                     <li v-for="prod in props.seoAudit.sampleProducts.slice(0, 3)" :key="`prod-${prod.id}`">
                                         <div>
                                             <strong>{{ prod.name }}</strong>
-                                            <code>{{ displayBaseUrl }}/products/{{ prod.id }}</code>
+                                            <code>{{ displayBaseUrl }}/products/{{ prod.slug || prod.id }}</code>
                                         </div>
-                                        <a :href="prod.path || `/products/${prod.id}`" target="_blank" rel="noopener" class="btn">Xem</a>
+                                        <a :href="prod.path || `/products/${prod.slug || prod.id}`" target="_blank" rel="noopener" class="btn">Xem</a>
                                     </li>
                                 </ul>
                             </div>
@@ -669,7 +669,7 @@ type SeoAuditPayload = {
     robotsUrl: string;
     baseUrl: string;
     sampleProjects: Array<{ id: number; name: string; slug: string; url: string; path?: string; location: string }>;
-    sampleProducts: Array<{ id: number; name: string; subtitle: string | null; url: string; path?: string }>;
+    sampleProducts: Array<{ id: number; name: string; slug?: string; subtitle: string | null; url: string; path?: string }>;
     sampleArticles: Array<{ id: number; title: string; slug: string; url: string; path?: string }>;
 };
 

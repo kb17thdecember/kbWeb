@@ -3,9 +3,11 @@ import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 import { Head, Link, router, useForm } from '@inertiajs/vue3';
 import UserLayout from '../layout/UserLayout.Vue';
 import { lockPageScroll } from '../utils/pageScrollLock';
+import { buildProductDetailUrl } from '../utils/recentlyViewedProducts';
 
 type HomeProduct = {
     id: number;
+    slug?: string;
     name: string;
     product_title: string | null;
     description: string;
@@ -20,14 +22,16 @@ type HomeProduct = {
 
 type HomeCategory = {
     id: number;
+    slug?: string;
     name: string;
     description: string | null;
     image: string | null;
-    children: { id: number; name: string; parent_id: number }[];
+    children: { id: number; slug?: string; name: string; parent_id: number }[];
 };
 
 type RelatedProjectProduct = {
     id: number;
+    slug?: string;
     name: string;
     product_title: string | null;
     price: number;
@@ -225,8 +229,8 @@ const productImageUrl = (image: string): string =>
 const categoryImageUrl = (category: HomeCategory): string | null =>
     category.image ? productImageUrl(category.image) : null;
 
-const categoryPageUrl = (categoryId: number): string =>
-    `/categories?category=${encodeURIComponent(String(categoryId))}`;
+const categoryPageUrl = (category: Pick<HomeCategory, 'id' | 'slug'>): string =>
+    `/categories/${encodeURIComponent(String(category.slug || category.id))}`;
 
 const formatPrice = (price: number): string =>
     price > 0 ? `${new Intl.NumberFormat('vi-VN').format(price)}₫` : 'Liên hệ';
@@ -433,7 +437,7 @@ const projectProductThumbUrl = (product: RelatedProjectProduct): string | null =
 };
 
 const projectProductDetailUrl = (product: RelatedProjectProduct): string =>
-    product.id ? `/products/${product.id}` : `/products`;
+    buildProductDetailUrl(product);
 
 const goToProjectProductDetail = (product: RelatedProjectProduct): void => {
     releasePageScrollLock?.();
@@ -799,7 +803,7 @@ onUnmounted(() => {
                   v-for="(category, index) in categories"
                   :key="category.id"
                   class="category-card reveal visible"
-                  :href="categoryPageUrl(category.id)"
+                  :href="categoryPageUrl(category)"
               >
                 <span class="cat-number">
                   {{ String(index + 1).padStart(2, '0') }} /
@@ -904,7 +908,7 @@ onUnmounted(() => {
                 <div class="product-body">
                   <div class="product-meta">{{ product.subcategory?.name ?? 'Danh mục sản phẩm' }}</div>
                   <h3 class="product-name">
-                    <Link :href="`/products/${product.id}`">{{ product.name }}</Link>
+                    <Link :href="buildProductDetailUrl(product)">{{ product.name }}</Link>
                   </h3>
                   <p class="product-desc">{{ product.product_title }}</p>
                   <div class="product-bottom">
@@ -913,7 +917,7 @@ onUnmounted(() => {
                       <small v-if="product.price > 0">Giá tham khảo · / sản phẩm</small>
                     </span>
                     <div class="kb-card-bottom-btns">
-                      <Link :href="`/products/${product.id}`" class="kb-card-detail-link">Chi tiết</Link>
+                      <Link :href="buildProductDetailUrl(product)" class="kb-card-detail-link">Chi tiết</Link>
                       <button class="add-btn" type="button" :aria-label="`Thêm ${product.name} vào giỏ`" @click="addToCart(product)">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                           <path d="M3 4h2l2.2 11.1a2 2 0 0 0 2 1.6h8.4a2 2 0 0 0 1.9-1.4L22 8H6"/>
@@ -1357,7 +1361,7 @@ onUnmounted(() => {
               <button class="btn btn-primary" type="button" @click="addToCart(selectedProduct); closeProduct(); openCartDrawer()">
                 Thêm vào giỏ
               </button>
-              <Link class="btn btn-outline" :href="`/products/${selectedProduct.id}`" @click="closeProduct()">
+              <Link class="btn btn-outline" :href="buildProductDetailUrl(selectedProduct)" @click="closeProduct()">
                 Xem chi tiết &amp; Đánh giá
               </Link>
             </div>

@@ -3,9 +3,11 @@ import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { Head, Link, router } from '@inertiajs/vue3';
 import UserLayout from '../../layout/UserLayout.Vue';
 import { lockPageScroll } from '../../utils/pageScrollLock';
+import { buildProductDetailUrl } from '../../utils/recentlyViewedProducts';
 
 type RelatedProduct = {
     id: number;
+    slug?: string;
     name: string;
     product_title: string | null;
     price: number;
@@ -116,7 +118,7 @@ const formatPrice = (price: number): string =>
     price > 0 ? `${new Intl.NumberFormat('vi-VN').format(price)}₫` : 'Báo giá theo dự án';
 
 const productDetailUrl = (product: RelatedProduct): string =>
-    product.id ? `/products/${product.id}` : `/products`;
+    buildProductDetailUrl(product);
 
 const projectDetailUrl = (project: FeaturedProject): string =>
     `/featured-projects/${project.slug || project.id}`;

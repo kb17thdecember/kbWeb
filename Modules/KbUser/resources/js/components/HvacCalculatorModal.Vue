@@ -564,7 +564,7 @@ const formatPrice = (price: number): string =>
                                     class="kb-calc-product-row"
                                 >
                                     <div>
-                                        <Link :href="`/products/${product.id}`" class="kb-calc-prod-link" @click="emit('close')">
+                                        <Link :href="`/products/${(product as { slug?: string }).slug || product.id}`" class="kb-calc-prod-link" @click="emit('close')">
                                             {{ product.name }}
                                         </Link>
                                         <small>{{ formatPrice(product.price) }}</small>
@@ -680,7 +680,7 @@ const formatPrice = (price: number): string =>
                                     class="kb-calc-product-row"
                                 >
                                     <div>
-                                        <Link :href="`/products/${product.id}`" class="kb-calc-prod-link" @click="emit('close')">
+                                        <Link :href="`/products/${(product as { slug?: string }).slug || product.id}`" class="kb-calc-prod-link" @click="emit('close')">
                                             {{ product.name }}
                                         </Link>
                                         <small>{{ formatPrice(product.price) }}</small>

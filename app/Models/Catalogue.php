@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Models\Concerns\HasImages;
+use App\Services\SeoAutoIndexService;
 use Database\Factories\CatalogueFactory;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Casts\Attribute;
@@ -43,6 +44,12 @@ class Catalogue extends Model
 
     protected static function booted(): void
     {
+        static::saved(function (Catalogue $catalogue): void {
+            if ($catalogue->is_published) {
+                SeoAutoIndexService::scheduleModelPing($catalogue);
+            }
+        });
+
         static::deleted(function (Catalogue $catalogue): void {
             Storage::disk('public')->delete($catalogue->file_path);
         });

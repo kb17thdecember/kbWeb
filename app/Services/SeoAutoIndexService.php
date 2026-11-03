@@ -3,6 +3,8 @@
 namespace App\Services;
 
 use App\Models\Article;
+use App\Models\Catalogue;
+use App\Models\Category;
 use App\Models\FeaturedProject;
 use App\Models\Product;
 use App\Models\SiteSetting;
@@ -49,7 +51,7 @@ class SeoAutoIndexService
     public static function resolveModelUrl(Model $model): ?string
     {
         if ($model instanceof Product) {
-            return SiteSetting::canonicalUrl('/products/'.$model->id);
+            return SiteSetting::canonicalUrl('/products/'.$model->slug);
         }
 
         if ($model instanceof FeaturedProject) {
@@ -62,6 +64,27 @@ class SeoAutoIndexService
             }
 
             return SiteSetting::canonicalUrl('/news/'.$model->slug);
+        }
+
+        if ($model instanceof Category) {
+            if ($model->parent_id !== null) {
+                $parent = $model->relationLoaded('parent')
+                    ? $model->parent
+                    : Category::query()->find($model->parent_id, ['id', 'name']);
+                $parentSlug = $parent !== null ? $parent->slug : (string) $model->parent_id;
+
+                return SiteSetting::canonicalUrl('/categories/'.$parentSlug.'/'.$model->slug);
+            }
+
+            return SiteSetting::canonicalUrl('/categories/'.$model->slug);
+        }
+
+        if ($model instanceof Catalogue) {
+            if (! $model->is_published) {
+                return null;
+            }
+
+            return SiteSetting::canonicalUrl('/catalogues');
         }
 
         return null;

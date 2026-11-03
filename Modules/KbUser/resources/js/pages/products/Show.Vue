@@ -3,7 +3,7 @@ import { Head, Link, router, useForm, usePage } from '@inertiajs/vue3';
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import RecentlyViewedProducts from '../../components/RecentlyViewedProducts.Vue';
 import UserLayout from '../../layout/UserLayout.Vue';
-import { recordRecentlyViewedProduct } from '../../utils/recentlyViewedProducts';
+import { buildProductDetailUrl, recordRecentlyViewedProduct } from '../../utils/recentlyViewedProducts';
 
 type AuthUser = {
     id: number;
@@ -44,8 +44,8 @@ type ProductDetail = {
     image: string[] | null;
     category_id: number;
     subcategory_id: number | null;
-    category: { id: number; name: string } | null;
-    subcategory: { id: number; name: string } | null;
+    category: { id: number; slug?: string; name: string } | null;
+    subcategory: { id: number; slug?: string; name: string } | null;
     reviews?: ReviewItem[];
     comments?: CommentItem[];
 };
@@ -235,7 +235,12 @@ onUnmounted(() => {
                             <div class="eyebrow">
                                 <span class="dot"></span>
                                 <Link href="/products">SẢN PHẨM</Link>
-                                <template v-if="product.category"> / {{ product.category.name }}</template>
+                                <template v-if="product.category">
+                                    / <Link :href="`/categories/${product.category.slug || product.category.id}`">{{ product.category.name }}</Link>
+                                </template>
+                                <template v-if="product.category && product.subcategory">
+                                    / <Link :href="`/categories/${product.category.slug || product.category.id}/${product.subcategory.slug || product.subcategory.id}`">{{ product.subcategory.name }}</Link>
+                                </template>
                             </div>
                             <h1>{{ product.product_title || product.name }}</h1>
                             <p v-if="product.subcategory">
@@ -570,12 +575,12 @@ onUnmounted(() => {
                                     <div class="product-body">
                                         <div class="product-meta">{{ rel.subcategory?.name ?? 'Thiết bị HVAC' }}</div>
                                         <h3 class="product-name">
-                                            <Link :href="`/products/${rel.id}`">{{ rel.name }}</Link>
+                                            <Link :href="buildProductDetailUrl(rel)">{{ rel.name }}</Link>
                                         </h3>
                                         <p class="product-desc">{{ rel.product_title }}</p>
                                         <div class="product-bottom">
                                             <span class="price">{{ formatPrice(rel.price) }}</span>
-                                            <Link :href="`/products/${rel.id}`" class="btn btn-outline kb-card-detail-link">
+                                            <Link :href="buildProductDetailUrl(rel)" class="btn btn-outline kb-card-detail-link">
                                                 Chi tiết
                                             </Link>
                                         </div>

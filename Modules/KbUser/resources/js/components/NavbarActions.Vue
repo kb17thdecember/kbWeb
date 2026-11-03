@@ -1241,7 +1241,7 @@ onUnmounted(() => {
                             <div v-else class="kb-wishlist-list">
                                 <article v-for="item in myWishlistProducts" :key="item.id" class="kb-wishlist-row">
                                     <div>
-                                        <Link :href="`/products/${item.id}`" class="kb-calc-prod-link" @click="isAccountModalOpen = false">
+                                        <Link :href="`/products/${(item as { slug?: string }).slug || item.id}`" class="kb-calc-prod-link" @click="isAccountModalOpen = false">
                                             {{ item.name }}
                                         </Link>
                                         <small>{{ item.category?.name ?? 'Sản phẩm' }} · {{ formatPrice(item.price) }}</small>

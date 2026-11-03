@@ -2,6 +2,7 @@
 import { Link } from '@inertiajs/vue3';
 import { onMounted, onUnmounted, ref, watch } from 'vue';
 import {
+    buildProductDetailUrl,
     clearRecentlyViewedProducts,
     getRecentlyViewedProducts,
     type RecentlyViewedProductItem,
@@ -89,13 +90,13 @@ onUnmounted(() => {
                 <div class="product-body">
                     <div class="product-meta">{{ item.subcategory?.name ?? 'Vật tư kỹ thuật' }}</div>
                     <h3 class="product-name">
-                        <Link :href="`/products/${item.id}`">{{ item.name }}</Link>
+                        <Link :href="buildProductDetailUrl(item)">{{ item.name }}</Link>
                     </h3>
                     <p class="product-desc">{{ item.product_title || item.name }}</p>
                     <div class="product-bottom">
                         <span class="price">{{ formatPrice(item.price) }}</span>
                         <div class="kb-card-bottom-btns">
-                            <Link :href="`/products/${item.id}`" class="kb-card-detail-link">Chi tiết</Link>
+                            <Link :href="buildProductDetailUrl(item)" class="kb-card-detail-link">Chi tiết</Link>
                             <button
                                 class="add-btn"
                                 type="button"

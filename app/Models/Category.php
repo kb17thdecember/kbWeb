@@ -3,17 +3,26 @@
 namespace App\Models;
 
 use App\Models\Concerns\HasImages;
+use App\Services\SeoAutoIndexService;
 use Database\Factories\CategoryFactory;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Str;
 
 class Category extends Model
 {
     /** @use HasFactory<CategoryFactory> */
     use HasFactory, HasImages;
+
+    protected static function booted(): void
+    {
+        static::saved(function (Category $category): void {
+            SeoAutoIndexService::scheduleModelPing($category);
+        });
+    }
 
     protected $fillable = [
         'name',
@@ -24,7 +33,19 @@ class Category extends Model
 
     protected $hidden = ['images'];
 
-    protected $appends = ['image', 'image_url'];
+    protected $appends = ['slug', 'image', 'image_url'];
+
+    /**
+     * @return Attribute<string, never>
+     */
+    protected function slug(): Attribute
+    {
+        return Attribute::get(function (): string {
+            $slug = Str::slug((string) $this->name);
+
+            return $slug !== '' ? $slug : (string) $this->id;
+        });
+    }
 
     /**
      * @return Attribute<string|null, never>

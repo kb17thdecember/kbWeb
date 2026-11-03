@@ -30,6 +30,42 @@
     } elseif ($componentName === 'products/Index' || $componentName === 'categories/Index') {
         $seoTitle = $siteSettings['seo_products_title'] ?: $seoTitle;
         $seoDescription = $siteSettings['seo_products_description'] ?: $seoDescription;
+        $selCat = is_array($pageProps['selectedCategory'] ?? null) ? $pageProps['selectedCategory'] : null;
+        $selSub = is_array($pageProps['selectedSubcategory'] ?? null) ? $pageProps['selectedSubcategory'] : null;
+
+        if ($selCat !== null) {
+            $catName = trim((string) ($selCat['name'] ?? ''));
+            $catSlug = trim((string) ($selCat['slug'] ?? $selCat['id'] ?? ''));
+            $catDesc = strip_tags((string) ($selCat['description'] ?? ''));
+
+            if ($selSub !== null) {
+                $subName = trim((string) ($selSub['name'] ?? ''));
+                $subSlug = trim((string) ($selSub['slug'] ?? $selSub['id'] ?? ''));
+                $subDesc = strip_tags((string) ($selSub['description'] ?? ''));
+
+                if ($subName !== '') {
+                    $seoTitle = $subName . ($catName !== '' ? ' - ' . $catName : '') . ' | ' . $companyName;
+                }
+                if ($subDesc !== '') {
+                    $seoDescription = \Illuminate\Support\Str::limit($subDesc, 160);
+                } elseif ($catDesc !== '') {
+                    $seoDescription = \Illuminate\Support\Str::limit($catDesc, 160);
+                }
+                if ($catSlug !== '' && $subSlug !== '') {
+                    $canonicalUrl = $canonicalBase . '/categories/' . $catSlug . '/' . $subSlug;
+                }
+            } else {
+                if ($catName !== '') {
+                    $seoTitle = 'Danh mục ' . $catName . ' | ' . $companyName;
+                }
+                if ($catDesc !== '') {
+                    $seoDescription = \Illuminate\Support\Str::limit($catDesc, 160);
+                }
+                if ($catSlug !== '') {
+                    $canonicalUrl = $canonicalBase . '/categories/' . $catSlug;
+                }
+            }
+        }
     } elseif ($componentName === 'products/Show' && ! empty($pageProps['product'])) {
         $prod = (array) $pageProps['product'];
         $prodName = trim((string) ($prod['name'] ?? 'Sản phẩm HVAC'));

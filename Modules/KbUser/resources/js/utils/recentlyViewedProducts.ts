@@ -1,5 +1,6 @@
 export type RecentlyViewedProductItem = {
     id: number;
+    slug?: string;
     name: string;
     product_title: string | null;
     price: number;
@@ -8,6 +9,32 @@ export type RecentlyViewedProductItem = {
     subcategory: { id: number; name: string } | null;
     viewed_at: number;
 };
+
+export function toProductSlug(name: string, fallbackId?: number | string): string {
+    const slug = (name || '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[đĐ]/g, 'd')
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '');
+
+    return slug || String(fallbackId ?? '');
+}
+
+export function buildProductDetailUrl(product: {
+    id?: number;
+    slug?: string | null;
+    name?: string | null;
+}): string {
+    const slug = product.slug || (product.name ? toProductSlug(product.name, product.id) : '');
+
+    if (slug) {
+        return `/products/${slug}`;
+    }
+
+    return product.id ? `/products/${product.id}` : '/products';
+}
 
 const STORAGE_KEY = 'kbuser-recently-viewed';
 const MAX_ITEMS = 8;
@@ -44,6 +71,7 @@ export function getRecentlyViewedProducts(excludeId?: number): RecentlyViewedPro
 
 export function recordRecentlyViewedProduct(product: {
     id: number;
+    slug?: string;
     name: string;
     product_title?: string | null;
     price?: number;
@@ -59,6 +87,7 @@ export function recordRecentlyViewedProduct(product: {
         const current = getRecentlyViewedProducts();
         const nextItem: RecentlyViewedProductItem = {
             id: product.id,
+            slug: product.slug || toProductSlug(product.name, product.id),
             name: product.name,
             product_title: product.product_title ?? null,
             price: Number(product.price) || 0,

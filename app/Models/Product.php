@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
+use Illuminate\Support\Str;
 
 class Product extends Model
 {
@@ -34,13 +35,21 @@ class Product extends Model
 
     protected $hidden = ['images'];
 
-    protected $appends = ['image'];
+    protected $appends = ['slug', 'image'];
 
     protected static function booted(): void
     {
         static::saved(function (Product $product): void {
             SeoAutoIndexService::scheduleModelPing($product);
         });
+    }
+
+    /**
+     * @return Attribute<string, never>
+     */
+    protected function slug(): Attribute
+    {
+        return Attribute::get(fn (): string => Str::slug((string) $this->name) ?: (string) $this->id);
     }
 
     /**

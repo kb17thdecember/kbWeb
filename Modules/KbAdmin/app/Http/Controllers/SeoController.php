@@ -5,6 +5,7 @@ namespace Modules\KbAdmin\Http\Controllers;
 use App\Http\Controllers\Controller;
 use App\Models\Article;
 use App\Models\Catalogue;
+use App\Models\Category;
 use App\Models\FeaturedProject;
 use App\Models\Product;
 use App\Models\SiteSetting;
@@ -43,7 +44,8 @@ class SeoController extends Controller
             ->count();
 
         $cataloguesCount = Catalogue::query()->published()->count();
-        $staticPagesCount = 8;
+        $categoryUrlsCount = Category::query()->count();
+        $staticPagesCount = 9;
 
         $sampleProjects = FeaturedProject::query()
             ->latest()
@@ -66,9 +68,10 @@ class SeoController extends Controller
             ->map(fn (Product $product): array => [
                 'id' => $product->id,
                 'name' => $product->name,
+                'slug' => $product->slug,
                 'subtitle' => $product->product_title,
-                'url' => SiteSetting::canonicalUrl('/products/'.$product->id),
-                'path' => '/products/'.$product->id,
+                'url' => SiteSetting::canonicalUrl('/products/'.$product->slug),
+                'path' => '/products/'.$product->slug,
             ])
             ->values();
 
@@ -99,7 +102,7 @@ class SeoController extends Controller
                 'articlesCount' => $articlesCount,
                 'articlesWithExcerptCount' => $articlesWithExcerptCount,
                 'cataloguesCount' => $cataloguesCount,
-                'totalIndexedUrls' => $staticPagesCount + $productsCount + $projectsCount + $articlesCount,
+                'totalIndexedUrls' => $staticPagesCount + $categoryUrlsCount + $productsCount + $projectsCount + $articlesCount,
                 'sitemapUrl' => SiteSetting::canonicalUrl('/sitemap.xml'),
                 'robotsUrl' => SiteSetting::canonicalUrl('/robots.txt'),
                 'baseUrl' => SiteSetting::canonicalBaseUrl(),
@@ -174,14 +177,22 @@ class SeoController extends Controller
     {
         $urls = collect([
             SiteSetting::canonicalUrl('/'),
+            SiteSetting::canonicalUrl('/categories'),
             SiteSetting::canonicalUrl('/products'),
             SiteSetting::canonicalUrl('/featured-projects'),
             SiteSetting::canonicalUrl('/news'),
             SiteSetting::canonicalUrl('/catalogues'),
+            SiteSetting::canonicalUrl('/about-us'),
             SiteSetting::canonicalUrl('/contacts'),
+            SiteSetting::canonicalUrl('/quotations'),
         ])
-            ->concat(Product::query()->latest('id')->limit(30)->get(['id'])->map(
-                fn (Product $product): string => SiteSetting::canonicalUrl('/products/'.$product->id),
+            ->concat(Category::query()->with('parent:id,name')->latest('id')->limit(30)->get(['id', 'parent_id', 'name'])->map(
+                fn (Category $category): string => $category->parent_id !== null
+                    ? SiteSetting::canonicalUrl('/categories/'.($category->parent?->slug ?? $category->parent_id).'/'.$category->slug)
+                    : SiteSetting::canonicalUrl('/categories/'.$category->slug),
+            ))
+            ->concat(Product::query()->latest('id')->limit(30)->get(['id', 'name'])->map(
+                fn (Product $product): string => SiteSetting::canonicalUrl('/products/'.$product->slug),
             ))
             ->concat(FeaturedProject::query()->latest('id')->limit(30)->get(['id', 'name'])->map(
                 fn (FeaturedProject $project): string => SiteSetting::canonicalUrl('/featured-projects/'.$project->slug),
