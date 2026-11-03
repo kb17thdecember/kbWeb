@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Facades\Storage;
 
 class Catalogue extends Model
@@ -19,6 +20,7 @@ class Catalogue extends Model
     use HasImages;
 
     protected $fillable = [
+        'category_id',
         'title',
         'description',
         'file_path',
@@ -37,9 +39,18 @@ class Catalogue extends Model
     protected function casts(): array
     {
         return [
+            'category_id' => 'integer',
             'file_size' => 'integer',
             'is_published' => 'boolean',
         ];
+    }
+
+    /**
+     * @return BelongsTo<Category, $this>
+     */
+    public function category(): BelongsTo
+    {
+        return $this->belongsTo(Category::class, 'category_id');
     }
 
     protected static function booted(): void

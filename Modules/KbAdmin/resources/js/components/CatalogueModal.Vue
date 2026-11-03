@@ -14,6 +14,15 @@
                         <input id="catalogueTitle" v-model="title" maxlength="255" required placeholder="Ví dụ: Catalogue bình nước nóng Ariston 2026">
                     </div>
                     <div class="field full">
+                        <label for="catalogueCategory">Danh mục cha (không bắt buộc)</label>
+                        <select id="catalogueCategory" v-model="categoryId" :disabled="isSubmitting">
+                            <option value="">-- Không chọn (Catalogue dùng chung) --</option>
+                            <option v-for="cat in categories" :key="cat.id" :value="String(cat.id)">
+                                {{ cat.name }}
+                            </option>
+                        </select>
+                    </div>
+                    <div class="field full">
                         <label for="catalogueDescription">Mô tả</label>
                         <textarea id="catalogueDescription" v-model="description" maxlength="2000" placeholder="Mô tả ngắn"></textarea>
                     </div>
@@ -81,8 +90,15 @@
     import { router } from '@inertiajs/vue3';
     import { onBeforeUnmount, ref, watch } from 'vue';
 
+    type ParentCategoryOption = {
+        id: number;
+        name: string;
+    };
+
     type Catalogue = {
         id: number;
+        category_id?: number | null;
+        category?: ParentCategoryOption | null;
         title: string;
         description: string | null;
         file_name: string;
@@ -96,6 +112,7 @@
     const props = defineProps<{
         open: boolean;
         catalogue: Catalogue | null;
+        categories: ParentCategoryOption[];
     }>();
 
     const emit = defineEmits<{
@@ -104,6 +121,7 @@
     }>();
 
     const title = ref('');
+    const categoryId = ref('');
     const description = ref('');
     const isPublished = ref(true);
     const file = ref<File | null>(null);
@@ -120,6 +138,7 @@
             }
 
             title.value = props.catalogue?.title ?? '';
+            categoryId.value = props.catalogue?.category_id ? String(props.catalogue.category_id) : '';
             description.value = props.catalogue?.description ?? '';
             isPublished.value = props.catalogue?.is_published ?? true;
             errorMessage.value = '';
@@ -190,6 +209,7 @@
         isSubmitting.value = true;
         errorMessage.value = '';
         const data: Record<string, unknown> = {
+            category_id: categoryId.value !== '' ? Number(categoryId.value) : '',
             title: title.value,
             description: description.value,
             is_published: isPublished.value,

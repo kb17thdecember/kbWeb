@@ -366,43 +366,64 @@ watch([activeFilter, activeSubcategoryId, searchQuery, priceFilter, sortBy], () 
     currentPage.value = 1;
 });
 
-onMounted(() => {
-    loadCart();
-    window.addEventListener('kbuser-cart-updated', loadCart);
-    window.addEventListener('keydown', onEscape);
+const syncFiltersFromUrlAndProps = (): void => {
+    if (props.selectedCategoryId) {
+        activeFilter.value = String(props.selectedCategoryId);
+        activeSubcategoryId.value = props.selectedSubcategoryId ?? null;
+    } else {
+        const params = new URLSearchParams(window.location.search);
+        searchQuery.value = params.get('search') ?? '';
+        const rawCategoryParam = (params.get('category') ?? '').trim().toLowerCase();
 
-    const params = new URLSearchParams(window.location.search);
-    searchQuery.value = params.get('search') ?? '';
-    const rawCategoryParam = (params.get('category') ?? '').trim();
+        if (rawCategoryParam !== '') {
+            const requestedCategory = props.categories.find(
+                (category) =>
+                    (category.slug ?? '').toLowerCase() === rawCategoryParam ||
+                    String(category.id) === rawCategoryParam ||
+                    (rawCategoryParam.includes('ariston') && category.name.toLowerCase().includes('ariston')) ||
+                    ((rawCategoryParam.includes('flex') || rawCategoryParam === 'k-flex') && category.name.toLowerCase().includes('flex')),
+            );
 
-    if (rawCategoryParam !== '') {
-        const requestedCategory = props.categories.find(
-            (category) =>
-                category.slug === rawCategoryParam ||
-                String(category.id) === rawCategoryParam,
-        );
+            if (requestedCategory) {
+                activeFilter.value = String(requestedCategory.id);
+                activeSubcategoryId.value = null;
+                const rawSubcategoryParam = (params.get('subcategory') ?? '').trim().toLowerCase();
 
-        if (requestedCategory) {
-            activeFilter.value = String(requestedCategory.id);
-            const rawSubcategoryParam = (params.get('subcategory') ?? '').trim();
+                if (rawSubcategoryParam !== '') {
+                    const matchedChild = requestedCategory.children.find(
+                        (child) =>
+                            (child.slug ?? '').toLowerCase() === rawSubcategoryParam ||
+                            String(child.id) === rawSubcategoryParam,
+                    );
 
-            if (rawSubcategoryParam !== '') {
-                const matchedChild = requestedCategory.children.find(
-                    (child) =>
-                        child.slug === rawSubcategoryParam ||
-                        String(child.id) === rawSubcategoryParam,
-                );
-
-                if (matchedChild) {
-                    activeSubcategoryId.value = matchedChild.id;
+                    if (matchedChild) {
+                        activeSubcategoryId.value = matchedChild.id;
+                    }
                 }
             }
+        } else if (!props.selectedCategoryId) {
+            activeFilter.value = 'all';
+            activeSubcategoryId.value = null;
         }
     }
 
     if (window.location.hash === '#products' || props.selectedSubcategoryId || props.selectedCategoryId) {
         document.querySelector('#products')?.scrollIntoView({ behavior: 'smooth' });
     }
+};
+
+watch(
+    () => [page.url, props.selectedCategoryId, props.selectedSubcategoryId],
+    () => {
+        syncFiltersFromUrlAndProps();
+    },
+);
+
+onMounted(() => {
+    loadCart();
+    window.addEventListener('kbuser-cart-updated', loadCart);
+    window.addEventListener('keydown', onEscape);
+    syncFiltersFromUrlAndProps();
 });
 
 onUnmounted(() => {

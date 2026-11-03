@@ -197,10 +197,15 @@ class KbUserController extends Controller
 
         $catalogues = Catalogue::query()
             ->published()
-            ->with('images')
+            ->where(function ($query) use ($product): void {
+                $query->where('category_id', $product->category_id)
+                    ->orWhereNull('category_id');
+            })
+            ->with(['images', 'category:id,name'])
+            ->orderByRaw('CASE WHEN category_id = ? THEN 0 ELSE 1 END', [(int) $product->category_id])
             ->latest()
             ->limit(4)
-            ->get(['id', 'title', 'description', 'file_path', 'file_name', 'file_size']);
+            ->get(['id', 'category_id', 'title', 'description', 'file_path', 'file_name', 'file_size']);
 
         return Inertia::render('products/Show', [
             'product' => $product,
@@ -248,12 +253,18 @@ class KbUserController extends Controller
 
     public function catalogues(): InertiaResponse
     {
+        $categories = Category::query()
+            ->whereNull('parent_id')
+            ->orderBy('name')
+            ->get(['id', 'name']);
+
         $catalogues = Catalogue::query()
             ->published()
-            ->with('images')
+            ->with(['images', 'category:id,name'])
             ->latest()
             ->get([
                 'id',
+                'category_id',
                 'title',
                 'description',
                 'file_path',
@@ -263,6 +274,7 @@ class KbUserController extends Controller
             ]);
 
         return Inertia::render('catalogues/Index', [
+            'categories' => $categories,
             'catalogues' => $catalogues,
         ]);
     }

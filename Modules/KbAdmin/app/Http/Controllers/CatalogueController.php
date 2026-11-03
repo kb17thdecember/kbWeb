@@ -4,11 +4,13 @@ namespace Modules\KbAdmin\Http\Controllers;
 
 use App\Http\Controllers\Controller;
 use App\Models\Catalogue;
+use App\Models\Category;
 use App\Support\ImageStorage;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
 use Modules\KbAdmin\Support\AdminDashboardStats;
@@ -18,7 +20,8 @@ class CatalogueController extends Controller
     public function index(AdminDashboardStats $dashboardStats): Response
     {
         return Inertia::render('catalogues/Index', [
-            'catalogues' => Catalogue::query()->with('images')->latest()->get(),
+            'catalogues' => Catalogue::query()->with(['images', 'category:id,name'])->latest()->get(),
+            'categories' => Category::query()->whereNull('parent_id')->orderBy('name')->get(['id', 'name']),
             ...$dashboardStats->summary(),
         ]);
     }
@@ -69,11 +72,12 @@ class CatalogueController extends Controller
     }
 
     /**
-     * @return array<string, array<int, string>>
+     * @return array<string, array<int, mixed>>
      */
     private function rules(bool $fileRequired): array
     {
         return [
+            'category_id' => ['nullable', 'integer', Rule::exists('categories', 'id')->whereNull('parent_id')],
             'title' => ['required', 'string', 'max:255'],
             'description' => ['nullable', 'string', 'max:2000'],
             'is_published' => ['required', 'boolean'],
@@ -89,6 +93,7 @@ class CatalogueController extends Controller
     private function attributes(array $validated): array
     {
         return [
+            'category_id' => ! empty($validated['category_id']) ? (int) $validated['category_id'] : null,
             'title' => $validated['title'],
             'description' => $validated['description'] ?? null,
             'is_published' => $validated['is_published'],

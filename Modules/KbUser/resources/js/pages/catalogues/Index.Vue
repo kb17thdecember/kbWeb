@@ -1,11 +1,19 @@
 <script setup lang="ts">
-import { Head, Link } from '@inertiajs/vue3';
+import { Head, Link, usePage } from '@inertiajs/vue3';
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import UserLayout from '../../layout/UserLayout.Vue';
 import { lockPageScroll } from '../../utils/pageScrollLock';
 
+type ParentCategoryItem = {
+    id: number;
+    slug?: string;
+    name: string;
+};
+
 type CatalogueItem = {
     id: number;
+    category_id?: number | null;
+    category?: ParentCategoryItem | null;
     title: string;
     description: string | null;
     file_name: string;
@@ -16,10 +24,12 @@ type CatalogueItem = {
 };
 
 const props = defineProps<{
+    categories?: ParentCategoryItem[];
     catalogues: CatalogueItem[];
 }>();
 
-const activeBrand = ref<'all' | 'ariston' | 'kflex'>('all');
+const page = usePage();
+const activeCategoryKey = ref<string>('all');
 const searchQuery = ref('');
 const previewCatalogue = ref<CatalogueItem | null>(null);
 const cartCount = ref(0);
@@ -40,6 +50,14 @@ const refreshCartCount = (): void => {
 };
 
 const detectBrand = (item: CatalogueItem): 'ariston' | 'kflex' | 'other' => {
+    const categoryName = (item.category?.name ?? '').toLowerCase();
+    if (categoryName.includes('ariston') || categoryName.includes('nước nóng')) {
+        return 'ariston';
+    }
+    if (categoryName.includes('k-flex') || categoryName.includes('kflex') || categoryName.includes('bảo ôn')) {
+        return 'kflex';
+    }
+
     const text = `${item.title} ${item.description ?? ''} ${item.file_name}`.toLowerCase();
     if (text.includes('ariston') || text.includes('nước nóng') || text.includes('bơm nhiệt')) {
         return 'ariston';
@@ -51,6 +69,10 @@ const detectBrand = (item: CatalogueItem): 'ariston' | 'kflex' | 'other' => {
 };
 
 const brandBadgeLabel = (item: CatalogueItem): string => {
+    if (item.category?.name) {
+        return `DANH MỤC · ${item.category.name.toUpperCase()}`;
+    }
+
     const brand = detectBrand(item);
     if (brand === 'ariston') {
         return 'ARISTON · NHIỆT & NƯỚC NÓNG';
@@ -61,17 +83,51 @@ const brandBadgeLabel = (item: CatalogueItem): string => {
     return 'TÀI LIỆU KỸ THUẬT HVAC';
 };
 
+const categoryTabs = computed(() => {
+    const parentCats = props.categories ?? [];
+    if (parentCats.length > 0) {
+        return parentCats.map((cat) => ({
+            key: String(cat.slug || cat.id),
+            id: cat.id,
+            name: cat.name,
+            brandHint: cat.name.toLowerCase().includes('ariston')
+                ? ('ariston' as const)
+                : cat.name.toLowerCase().includes('flex')
+                  ? ('kflex' as const)
+                  : ('other' as const),
+        }));
+    }
+
+    return [
+        { key: 'ariston', id: -1, name: 'Ariston · Nhiệt & Nước nóng', brandHint: 'ariston' as const },
+        { key: 'kflex', id: -2, name: 'K-FLEX · Bảo ôn cách nhiệt', brandHint: 'kflex' as const },
+    ];
+});
+
 const filteredCatalogues = computed<CatalogueItem[]>(() => {
     const q = searchQuery.value.trim().toLowerCase();
+    const selectedTab = categoryTabs.value.find((tab) => tab.key === activeCategoryKey.value) ?? null;
 
     return props.catalogues.filter((item) => {
-        const brand = detectBrand(item);
-        const matchesBrand = activeBrand.value === 'all' || brand === activeBrand.value;
+        let matchesCategory = true;
+
+        if (activeCategoryKey.value !== 'all' && selectedTab) {
+            if (item.category_id) {
+                matchesCategory = item.category_id === selectedTab.id;
+            } else if (selectedTab.brandHint !== 'other') {
+                matchesCategory = detectBrand(item) === selectedTab.brandHint;
+            } else {
+                matchesCategory = false;
+            }
+        }
+
         const matchesSearch =
             q === '' ||
-            `${item.title} ${item.description ?? ''} ${item.file_name}`.toLowerCase().includes(q);
+            `${item.title} ${item.description ?? ''} ${item.file_name} ${item.category?.name ?? ''}`
+                .toLowerCase()
+                .includes(q);
 
-        return matchesBrand && matchesSearch;
+        return matchesCategory && matchesSearch;
     });
 });
 
@@ -103,8 +159,34 @@ watch(previewCatalogue, (item) => {
     releasePageScrollLock = null;
 });
 
+const syncCategoryFromUrl = (): void => {
+    const rawCat = (new URLSearchParams(window.location.search).get('category') ?? '').trim().toLowerCase();
+    if (!rawCat) {
+        activeCategoryKey.value = 'all';
+        return;
+    }
+
+    const matched = categoryTabs.value.find(
+        (tab) =>
+            tab.key.toLowerCase() === rawCat ||
+            String(tab.id) === rawCat ||
+            (rawCat.includes('ariston') && tab.brandHint === 'ariston') ||
+            ((rawCat.includes('flex') || rawCat === 'k-flex') && tab.brandHint === 'kflex'),
+    );
+
+    activeCategoryKey.value = matched ? matched.key : 'all';
+};
+
+watch(
+    () => page.url,
+    () => {
+        syncCategoryFromUrl();
+    },
+);
+
 onMounted(() => {
     refreshCartCount();
+    syncCategoryFromUrl();
     window.addEventListener('kbuser-cart-updated', refreshCartCount);
     window.addEventListener('keydown', onEscape);
 });
@@ -149,30 +231,24 @@ onUnmounted(() => {
                 <section class="section">
                     <div class="wrap">
                         <div class="product-toolbar kb-catalogue-toolbar">
-                            <div class="filters" role="tablist" aria-label="Lọc tài liệu theo thương hiệu">
+                            <div class="filters" role="tablist" aria-label="Lọc tài liệu theo danh mục cha">
                                 <button
                                     type="button"
                                     class="filter-btn"
-                                    :class="{ active: activeBrand === 'all' }"
-                                    @click="activeBrand = 'all'"
+                                    :class="{ active: activeCategoryKey === 'all' }"
+                                    @click="activeCategoryKey = 'all'"
                                 >
                                     Tất cả tài liệu ({{ catalogues.length }})
                                 </button>
                                 <button
+                                    v-for="tab in categoryTabs"
+                                    :key="tab.key"
                                     type="button"
                                     class="filter-btn"
-                                    :class="{ active: activeBrand === 'ariston' }"
-                                    @click="activeBrand = 'ariston'"
+                                    :class="{ active: activeCategoryKey === tab.key }"
+                                    @click="activeCategoryKey = tab.key"
                                 >
-                                    Ariston · Nhiệt &amp; Nước nóng
-                                </button>
-                                <button
-                                    type="button"
-                                    class="filter-btn"
-                                    :class="{ active: activeBrand === 'kflex' }"
-                                    @click="activeBrand = 'kflex'"
-                                >
-                                    K-FLEX · Bảo ôn cách nhiệt
+                                    {{ tab.name }}
                                 </button>
                             </div>
 

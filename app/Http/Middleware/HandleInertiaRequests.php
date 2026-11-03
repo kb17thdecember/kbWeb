@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\Category;
 use App\Models\SiteSetting;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
@@ -43,6 +44,15 @@ class HandleInertiaRequests extends Middleware
             'name' => config('app.name'),
             'toast' => fn () => $request->session()->get('toast'),
             'siteSettings' => fn () => SiteSetting::allSettings(),
+            'navCategories' => fn () => Category::query()
+                ->whereNull('parent_id')
+                ->with([
+                    'children' => fn ($query) => $query
+                        ->orderBy('name')
+                        ->select(['id', 'name', 'parent_id']),
+                ])
+                ->orderBy('name')
+                ->get(['id', 'name']),
             'auth' => [
                 'user' => $user,
                 'loginMethod' => fn () => $request->session()->get('kbuser_login_method', 'account'),

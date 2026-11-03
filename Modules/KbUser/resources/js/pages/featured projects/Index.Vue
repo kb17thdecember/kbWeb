@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
-import { Head, Link, router } from '@inertiajs/vue3';
+import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import UserLayout from '../../layout/UserLayout.Vue';
 import { lockPageScroll } from '../../utils/pageScrollLock';
 import { buildProductDetailUrl } from '../../utils/recentlyViewedProducts';
@@ -193,12 +193,28 @@ const onEscape = (event: KeyboardEvent): void => {
     }
 };
 
-onMounted(() => {
+const page = usePage();
+
+const syncTypeFromUrl = (): void => {
     const requestedType = new URLSearchParams(window.location.search).get('type');
 
     if (requestedType && projectGroups.value.some((group) => group.value === requestedType)) {
         activeProjectType.value = requestedType;
+        projectPage.value = 1;
+    } else if (!requestedType) {
+        activeProjectType.value = null;
     }
+};
+
+watch(
+    () => page.url,
+    () => {
+        syncTypeFromUrl();
+    },
+);
+
+onMounted(() => {
+    syncTypeFromUrl();
 
     window.addEventListener('keydown', onEscape);
 });

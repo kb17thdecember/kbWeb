@@ -14,6 +14,20 @@ type AuthUser = {
     is_admin?: boolean;
 };
 
+type NavSubcategory = {
+    id: number;
+    slug?: string;
+    name: string;
+    parent_id: number;
+};
+
+type NavCategory = {
+    id: number;
+    slug?: string;
+    name: string;
+    children?: NavSubcategory[];
+};
+
 const props = defineProps<{
     cartCount: number;
     activePage?: 'home' | 'categories' | 'products' | 'catalogues' | 'projects' | 'news' | 'about' | 'contact';
@@ -22,10 +36,84 @@ const props = defineProps<{
 const page = usePage<{
     auth?: { user?: AuthUser | null };
     siteSettings?: Record<string, string>;
+    navCategories?: NavCategory[];
     toast?: string | null;
 }>();
 const authUser = computed<AuthUser | null>(() => page.props.auth?.user ?? null);
 const siteSettings = computed<Record<string, string>>(() => page.props.siteSettings ?? {});
+const navCategories = computed<NavCategory[]>(() => page.props.navCategories ?? []);
+
+const productCategoryLinks = computed(() => {
+    const aristonCat = navCategories.value.find((cat) => cat.name.toLowerCase().includes('ariston'));
+    const kflexCat = navCategories.value.find((cat) => cat.name.toLowerCase().includes('flex'));
+    const others = navCategories.value.filter(
+        (cat) => cat.id !== aristonCat?.id && cat.id !== kflexCat?.id,
+    );
+
+    const items = [
+        {
+            key: 'ariston',
+            label: aristonCat ? aristonCat.name : 'Ariston',
+            sublabel: 'Bình nước nóng & Bơm nhiệt',
+            href: `/products?category=${encodeURIComponent(String(aristonCat?.slug || aristonCat?.id || 'ariston'))}#products`,
+        },
+        {
+            key: 'kflex',
+            label: kflexCat ? kflexCat.name : 'K-Flex',
+            sublabel: 'Bảo ôn cách nhiệt NBR/PVC',
+            href: `/products?category=${encodeURIComponent(String(kflexCat?.slug || kflexCat?.id || 'k-flex'))}#products`,
+        },
+        ...others.map((cat) => ({
+            key: `cat-${cat.id}`,
+            label: cat.name,
+            sublabel: 'Danh mục sản phẩm',
+            href: `/products?category=${encodeURIComponent(String(cat.slug || cat.id))}#products`,
+        })),
+    ];
+
+    return items;
+});
+
+const catalogueCategoryLinks = computed(() => {
+    if (navCategories.value.length > 0) {
+        return navCategories.value.map((cat) => ({
+            key: `cat-${cat.id}`,
+            label: cat.name,
+            href: `/catalogues?category=${encodeURIComponent(String(cat.slug || cat.id))}`,
+        }));
+    }
+
+    return [
+        {
+            key: 'ariston',
+            label: 'Ariston',
+            href: '/catalogues?category=ariston',
+        },
+        {
+            key: 'kflex',
+            label: 'K-Flex',
+            href: '/catalogues?category=k-flex',
+        },
+    ];
+});
+
+const projectTypeLinks = [
+    {
+        value: '1',
+        label: 'Chung cư thương mại & NOXH',
+        href: '/featured-projects?type=1',
+    },
+    {
+        value: '2',
+        label: 'Văn phòng, khách sạn & bệnh viện',
+        href: '/featured-projects?type=2',
+    },
+    {
+        value: '3',
+        label: 'Khu công nghiệp',
+        href: '/featured-projects?type=3',
+    },
+];
 
 const hotlineHref = computed<string>(() => {
     const raw = siteSettings.value.hotline || '0979.807.234';
@@ -178,14 +266,131 @@ onUnmounted(() => {
                 </Link>
 
                 <nav class="navlinks" :class="{ open: isMenuOpen }" id="navlinks" aria-label="Điều hướng chính">
-                    <Link href="/" :aria-current="props.activePage === 'home' ? 'page' : undefined" @click="closeMenu">Trang chủ</Link>
-                    <Link href="/categories" :aria-current="props.activePage === 'categories' ? 'page' : undefined" @click="closeMenu">Danh mục</Link>
-                    <Link href="/products" :aria-current="props.activePage === 'products' ? 'page' : undefined" @click="closeMenu">Sản phẩm</Link>
-                    <Link href="/catalogues" :aria-current="props.activePage === 'catalogues' ? 'page' : undefined" @click="closeMenu">Catalogue</Link>
-                    <Link href="/featured-projects" :aria-current="props.activePage === 'projects' ? 'page' : undefined" @click="closeMenu">Dự án tiêu biểu</Link>
-                    <Link href="/news" :aria-current="props.activePage === 'news' ? 'page' : undefined" @click="closeMenu">Tin tức</Link>
-                    <Link href="/about-us" :aria-current="props.activePage === 'about' ? 'page' : undefined" @click="closeMenu">Về chúng tôi</Link>
-                    <Link href="/contacts" :aria-current="props.activePage === 'contact' ? 'page' : undefined" @click="closeMenu">Liên hệ</Link>
+                    <Link href="/" class="nav-top-link" :aria-current="props.activePage === 'home' ? 'page' : undefined" @click="closeMenu">Trang chủ</Link>
+
+                    <div class="nav-dropdown">
+                        <Link
+                            href="/categories"
+                            class="nav-top-link"
+                            :aria-current="props.activePage === 'categories' ? 'page' : undefined"
+                            @click="closeMenu"
+                        >
+                            <span>Danh mục</span>
+                            <span class="nav-caret" aria-hidden="true">▾</span>
+                        </Link>
+                        <div class="nav-dropdown-menu" role="menu" aria-label="Danh mục cha và con">
+                            <template v-if="navCategories.length > 0">
+                                <div
+                                    v-for="cat in navCategories"
+                                    :key="cat.id"
+                                    class="nav-dropdown-item"
+                                    :class="{ 'has-sub': Boolean(cat.children?.length) }"
+                                >
+                                    <Link
+                                        :href="`/categories/${encodeURIComponent(String(cat.slug || cat.id))}`"
+                                        class="nav-dropdown-link"
+                                        @click="closeMenu"
+                                    >
+                                        <span>{{ cat.name }}</span>
+                                        <span v-if="cat.children?.length" class="nav-sub-caret" aria-hidden="true">›</span>
+                                    </Link>
+                                    <div v-if="cat.children?.length" class="nav-dropdown-submenu" role="menu">
+                                        <Link
+                                            v-for="child in cat.children"
+                                            :key="child.id"
+                                            :href="`/categories/${encodeURIComponent(String(cat.slug || cat.id))}/${encodeURIComponent(String(child.slug || child.id))}#products`"
+                                            class="nav-dropdown-sublink"
+                                            @click="closeMenu"
+                                        >
+                                            <span>{{ child.name }}</span>
+                                        </Link>
+                                    </div>
+                                </div>
+                            </template>
+                            <Link v-else href="/categories" class="nav-dropdown-link" @click="closeMenu">
+                                <span>Tất cả danh mục</span>
+                            </Link>
+                        </div>
+                    </div>
+
+                    <div class="nav-dropdown">
+                        <Link
+                            href="/products"
+                            class="nav-top-link"
+                            :aria-current="props.activePage === 'products' ? 'page' : undefined"
+                            @click="closeMenu"
+                        >
+                            <span>Sản phẩm</span>
+                            <span class="nav-caret" aria-hidden="true">▾</span>
+                        </Link>
+                        <div class="nav-dropdown-menu" role="menu" aria-label="Sản phẩm theo danh mục cha">
+                            <div
+                                v-for="item in productCategoryLinks"
+                                :key="item.key"
+                                class="nav-dropdown-item"
+                            >
+                                <Link :href="item.href" class="nav-dropdown-link" @click="closeMenu">
+                                    <div class="nav-dropdown-label-stack">
+                                        <strong>{{ item.label }}</strong>
+                                        <small v-if="item.sublabel">{{ item.sublabel }}</small>
+                                    </div>
+                                    <span class="nav-sub-caret" aria-hidden="true">→</span>
+                                </Link>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="nav-dropdown">
+                        <Link
+                            href="/catalogues"
+                            class="nav-top-link"
+                            :aria-current="props.activePage === 'catalogues' ? 'page' : undefined"
+                            @click="closeMenu"
+                        >
+                            <span>Catalogue</span>
+                            <span class="nav-caret" aria-hidden="true">▾</span>
+                        </Link>
+                        <div class="nav-dropdown-menu" role="menu" aria-label="Catalogue theo danh mục cha">
+                            <div
+                                v-for="cat in catalogueCategoryLinks"
+                                :key="cat.key"
+                                class="nav-dropdown-item"
+                            >
+                                <Link :href="cat.href" class="nav-dropdown-link" @click="closeMenu">
+                                    <span>Catalogue {{ cat.label }}</span>
+                                    <span class="nav-sub-caret" aria-hidden="true">→</span>
+                                </Link>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="nav-dropdown">
+                        <Link
+                            href="/featured-projects"
+                            class="nav-top-link"
+                            :aria-current="props.activePage === 'projects' ? 'page' : undefined"
+                            @click="closeMenu"
+                        >
+                            <span>Dự án tiêu biểu</span>
+                            <span class="nav-caret" aria-hidden="true">▾</span>
+                        </Link>
+                        <div class="nav-dropdown-menu" role="menu" aria-label="Các loại dự án tiêu biểu">
+                            <div
+                                v-for="projType in projectTypeLinks"
+                                :key="projType.value"
+                                class="nav-dropdown-item"
+                            >
+                                <Link :href="projType.href" class="nav-dropdown-link" @click="closeMenu">
+                                    <span>{{ projType.label }}</span>
+                                    <span class="nav-sub-caret" aria-hidden="true">→</span>
+                                </Link>
+                            </div>
+                        </div>
+                    </div>
+
+                    <Link href="/news" class="nav-top-link" :aria-current="props.activePage === 'news' ? 'page' : undefined" @click="closeMenu">Tin tức</Link>
+                    <Link href="/about-us" class="nav-top-link" :aria-current="props.activePage === 'about' ? 'page' : undefined" @click="closeMenu">Về chúng tôi</Link>
+                    <Link href="/contacts" class="nav-top-link" :aria-current="props.activePage === 'contact' ? 'page' : undefined" @click="closeMenu">Liên hệ</Link>
 
                     <div class="navlinks-auth-mobile">
                         <template v-if="authUser">

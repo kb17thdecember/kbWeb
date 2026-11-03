@@ -13,6 +13,16 @@
 
         <div class="filters">
             <div class="filter-group">
+                <span>DANH MỤC CHA</span>
+                <select v-model="categoryFilter" aria-label="Lọc catalogue theo danh mục cha">
+                    <option value="all">Tất cả danh mục</option>
+                    <option value="none">Chưa gắn danh mục (Dùng chung)</option>
+                    <option v-for="cat in categories" :key="cat.id" :value="String(cat.id)">
+                        {{ cat.name }}
+                    </option>
+                </select>
+            </div>
+            <div class="filter-group">
                 <span>TỪ NGÀY</span>
                 <AdminDatePicker v-model="dateFrom" placeholder="Chọn từ ngày..." aria-label="Lọc catalogue từ ngày" />
             </div>
@@ -21,11 +31,11 @@
                 <AdminDatePicker v-model="dateTo" placeholder="Chọn đến ngày..." aria-label="Lọc catalogue đến ngày" />
             </div>
             <button
-                v-if="dateFrom || dateTo"
+                v-if="dateFrom || dateTo || categoryFilter !== 'all'"
                 class="btn"
                 type="button"
                 @click="clearDates"
-            >Xóa lọc ngày</button>
+            >Xóa bộ lọc</button>
             <em>{{ filteredCatalogues.length }} / {{ catalogues.length }} catalogue</em>
         </div>
 
@@ -34,6 +44,7 @@
                 <thead>
                     <tr>
                         <th>Catalogue</th>
+                        <th>Danh mục cha</th>
                         <th>File PDF</th>
                         <th>Trạng thái</th>
                         <th>Thao tác</th>
@@ -52,6 +63,10 @@
                                     <small>{{ catalogue.description }}</small>
                                 </div>
                             </div>
+                        </td>
+                        <td>
+                            <span v-if="catalogue.category">{{ catalogue.category.name }}</span>
+                            <small v-else>Dùng chung (Chưa gắn)</small>
                         </td>
                         <td>
                             <a :href="catalogue.file_url" target="_blank" rel="noopener">{{ catalogue.file_name }}</a>
@@ -112,6 +127,10 @@
                 </div>
                 <div class="request-detail-grid">
                     <div class="request-detail-item">
+                        <small>Danh mục cha</small>
+                        <div>{{ detailCatalogue.category?.name || 'Dùng chung (Không chọn)' }}</div>
+                    </div>
+                    <div class="request-detail-item">
                         <small>Tên tệp PDF</small>
                         <div>{{ detailCatalogue.file_name }}</div>
                     </div>
@@ -151,6 +170,7 @@
         <CatalogueModal
             v-model:open="isModalOpen"
             :catalogue="selectedCatalogue"
+            :categories="props.categories"
             @saved="showToast($event === 'created' ? 'Đã tạo catalogue thành công.' : 'Đã cập nhật catalogue thành công.')"
         />
         <div class="toast" :class="{ show: isToastVisible }" role="status" aria-live="polite">{{ toastMessage }}</div>
@@ -166,8 +186,15 @@
     import CatalogueModal from '../../components/CatalogueModal.Vue';
     import { useClientPagination } from '../../composables/useClientPagination';
 
+    type ParentCategoryOption = {
+        id: number;
+        name: string;
+    };
+
     type Catalogue = {
         id: number;
+        category_id?: number | null;
+        category?: ParentCategoryOption | null;
         title: string;
         description: string | null;
         file_name: string;
@@ -186,11 +213,13 @@
 
     const props = defineProps<{
         catalogues: Catalogue[];
+        categories: ParentCategoryOption[];
         stats: AdminStat[];
         openRequestsCount: number;
     }>();
 
     const search = ref('');
+    const categoryFilter = ref('all');
     const dateFrom = ref('');
     const dateTo = ref('');
     const isModalOpen = ref(false);
@@ -205,13 +234,23 @@
         const query = search.value.trim().toLocaleLowerCase();
 
         return props.catalogues.filter((catalogue) => {
-            const matchesQuery = !query || [catalogue.title, catalogue.description ?? '', catalogue.file_name].some((value) =>
-                value.toLocaleLowerCase().includes(query),
-            );
+            const matchesQuery = !query || [
+                catalogue.title,
+                catalogue.description ?? '',
+                catalogue.file_name,
+                catalogue.category?.name ?? '',
+            ].some((value) => value.toLocaleLowerCase().includes(query));
+
+            const matchesCategory =
+                categoryFilter.value === 'all'
+                || (categoryFilter.value === 'none' && !catalogue.category_id)
+                || String(catalogue.category_id ?? '') === categoryFilter.value;
+
             const createdDate = dateKey(catalogue.created_at);
 
             return (
                 matchesQuery
+                && matchesCategory
                 && (!dateFrom.value || (createdDate && createdDate >= dateFrom.value))
                 && (!dateTo.value || (createdDate && createdDate <= dateTo.value))
             );
@@ -219,7 +258,7 @@
     });
     const { currentPage, goToPage, paginatedItems: paginatedCatalogues, resetPage } = useClientPagination(filteredCatalogues);
 
-    watch([search, dateFrom, dateTo], resetPage);
+    watch([search, categoryFilter, dateFrom, dateTo], resetPage);
 
     function dateKey(value?: string | null): string {
         if (!value) {
@@ -243,6 +282,7 @@
     }
 
     function clearDates(): void {
+        categoryFilter.value = 'all';
         dateFrom.value = '';
         dateTo.value = '';
     }
@@ -304,8 +344,7 @@
         isToastVisible.value = true;
         toastTimeout = setTimeout(() => {
             isToastVisible.value = false;
-            toastTimeout = undefined;
-        }, 2400);
+        }, 2800);
     }
 
     onBeforeUnmount(() => {
