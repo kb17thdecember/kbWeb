@@ -201,13 +201,14 @@ onUnmounted(() => {
                                 </div>
                             </div>
 
-                            <form class="contact-form" @submit.prevent="submitContactForm">
+                            <form class="contact-form" novalidate @submit.prevent="submitContactForm">
                                 <div class="form-row">
                                     <div class="field">
                                         <label for="fullName">HỌ VÀ TÊN *</label>
                                         <input
                                             id="fullName"
                                             v-model="form.name"
+                                            name="name"
                                             maxlength="255"
                                             autocomplete="name"
                                             placeholder="Tên của bạn"
@@ -221,6 +222,7 @@ onUnmounted(() => {
                                         <input
                                             id="phone"
                                             v-model="form.phone"
+                                            name="phone"
                                             maxlength="30"
                                             pattern="[0-9+\s().\-]{8,30}"
                                             title="Số điện thoại gồm 8-30 ký tự: số, dấu +, khoảng trắng, ngoặc, chấm hoặc gạch ngang"
@@ -239,6 +241,7 @@ onUnmounted(() => {
                                     <input
                                         id="email"
                                         v-model="form.email"
+                                        name="email"
                                         maxlength="255"
                                         type="email"
                                         autocomplete="email"
@@ -249,8 +252,14 @@ onUnmounted(() => {
                                     <span v-if="form.errors.email" class="field-error">{{ form.errors.email }}</span>
                                 </div>
                                 <div class="field">
-                                    <label for="interest">HẠNG MỤC QUAN TÂM</label>
-                                    <select id="interest" v-model="form.category_id" :aria-invalid="Boolean(form.errors.category_id)">
+                                    <label for="interest">HẠNG MỤC QUAN TÂM *</label>
+                                    <select
+                                        id="interest"
+                                        v-model="form.category_id"
+                                        name="category_id"
+                                        required
+                                        :aria-invalid="Boolean(form.errors.category_id)"
+                                    >
                                         <option value="">Chọn hạng mục</option>
                                         <option value="Bình nước nóng Ariston">Bình nước nóng Ariston</option>
                                         <option value="Bảo ôn K-FLEX">Bảo ôn K-FLEX</option>
@@ -261,12 +270,14 @@ onUnmounted(() => {
                                     <span v-if="form.errors.category_id" class="field-error">{{ form.errors.category_id }}</span>
                                 </div>
                                 <div class="field">
-                                    <label for="projectName">DỰ ÁN CẦN BÁO GIÁ</label>
+                                    <label for="projectName">DỰ ÁN CẦN BÁO GIÁ *</label>
                                     <input
                                         id="projectName"
                                         v-model="form.project_name"
+                                        name="project_name"
                                         placeholder="Tên dự án hoặc công trình"
                                         maxlength="255"
+                                        required
                                         :aria-invalid="Boolean(form.errors.project_name)"
                                     >
                                     <span v-if="form.errors.project_name" class="field-error">{{ form.errors.project_name }}</span>
@@ -280,14 +291,14 @@ onUnmounted(() => {
                                     </ul>
                                 </div>
                                 <div class="field">
-                                    <label for="message">MÔ TẢ NHU CẦU {{ cartItems.length ? '' : '*' }}</label>
+                                    <label for="message">MÔ TẢ NHU CẦU</label>
                                     <textarea
                                         id="message"
                                         v-model="form.message"
+                                        name="message"
                                         placeholder="Sản phẩm, quy cách, số lượng, tiến độ..."
                                         maxlength="5000"
                                         :aria-invalid="Boolean(form.errors.message)"
-                                        :required="cartItems.length === 0"
                                     ></textarea>
                                     <span v-if="form.errors.message" class="field-error">{{ form.errors.message }}</span>
                                 </div>

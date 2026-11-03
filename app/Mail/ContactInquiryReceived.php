@@ -25,10 +25,14 @@ class ContactInquiryReceived extends Mailable
     public function envelope(): Envelope
     {
         return new Envelope(
+            from: new Address(
+                (string) config('mail.from.address', 'kbnguyen0311@gmail.com'),
+                (string) config('mail.from.name', 'HVAC Mart VietNam'),
+            ),
             replyTo: [
                 new Address($this->contact->email, $this->contact->name),
             ],
-            subject: "Yêu cầu tư vấn mới #{$this->contact->id}",
+            subject: "[HVAC Mart VietNam] Yêu cầu tư vấn mới #{$this->contact->id} - {$this->contact->name}",
         );
     }
 

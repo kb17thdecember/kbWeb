@@ -3683,3 +3683,33 @@ body::-webkit-scrollbar-thumb:hover {
     flex-wrap: wrap;
   }
 }
+
+.field-error {
+  display: block;
+  margin-top: 4px;
+  color: #d92d20 !important;
+  font-size: 11.5px;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.field input.is-invalid,
+.field select.is-invalid,
+.field textarea.is-invalid,
+input.is-invalid,
+select.is-invalid,
+textarea.is-invalid,
+.image-upload.is-invalid,
+.rich-editor.is-invalid {
+  border-color: #d92d20 !important;
+  background-color: rgba(217, 45, 32, 0.02);
+}
+
+.field input.is-invalid:focus,
+.field select.is-invalid:focus,
+.field textarea.is-invalid:focus,
+input.is-invalid:focus,
+select.is-invalid:focus,
+textarea.is-invalid:focus {
+  box-shadow: 0 0 0 3px rgba(217, 45, 32, 0.14) !important;
+}

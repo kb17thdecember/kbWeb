@@ -13008,3 +13008,26 @@ body::-webkit-scrollbar-thumb:hover {
     justify-content: center;
   }
 }
+
+.field-error {
+  display: block;
+  margin-top: 4px;
+  color: #d92d20 !important;
+  font-size: 11.5px;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+input.is-invalid,
+select.is-invalid,
+textarea.is-invalid,
+.kb-password-field.is-invalid input,
+.image-upload.is-invalid {
+  border-color: #d92d20 !important;
+}
+
+input.is-invalid:focus,
+select.is-invalid:focus,
+textarea.is-invalid:focus {
+  box-shadow: 0 0 0 3px rgba(217, 45, 32, 0.14) !important;
+}

@@ -22,10 +22,14 @@ class ChatMessageReceived extends Mailable
         $name = $this->conversation->visitor_name ?: 'Khách chưa để tên';
 
         return new Envelope(
+            from: new Address(
+                (string) config('mail.from.address', 'kbnguyen0311@gmail.com'),
+                (string) config('mail.from.name', 'HVAC Mart VietNam'),
+            ),
             replyTo: $this->conversation->visitor_email
                 ? [new Address($this->conversation->visitor_email, $this->conversation->visitor_name ?? '')]
                 : [],
-            subject: "Tin nhắn chat mới từ {$name}",
+            subject: "[HVAC Mart VietNam] Tin nhắn chat mới từ {$name}",
         );
     }
 

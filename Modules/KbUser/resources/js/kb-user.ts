@@ -5,9 +5,11 @@ import { fas } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome';
 import { createInertiaApp } from '@inertiajs/vue3';
 import { createApp, h, type DefineComponent } from 'vue';
+import { setupInlineFormValidation } from '../../../../resources/js/lib/inlineFormValidation';
 import '../assets/sass/style.scss';
 
 library.add(fas, far, fab);
+setupInlineFormValidation();
 
 const appName = 'HVAC Mart';
 

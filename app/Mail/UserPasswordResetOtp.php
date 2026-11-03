@@ -4,6 +4,7 @@ namespace App\Mail;
 
 use Illuminate\Bus\Queueable;
 use Illuminate\Mail\Mailable;
+use Illuminate\Mail\Mailables\Address;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Queue\SerializesModels;
@@ -20,7 +21,13 @@ class UserPasswordResetOtp extends Mailable
 
     public function envelope(): Envelope
     {
-        return new Envelope(subject: 'Mã khôi phục mật khẩu - HVAC Mart');
+        return new Envelope(
+            from: new Address(
+                (string) config('mail.from.address', 'kbnguyen0311@gmail.com'),
+                (string) config('mail.from.name', 'HVAC Mart VietNam'),
+            ),
+            subject: 'Mã khôi phục mật khẩu - HVAC Mart VietNam',
+        );
     }
 
     public function content(): Content

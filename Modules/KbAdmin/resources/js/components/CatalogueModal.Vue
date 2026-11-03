@@ -11,11 +11,11 @@
                 <div class="formgrid">
                     <div class="field full">
                         <label for="catalogueTitle">Tên catalogue</label>
-                        <input id="catalogueTitle" v-model="title" maxlength="255" required placeholder="Ví dụ: Catalogue bình nước nóng Ariston 2026">
+                        <input id="catalogueTitle" v-model="title" name="title" maxlength="255" required placeholder="Ví dụ: Catalogue bình nước nóng Ariston 2026">
                     </div>
                     <div class="field full">
                         <label for="catalogueCategory">Danh mục cha (không bắt buộc)</label>
-                        <select id="catalogueCategory" v-model="categoryId" :disabled="isSubmitting">
+                        <select id="catalogueCategory" v-model="categoryId" name="category_id" :disabled="isSubmitting">
                             <option value="">-- Không chọn (Catalogue dùng chung) --</option>
                             <option v-for="cat in categories" :key="cat.id" :value="String(cat.id)">
                                 {{ cat.name }}
@@ -24,7 +24,7 @@
                     </div>
                     <div class="field full">
                         <label for="catalogueDescription">Mô tả</label>
-                        <textarea id="catalogueDescription" v-model="description" maxlength="2000" placeholder="Mô tả ngắn"></textarea>
+                        <textarea id="catalogueDescription" v-model="description" name="description" maxlength="2000" placeholder="Mô tả ngắn"></textarea>
                     </div>
                     <div class="field full">
                         <label>File PDF</label>

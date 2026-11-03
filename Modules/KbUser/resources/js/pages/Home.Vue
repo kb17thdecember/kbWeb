@@ -502,6 +502,7 @@ const submitCheckout = (): void => {
     checkoutForm
         .transform((data) => ({
             ...data,
+            from_checkout: true,
             items: cartItems.value.map((item) => ({
                 id: item.product.id,
                 quantity: item.quantity,
@@ -1186,13 +1187,14 @@ onUnmounted(() => {
                   </div>
                 </div>
               </div>
-              <form class="contact-form" id="contactForm" @submit.prevent="submitContactForm">
+              <form class="contact-form" id="contactForm" novalidate @submit.prevent="submitContactForm">
                 <div class="form-row">
                   <div class="field">
                     <label for="fullName">HỌ VÀ TÊN *</label>
                     <input
                       id="fullName"
                       v-model="contactForm.name"
+                      name="name"
                       maxlength="255"
                       autocomplete="name"
                       placeholder="Tên của bạn"
@@ -1206,6 +1208,7 @@ onUnmounted(() => {
                     <input
                       id="phone"
                       v-model="contactForm.phone"
+                      name="phone"
                       maxlength="30"
                       pattern="[0-9+\s().\-]{8,30}"
                       title="Số điện thoại gồm 8-30 ký tự: số, dấu +, khoảng trắng, ngoặc, chấm hoặc gạch ngang"
@@ -1224,6 +1227,7 @@ onUnmounted(() => {
                   <input
                     id="email"
                     v-model="contactForm.email"
+                    name="email"
                     maxlength="255"
                     type="email"
                     autocomplete="email"
@@ -1234,10 +1238,12 @@ onUnmounted(() => {
                   <span v-if="contactForm.errors.email" class="field-error">{{ contactForm.errors.email }}</span>
                 </div>
                 <div class="field">
-                  <label for="interest">HẠNG MỤC QUAN TÂM</label>
+                  <label for="interest">HẠNG MỤC QUAN TÂM *</label>
                   <select
                     id="interest"
                     v-model="contactForm.category_id"
+                    name="category_id"
+                    required
                     :aria-invalid="Boolean(contactForm.errors.category_id)"
                   >
                     <option value="">Chọn hạng mục</option>
@@ -1250,24 +1256,26 @@ onUnmounted(() => {
                   <span v-if="contactForm.errors.category_id" class="field-error">{{ contactForm.errors.category_id }}</span>
                 </div>
                 <div class="field">
-                  <label for="projectName">DỰ ÁN CẦN BÁO GIÁ</label>
+                  <label for="projectName">DỰ ÁN CẦN BÁO GIÁ *</label>
                   <input
                     id="projectName"
                     v-model="contactForm.project_name"
+                    name="project_name"
                     placeholder="Tên dự án hoặc công trình"
                     maxlength="255"
+                    required
                     :aria-invalid="Boolean(contactForm.errors.project_name)"
                   >
                   <span v-if="contactForm.errors.project_name" class="field-error">{{ contactForm.errors.project_name }}</span>
                 </div>
                 <div class="field">
-                  <label for="message">MÔ TẢ NHU CẦU *</label>
+                  <label for="message">MÔ TẢ NHU CẦU</label>
                   <textarea
                     id="message"
                     v-model="contactForm.message"
+                    name="message"
                     placeholder="Sản phẩm, quy cách, số lượng, tiến độ..."
                     maxlength="5000"
-                    required
                     :aria-invalid="Boolean(contactForm.errors.message)"
                   ></textarea>
                   <span v-if="contactForm.errors.message" class="field-error">{{ contactForm.errors.message }}</span>

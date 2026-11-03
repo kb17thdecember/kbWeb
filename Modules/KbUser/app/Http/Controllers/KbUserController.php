@@ -848,28 +848,42 @@ class KbUserController extends Controller
 
     public function storeContact(Request $request): RedirectResponse
     {
-        $validated = $request->validate([
-            'name' => ['required', 'string', 'max:255'],
-            'phone' => ['required', 'string', 'max:30', 'regex:/^[0-9+\s().-]{8,30}$/'],
-            'email' => ['required', 'email:rfc', 'max:255'],
-            'category_id' => [
-                'nullable',
-                'string',
-                Rule::in([
-                    'Bình nước nóng Ariston',
-                    'Bảo ôn K-FLEX',
-                    'Vật tư HVAC',
-                    'Vật tư MEP tổng hợp',
-                    'Cung ứng cho dự án',
-                ]),
+        $isQuickCheckout = $request->boolean('from_checkout');
+
+        $validated = $request->validate(
+            [
+                'name' => ['required', 'string', 'max:255'],
+                'phone' => ['required', 'string', 'max:30', 'regex:/^[0-9+\s().-]{8,30}$/'],
+                'email' => ['required', 'email:rfc', 'max:255'],
+                'category_id' => [
+                    $isQuickCheckout ? 'nullable' : 'required',
+                    'string',
+                    Rule::in([
+                        'Bình nước nóng Ariston',
+                        'Bảo ôn K-FLEX',
+                        'Vật tư HVAC',
+                        'Vật tư MEP tổng hợp',
+                        'Cung ứng cho dự án',
+                    ]),
+                ],
+                'project_name' => [$isQuickCheckout ? 'nullable' : 'required', 'string', 'max:255'],
+                'message' => ['nullable', 'string', 'max:5000'],
+                'attachment' => ['nullable', 'file', 'mimes:pdf,doc,docx,xls,xlsx,csv,jpg,jpeg,png,webp', 'max:10240'],
+                'items' => ['nullable', 'array', 'max:50'],
+                'items.*.id' => ['required', 'integer', 'distinct', 'exists:products,id'],
+                'items.*.quantity' => ['required', 'integer', 'min:1', 'max:9999'],
             ],
-            'project_name' => ['nullable', 'string', 'max:255'],
-            'message' => ['required_without:items', 'nullable', 'string', 'max:5000'],
-            'attachment' => ['nullable', 'file', 'mimes:pdf,doc,docx,xls,xlsx,csv,jpg,jpeg,png,webp', 'max:10240'],
-            'items' => ['nullable', 'array', 'max:50'],
-            'items.*.id' => ['required', 'integer', 'distinct', 'exists:products,id'],
-            'items.*.quantity' => ['required', 'integer', 'min:1', 'max:9999'],
-        ]);
+            [
+                'name.required' => 'Vui lòng nhập họ và tên.',
+                'phone.required' => 'Vui lòng nhập số điện thoại.',
+                'phone.regex' => 'Số điện thoại không hợp lệ (gồm 8–15 chữ số).',
+                'email.required' => 'Vui lòng nhập email công việc.',
+                'email.email' => 'Địa chỉ email không đúng định dạng.',
+                'category_id.required' => 'Vui lòng chọn hạng mục quan tâm.',
+                'category_id.in' => 'Hạng mục quan tâm không hợp lệ.',
+                'project_name.required' => 'Vui lòng nhập tên dự án cần báo giá.',
+            ],
+        );
 
         $items = $validated['items'] ?? [];
         unset($validated['items'], $validated['attachment']);

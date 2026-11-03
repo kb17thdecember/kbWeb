@@ -42,7 +42,7 @@
                 </tr>
                 <tr>
                     <th style="padding:10px;text-align:left;vertical-align:top">Mô tả nhu cầu</th>
-                    <td style="padding:10px;white-space:pre-wrap">{{ $contact->message }}</td>
+                    <td style="padding:10px;white-space:pre-wrap">{{ $contact->message ?: 'Chưa cung cấp' }}</td>
                 </tr>
             </tbody>
         </table>

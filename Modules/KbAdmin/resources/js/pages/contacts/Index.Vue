@@ -239,7 +239,7 @@
         name: string;
         email: string;
         phone: string;
-        message: string;
+        message: string | null;
         status: string;
         category_id: string | null;
         project_name: string | null;
@@ -320,8 +320,8 @@
         }[contactStatus(status)];
     }
 
-    function initials(name: string): string {
-        const words = name.trim().split(/\s+/).filter(Boolean);
+    function initials(name?: string | null): string {
+        const words = (name ?? '').trim().split(/\s+/).filter(Boolean);
 
         return words.length
             ? words.slice(-2).map((word) => word[0]).join('').toLocaleUpperCase()
@@ -356,8 +356,14 @@
         }).format(date);
     }
 
-    function excerpt(message: string): string {
-        return message.length > 125 ? `${message.slice(0, 125)}…` : message || 'Chưa có mô tả';
+    function excerpt(message?: string | null): string {
+        const text = (message ?? '').trim();
+
+        if (!text) {
+            return 'Chưa có mô tả';
+        }
+
+        return text.length > 125 ? `${text.slice(0, 125)}…` : text;
     }
 
     function clearDates(): void {

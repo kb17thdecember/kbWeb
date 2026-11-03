@@ -18,19 +18,19 @@
                 <div class="formgrid">
                     <div class="field full">
                         <label for="featuredProjectName">Tên dự án</label>
-                        <input id="featuredProjectName" v-model="name" maxlength="255" required placeholder="Tên dự án">
+                        <input id="featuredProjectName" v-model="name" name="name" maxlength="255" required placeholder="Tên dự án">
                     </div>
                     <div class="field full">
                         <label for="featuredProjectDescription">Mô tả</label>
-                        <textarea id="featuredProjectDescription" v-model="description" required placeholder="Mô tả dự án"></textarea>
+                        <textarea id="featuredProjectDescription" v-model="description" name="description" required placeholder="Mô tả dự án"></textarea>
                     </div>
                     <div class="field full">
                         <label for="featuredProjectLocation">Vị trí</label>
-                        <input id="featuredProjectLocation" v-model="location" maxlength="255" required placeholder="Ví dụ: Hà Nội">
+                        <input id="featuredProjectLocation" v-model="location" name="location" maxlength="255" required placeholder="Ví dụ: Hà Nội">
                     </div>
                     <div class="field">
                         <label for="featuredProjectCategory">Hạng mục</label>
-                        <select id="featuredProjectCategory" v-model="selectedCategory" required>
+                        <select id="featuredProjectCategory" v-model="selectedCategory" name="category" required>
                             <option value="" disabled>Chọn hạng mục</option>
                             <option v-for="item in categories" :key="item.id" :value="item.name">
                                 {{ item.name }}
@@ -42,6 +42,7 @@
                         <select
                             id="featuredProjectSubcategory"
                             v-model="selectedSubcategory"
+                            name="subcategory"
                             required
                             :disabled="!selectedCategory || !visibleSubcategories.length"
                         >
@@ -53,7 +54,7 @@
                     </div>
                     <div class="field full">
                         <label for="featuredProjectType">Loại dự án</label>
-                        <select id="featuredProjectType" v-model="type" required>
+                        <select id="featuredProjectType" v-model="type" name="type" required>
                             <option value="" disabled>Vui lòng chọn loại dự án</option>
                             <option value="1">Chung cư thương mại &amp; NOXH</option>
                             <option value="2">Văn phòng &amp; Khách sạn &amp; Bệnh viện</option>
