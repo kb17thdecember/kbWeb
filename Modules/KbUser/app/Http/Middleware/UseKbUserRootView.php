@@ -92,6 +92,10 @@ class UseKbUserRootView
             return false;
         }
 
+        if (SiteVisit::isBotUserAgent($request->userAgent())) {
+            return false;
+        }
+
         return ! $request->is('auth/google/*');
     }
 }

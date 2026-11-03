@@ -49,7 +49,7 @@
 
             <div class="card">
                 <h3>Cơ chế ghi nhận &amp; Tự động dọn dẹp</h3>
-                <p>Chỉ tính lượt truy cập trên trang User, không tính thao tác của quản trị viên trên trang Admin.</p>
+                <p>Chỉ tính người dùng thực tế trên trang User (tự động lọc bỏ AhrefsBot, Googlebot và các công cụ quét tự động).</p>
 
                 <div class="statusline">
                     <span class="dot" style="background: #18352e"></span>
@@ -88,7 +88,6 @@
                     <option value="desktop">Máy tính ({{ props.visitSummary.desktop }})</option>
                     <option value="mobile">Điện thoại ({{ props.visitSummary.mobile }})</option>
                     <option value="tablet">Máy tính bảng ({{ props.visitSummary.tablet }})</option>
-                    <option value="bot">Bot / Tự động ({{ props.visitSummary.bot }})</option>
                 </select>
             </label>
             <button
@@ -354,12 +353,6 @@
             description: 'iPad, Android Tablet...',
             color: '#66805a',
             count: props.visitSummary.tablet,
-        },
-        {
-            label: 'Bot / Công cụ tìm kiếm',
-            description: 'Googlebot, Bingbot, Facebook...',
-            color: '#8e7443',
-            count: props.visitSummary.bot,
         },
     ]);
 

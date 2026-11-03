@@ -255,3 +255,23 @@ test('recording user visits automatically deletes older records beyond the 20 mo
         ->and(SiteVisit::query()->where('session_id', 'old-session-1')->exists())->toBeFalse()
         ->and(SiteVisit::query()->where('session_id', 'old-session-2')->exists())->toBeFalse();
 });
+
+test('bot user agents such as ahrefsbot are ignored and pruned so only real visitors are shown', function () {
+    SiteVisit::factory()->create([
+        'session_id' => 'bot-session',
+        'ip_address' => '54.36.148.1',
+        'user_agent' => 'Mozilla/5.0 (compatible; AhrefsBot/7.0; +http://ahrefs.com/robot/)',
+    ]);
+
+    $this->withHeaders([
+        'User-Agent' => 'Mozilla/5.0 (compatible; AhrefsBot/7.0; +http://ahrefs.com/robot/)',
+    ])->get(route('kbuser.home'))->assertOk();
+
+    $this->withHeaders([
+        'User-Agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/131.0.0.0 Safari/537.36',
+    ])->get(route('kbuser.products'))->assertOk();
+
+    expect(SiteVisit::query()->count())->toBe(1)
+        ->and(SiteVisit::query()->where('session_id', 'bot-session')->exists())->toBeFalse()
+        ->and(SiteVisit::query()->first()->path)->toBe('/products');
+});

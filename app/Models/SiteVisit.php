@@ -14,6 +14,8 @@ class SiteVisit extends Model
 
     public const MAX_RECENT_VISITS = 20;
 
+    private const BOT_USER_AGENT_PATTERN = '/bot|crawl|spider|slurp|ahrefs|semrush|mj12bot|dotbot|bytespider|petalbot|yandex|baiduspider|duckduckbot|facebookexternalhit|facebot|ia_archiver|mediapartners|adsbot|bingpreview|lighthouse|headlesschrome|gtmetrix|pingdom|uptimerobot|curl\/|wget\/|python-requests|go-http-client|axios\/|postmanruntime/i';
+
     protected $fillable = [
         'session_id',
         'user_id',
@@ -31,10 +33,31 @@ class SiteVisit extends Model
         return $this->belongsTo(User::class);
     }
 
+    public static function isBotUserAgent(?string $userAgent): bool
+    {
+        $ua = trim((string) $userAgent);
+        if ($ua === '') {
+            return false;
+        }
+
+        return (bool) preg_match(self::BOT_USER_AGENT_PATTERN, $ua);
+    }
+
     public static function pruneOldVisits(int $limit = self::MAX_RECENT_VISITS): int
     {
+        $botIds = self::query()
+            ->whereNotNull('user_agent')
+            ->get(['id', 'user_agent'])
+            ->filter(fn (self $visit): bool => self::isBotUserAgent($visit->user_agent))
+            ->pluck('id');
+
+        $deletedCount = 0;
+        if ($botIds->isNotEmpty()) {
+            $deletedCount += self::query()->whereIn('id', $botIds)->delete();
+        }
+
         if ($limit < 1) {
-            return 0;
+            return $deletedCount;
         }
 
         $keepIds = self::query()
@@ -44,10 +67,10 @@ class SiteVisit extends Model
             ->pluck('id');
 
         if ($keepIds->count() < $limit) {
-            return 0;
+            return $deletedCount;
         }
 
-        return self::query()
+        return $deletedCount + self::query()
             ->whereNotIn('id', $keepIds)
             ->delete();
     }
@@ -92,7 +115,7 @@ class SiteVisit extends Model
             ];
         }
 
-        if (preg_match('/bot|crawl|spider|slurp|facebookexternalhit|mediapartners|adsbot|bingpreview|lighthouse|headlesschrome/i', $ua)) {
+        if (self::isBotUserAgent($ua)) {
             $botName = 'Bot thu thập dữ liệu';
             if (stripos($ua, 'Googlebot') !== false) {
                 $botName = 'Googlebot';

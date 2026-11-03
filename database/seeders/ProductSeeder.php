@@ -4,6 +4,7 @@ namespace Database\Seeders;
 
 use App\Models\Category;
 use App\Models\Product;
+use App\Services\SeoAutoIndexService;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -558,5 +559,7 @@ class ProductSeeder extends Seeder
 
             $product->syncImagePaths([$storedImagePath]);
         }
+
+        SeoAutoIndexService::syncAllEntitiesSeo(false);
     }
 }

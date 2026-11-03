@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use App\Models\User;
+use App\Services\SeoAutoIndexService;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 
@@ -27,6 +28,8 @@ class DatabaseSeeder extends Seeder
             PublicQuoteUserSeeder::class,
             KflexPriceSeeder::class,
         ]);
+
+        SeoAutoIndexService::syncAllEntitiesSeo(false);
 
         if (! app()->isProduction()) {
             User::factory()->create([
