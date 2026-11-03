@@ -8,12 +8,16 @@
         <div class="page-head">
             <div>
                 <h2>Tối ưu SEO &amp; Hiển thị Google Search</h2>
-                <p>Quản lý thẻ Meta, OpenGraph, cấu trúc dữ liệu Schema.org JSON-LD, Sitemap XML và công cụ lập chỉ mục Google cho toàn bộ hệ thống.</p>
+                <p>Quản lý thẻ Meta, OpenGraph, cấu trúc dữ liệu Schema.org JSON-LD, Sitemap XML và SEO cho tất cả Sản phẩm, Danh mục, Bài viết.</p>
             </div>
             <div class="actions">
                 <a class="btn" href="/sitemap.xml" target="_blank" rel="noopener">
                     <FontAwesomeIcon icon="fa-solid fa-sitemap" /> Mở Sitemap XML
                 </a>
+                <button class="btn" type="button" :disabled="isGeneratingAll" @click="triggerGenerateAllSeo">
+                    <FontAwesomeIcon :icon="isGeneratingAll ? 'fa-solid fa-spinner' : 'fa-solid fa-wand-magic-sparkles'" />
+                    {{ isGeneratingAll ? 'Đang tạo SEO...' : 'Tự động tạo SEO tất cả' }}
+                </button>
                 <button class="btn" type="button" :disabled="isPinging" @click="triggerManualPing">
                     <FontAwesomeIcon :icon="isPinging ? 'fa-solid fa-spinner' : 'fa-solid fa-bolt'" />
                     {{ isPinging ? 'Đang gửi tín hiệu...' : 'Đẩy tín hiệu lên Google ngay' }}
@@ -45,7 +49,7 @@
                 <span class="seo-metric-label">TỔNG URL TRONG SITEMAP.XML</span>
                 <strong class="seo-metric-value">{{ props.seoAudit.totalIndexedUrls }}</strong>
                 <small>
-                    {{ props.seoAudit.staticPagesCount }} trang tĩnh · {{ props.seoAudit.productsCount }} sản phẩm · {{ props.seoAudit.projectsCount }} dự án · {{ props.seoAudit.articlesCount }} bài viết
+                    {{ props.seoAudit.staticPagesCount }} trang tĩnh · {{ props.seoAudit.categoriesCount }} danh mục · {{ props.seoAudit.productsCount }} sản phẩm · {{ props.seoAudit.articlesCount }} bài viết
                 </small>
             </div>
 
@@ -64,12 +68,21 @@
                     Gần nhất: {{ props.settings.seo_last_ping_at }} ({{ props.settings.seo_last_ping_url }})
                 </small>
                 <small v-else>
-                    Tự động bắn tín hiệu WebSub &amp; IndexNow khi thêm Sản phẩm / Dự án / Bài viết
+                    Tự động bắn tín hiệu WebSub &amp; IndexNow khi thêm Sản phẩm / Danh mục / Bài viết
                 </small>
             </div>
         </section>
 
         <div class="seo-tabs-bar" role="tablist" aria-label="Chuyên mục cấu hình SEO">
+            <button
+                type="button"
+                class="seo-tab-btn"
+                :class="{ active: activeTab === 'entities' }"
+                @click="activeTab = 'entities'"
+            >
+                <FontAwesomeIcon icon="fa-solid fa-boxes-stacked" />
+                SEO Sản phẩm, Danh mục &amp; Bài viết ({{ totalEntitiesCount }})
+            </button>
             <button
                 type="button"
                 class="seo-tab-btn"
@@ -84,7 +97,7 @@
                 :class="{ active: activeTab === 'pages' }"
                 @click="activeTab = 'pages'"
             >
-                <FontAwesomeIcon icon="fa-solid fa-layer-group" /> Tối ưu SEO từng trang ({{ pageConfigs.length }})
+                <FontAwesomeIcon icon="fa-solid fa-layer-group" /> Tối ưu SEO trang tĩnh ({{ pageConfigs.length }})
             </button>
             <button
                 type="button"
@@ -97,421 +110,558 @@
         </div>
 
         <div class="seo-workspace-grid">
-            <form class="seo-main-column" @submit.prevent="submitSeoSettings">
-                <template v-if="activeTab === 'general'">
+            <div class="seo-main-column">
+                <template v-if="activeTab === 'entities'">
                     <section class="site-settings-card">
                         <div class="site-settings-card-head">
                             <span class="site-settings-card-icon">
-                                <FontAwesomeIcon icon="fa-solid fa-magnifying-glass" />
-                            </span>
-                            <div>
-                                <h3>Thẻ Meta Mặc Định &amp; Từ Khóa Tìm Kiếm</h3>
-                                <p>Sử dụng làm tiêu đề và mô tả chuẩn cho Google khi trang con không có cấu hình riêng.</p>
-                            </div>
-                        </div>
-
-                        <div class="formgrid">
-                            <div class="field full">
-                                <div class="seo-label-row">
-                                    <label for="seoMetaTitle">TIÊU ĐỀ META MẶC ĐỊNH (META TITLE) *</label>
-                                    <span class="seo-char-badge" :class="titleLengthClass(form.seo_meta_title.length)">
-                                        {{ form.seo_meta_title.length }} / 65 ký tự khuyến nghị
-                                    </span>
-                                </div>
-                                <input
-                                    id="seoMetaTitle"
-                                    v-model="form.seo_meta_title"
-                                    type="text"
-                                    maxlength="160"
-                                    required
-                                    placeholder="HVAC Mart - Bình Nước Nóng Ariston, Bảo Ôn K-Flex & Vật Tư HVAC"
-                                >
-                                <div class="seo-progress-track">
-                                    <div
-                                        class="seo-progress-bar"
-                                        :class="titleLengthClass(form.seo_meta_title.length)"
-                                        :style="{ width: `${Math.min(100, Math.round((form.seo_meta_title.length / 65) * 100))}%` }"
-                                    ></div>
-                                </div>
-                                <small v-if="form.errors.seo_meta_title" class="field-error">{{ form.errors.seo_meta_title }}</small>
-                            </div>
-
-                            <div class="field full">
-                                <div class="seo-label-row">
-                                    <label for="seoMetaDesc">MÔ TẢ META MẶC ĐỊNH (META DESCRIPTION) *</label>
-                                    <span class="seo-char-badge" :class="descLengthClass(form.seo_meta_description.length)">
-                                        {{ form.seo_meta_description.length }} / 160 ký tự khuyến nghị
-                                    </span>
-                                </div>
-                                <textarea
-                                    id="seoMetaDesc"
-                                    v-model="form.seo_meta_description"
-                                    rows="3"
-                                    maxlength="320"
-                                    required
-                                    placeholder="Mô tả tóm tắt năng lực cung ứng vật tư HVAC, bình nước nóng Ariston và bảo ôn K-Flex..."
-                                ></textarea>
-                                <div class="seo-progress-track">
-                                    <div
-                                        class="seo-progress-bar"
-                                        :class="descLengthClass(form.seo_meta_description.length)"
-                                        :style="{ width: `${Math.min(100, Math.round((form.seo_meta_description.length / 160) * 100))}%` }"
-                                    ></div>
-                                </div>
-                                <small v-if="form.errors.seo_meta_description" class="field-error">{{ form.errors.seo_meta_description }}</small>
-                            </div>
-
-                            <div class="field full">
-                                <label for="seoMetaKeywords">BỘ TỪ KHÓA TRỌNG TÂM (META KEYWORDS - CÁCH NHAU BỞI DẤU PHẨY)</label>
-                                <textarea
-                                    id="seoMetaKeywords"
-                                    v-model="form.seo_meta_keywords"
-                                    rows="2"
-                                    maxlength="500"
-                                    placeholder="HVAC Mart, bình nước nóng Ariston, bảo ôn K-Flex, vật tư HVAC..."
-                                ></textarea>
-                                <div v-if="keywordChips.length" class="seo-keyword-chips">
-                                    <span v-for="kw in keywordChips" :key="kw" class="seo-keyword-chip">
-                                        # {{ kw }}
-                                    </span>
-                                </div>
-                            </div>
-                        </div>
-                    </section>
-
-                    <section class="site-settings-card">
-                        <div class="site-settings-card-head">
-                            <span class="site-settings-card-icon">
-                                <FontAwesomeIcon icon="fa-solid fa-robot" />
-                            </span>
-                            <div>
-                                <h3>Cấu hình Googlebot, Schema.org &amp; OpenGraph</h3>
-                                <p>Điều khiển cách bot tìm kiếm thu thập dữ liệu, định danh doanh nghiệp địa phương và hiển thị ảnh khi chia sẻ.</p>
-                            </div>
-                        </div>
-
-                        <div class="formgrid">
-                            <div class="field">
-                                <label for="seoRobots">CHỈ THỊ THU THẬP DỮ LIỆU (ROBOTS META) *</label>
-                                <select id="seoRobots" v-model="form.seo_robots">
-                                    <option value="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">
-                                        Chuẩn Google (index, follow, max-image-preview:large)
-                                    </option>
-                                    <option value="index, follow">
-                                        Cơ bản (index, follow)
-                                    </option>
-                                    <option value="noindex, follow">
-                                        Tạm ẩn trang khỏi kết quả tìm kiếm (noindex, follow)
-                                    </option>
-                                    <option value="noindex, nofollow">
-                                        Chặn hoàn toàn (noindex, nofollow)
-                                    </option>
-                                </select>
-                            </div>
-
-                            <div class="field">
-                                <label for="seoSchemaType">LOẠI HÌNH DOANH NGHIỆP (SCHEMA.ORG TYPE) *</label>
-                                <select id="seoSchemaType" v-model="form.seo_schema_type">
-                                    <option value="HardwareStore">HardwareStore (Cửa hàng Thiết bị &amp; Vật tư kỹ thuật)</option>
-                                    <option value="LocalBusiness">LocalBusiness (Doanh nghiệp địa phương)</option>
-                                    <option value="Store">Store (Nhà phân phối thương mại)</option>
-                                    <option value="Organization">Organization (Tổ chức / Công ty)</option>
-                                </select>
-                            </div>
-
-                            <div class="field">
-                                <label for="seoCanonicalDomain">TÊN MIỀN CHÍNH THỨC (CANONICAL DOMAIN)</label>
-                                <input
-                                    id="seoCanonicalDomain"
-                                    v-model="form.seo_canonical_domain"
-                                    type="text"
-                                    maxlength="255"
-                                    :placeholder="props.seoAudit.baseUrl"
-                                >
-                                <small class="seo-field-hint">Để trống sẽ tự động dùng tên miền hiện tại ({{ props.seoAudit.baseUrl }}).</small>
-                            </div>
-
-                            <div class="field">
-                                <label for="seoOgImage">ĐƯỜNG DẪN ẢNH CHIA SẺ MẶC ĐỊNH (OG:IMAGE)</label>
-                                <input
-                                    id="seoOgImage"
-                                    v-model="form.seo_og_image"
-                                    type="text"
-                                    maxlength="255"
-                                    placeholder="/favicon.svg"
-                                >
-                                <small class="seo-field-hint">Hiển thị khi chia sẻ link qua Zalo, Facebook, LinkedIn.</small>
-                            </div>
-
-                            <div class="field">
-                                <label for="seoGeoRegion">MÃ VÙNG ĐỊA LÝ (GEO.REGION) *</label>
-                                <input
-                                    id="seoGeoRegion"
-                                    v-model="form.seo_geo_region"
-                                    type="text"
-                                    maxlength="40"
-                                    required
-                                    placeholder="VN-HN"
-                                >
-                            </div>
-
-                            <div class="field">
-                                <label for="seoGeoPlacename">ĐỊA DANH LOCAL SEO (GEO.PLACENAME) *</label>
-                                <input
-                                    id="seoGeoPlacename"
-                                    v-model="form.seo_geo_placename"
-                                    type="text"
-                                    maxlength="120"
-                                    required
-                                    placeholder="Hà Nội, Việt Nam"
-                                >
-                            </div>
-                        </div>
-                    </section>
-
-                    <section class="site-settings-card">
-                        <div class="site-settings-card-head">
-                            <span class="site-settings-card-icon">
-                                <FontAwesomeIcon icon="fa-solid fa-chart-simple" />
-                            </span>
-                            <div>
-                                <h3>Tích hợp Google Search Console &amp; Google Analytics 4</h3>
-                                <p>Tự động gắn thẻ xác minh quyền sở hữu tên miền và mã theo dõi lưu lượng truy cập vào phần <code>&lt;head&gt;</code>.</p>
-                            </div>
-                        </div>
-
-                        <div class="formgrid">
-                            <div class="field">
-                                <label for="seoGoogleVerification">MÃ XÁC MINH GOOGLE SEARCH CONSOLE</label>
-                                <input
-                                    id="seoGoogleVerification"
-                                    v-model="form.seo_google_verification"
-                                    type="text"
-                                    maxlength="255"
-                                    placeholder="Nhập chuỗi content của google-site-verification..."
-                                >
-                                <small class="seo-field-hint">Sinh thẻ <code>&lt;meta name="google-site-verification" content="..."&gt;</code>.</small>
-                            </div>
-
-                            <div class="field">
-                                <label for="seoGoogleAnalytics">MÃ ĐO LƯỜNG GOOGLE ANALYTICS 4 (MEASUREMENT ID)</label>
-                                <input
-                                    id="seoGoogleAnalytics"
-                                    v-model="form.seo_google_analytics_id"
-                                    type="text"
-                                    maxlength="80"
-                                    placeholder="G-XXXXXXXXXX"
-                                >
-                                <small class="seo-field-hint">Tự động nhúng <code>gtag.js</code> khi nhập mã bắt đầu bằng <code>G-</code>.</small>
-                            </div>
-                        </div>
-                    </section>
-                </template>
-
-                <template v-else-if="activeTab === 'pages'">
-                    <section
-                        v-for="pageItem in pageConfigs"
-                        :key="pageItem.key"
-                        class="site-settings-card seo-page-card"
-                        :class="{ 'is-previewing': previewPageKey === pageItem.key }"
-                    >
-                        <div class="site-settings-card-head">
-                            <span class="site-settings-card-icon">
-                                <FontAwesomeIcon :icon="pageItem.icon" />
+                                <FontAwesomeIcon icon="fa-solid fa-wand-magic-sparkles" />
                             </span>
                             <div class="seo-page-card-title-wrap">
                                 <div>
-                                    <h3>{{ pageItem.label }}</h3>
-                                    <p>Đường dẫn: <code>{{ pageItem.path }}</code></p>
+                                    <h3>Quản lý &amp; Tự động hóa SEO cho từng Sản phẩm, Danh mục, Bài viết</h3>
+                                    <p>Mỗi mục đều có Meta Title, Meta Description, Meta Keywords, Schema.org và Canonical URL riêng biệt trên Google.</p>
                                 </div>
                                 <button
                                     type="button"
-                                    class="btn seo-preview-trigger"
-                                    @click="previewPageKey = pageItem.key"
+                                    class="btn primary"
+                                    :disabled="isGeneratingAll"
+                                    @click="triggerGenerateAllSeo"
                                 >
-                                    <FontAwesomeIcon icon="fa-solid fa-eye" /> Xem thử trên Google
+                                    <FontAwesomeIcon :icon="isGeneratingAll ? 'fa-solid fa-spinner' : 'fa-solid fa-wand-magic-sparkles'" />
+                                    {{ isGeneratingAll ? 'Đang tạo SEO...' : 'Tự động chuẩn hóa SEO toàn bộ' }}
                                 </button>
                             </div>
                         </div>
 
+                        <div class="seo-entity-toolbar">
+                            <div class="seo-tabs-bar" style="margin-bottom: 0">
+                                <button
+                                    type="button"
+                                    class="seo-tab-btn"
+                                    :class="{ active: entitySubTab === 'product' }"
+                                    @click="entitySubTab = 'product'"
+                                >
+                                    <FontAwesomeIcon icon="fa-solid fa-box" />
+                                    Tất cả Sản phẩm ({{ props.seoEntities.products.length }})
+                                </button>
+                                <button
+                                    type="button"
+                                    class="seo-tab-btn"
+                                    :class="{ active: entitySubTab === 'category' }"
+                                    @click="entitySubTab = 'category'"
+                                >
+                                    <FontAwesomeIcon icon="fa-solid fa-sitemap" />
+                                    Tất cả Danh mục ({{ props.seoEntities.categories.length }})
+                                </button>
+                                <button
+                                    type="button"
+                                    class="seo-tab-btn"
+                                    :class="{ active: entitySubTab === 'article' }"
+                                    @click="entitySubTab = 'article'"
+                                >
+                                    <FontAwesomeIcon icon="fa-solid fa-newspaper" />
+                                    Tất cả Bài viết ({{ props.seoEntities.articles.length }})
+                                </button>
+                            </div>
+
+                            <input
+                                v-model="entitySearch"
+                                class="search"
+                                type="search"
+                                placeholder="Tìm theo tên sản phẩm, danh mục, bài viết, từ khóa..."
+                                aria-label="Tìm mục cần chỉnh sửa SEO"
+                            >
+                        </div>
+                    </section>
+
+                    <div v-if="filteredEntities.length === 0" class="empty">
+                        Không tìm thấy mục nào phù hợp với từ khóa "{{ entitySearch }}".
+                    </div>
+
+                    <section
+                        v-for="item in filteredEntities"
+                        :key="`${item.type}-${item.id}`"
+                        class="site-settings-card seo-page-card"
+                        :class="{ 'is-previewing': activeEntityPreview?.type === item.type && activeEntityPreview?.id === item.id }"
+                    >
+                        <div class="site-settings-card-head">
+                            <span class="site-settings-card-icon">
+                                <FontAwesomeIcon
+                                    :icon="item.type === 'product' ? 'fa-solid fa-box' : (item.type === 'category' ? 'fa-solid fa-folder-tree' : 'fa-solid fa-newspaper')"
+                                />
+                            </span>
+                            <div class="seo-page-card-title-wrap">
+                                <div>
+                                    <h3>
+                                        {{ item.displayName }}
+                                        <span class="seo-char-badge is-good" style="margin-left: 6px">{{ item.badgeLabel }}</span>
+                                    </h3>
+                                    <p>
+                                        URL chuẩn SEO:
+                                        <a :href="item.path" target="_blank" rel="noopener">
+                                            <code>{{ displayBaseUrl }}{{ item.path }}</code>
+                                        </a>
+                                    </p>
+                                </div>
+                                <div class="row-actions">
+                                    <button
+                                        type="button"
+                                        class="btn seo-preview-trigger"
+                                        @click="selectEntityForPreview(item)"
+                                    >
+                                        <FontAwesomeIcon icon="fa-solid fa-eye" /> Xem thử Google
+                                    </button>
+                                    <button
+                                        type="button"
+                                        class="btn seo-preview-trigger"
+                                        :disabled="savingEntityKey === `${item.type}-${item.id}`"
+                                        @click="regenerateSingleEntitySeo(item)"
+                                    >
+                                        <FontAwesomeIcon icon="fa-solid fa-wand-magic-sparkles" /> Tạo tự động
+                                    </button>
+                                    <button
+                                        type="button"
+                                        class="btn primary seo-preview-trigger"
+                                        :disabled="savingEntityKey === `${item.type}-${item.id}`"
+                                        @click="saveSingleEntitySeo(item)"
+                                    >
+                                        <FontAwesomeIcon icon="fa-solid fa-floppy-disk" />
+                                        {{ savingEntityKey === `${item.type}-${item.id}` ? 'Đang lưu...' : 'Lưu SEO' }}
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
                         <div class="formgrid">
                             <div class="field full">
                                 <div class="seo-label-row">
-                                    <label :for="`title-${pageItem.key}`">TIÊU ĐỀ SEO ({{ pageItem.label.toUpperCase() }}) *</label>
-                                    <span class="seo-char-badge" :class="titleLengthClass(form[pageItem.titleField].length)">
-                                        {{ form[pageItem.titleField].length }} / 65 ký tự
+                                    <label :for="`entity-title-${item.type}-${item.id}`">TIÊU ĐỀ SEO (META TITLE) *</label>
+                                    <span class="seo-char-badge" :class="titleLengthClass(getEntityDraft(item).seo_title.length)">
+                                        {{ getEntityDraft(item).seo_title.length }} / 65 ký tự khuyến nghị
                                     </span>
                                 </div>
                                 <input
-                                    :id="`title-${pageItem.key}`"
-                                    v-model="form[pageItem.titleField]"
+                                    :id="`entity-title-${item.type}-${item.id}`"
+                                    v-model="getEntityDraft(item).seo_title"
                                     type="text"
-                                    maxlength="160"
-                                    required
-                                    @focus="previewPageKey = pageItem.key"
+                                    maxlength="180"
+                                    placeholder="Tiêu đề hiển thị trên Google Search..."
+                                    @focus="selectEntityForPreview(item)"
                                 >
                             </div>
 
                             <div class="field full">
                                 <div class="seo-label-row">
-                                    <label :for="`desc-${pageItem.key}`">MÔ TẢ META DESCRIPTION *</label>
-                                    <span class="seo-char-badge" :class="descLengthClass(form[pageItem.descField].length)">
-                                        {{ form[pageItem.descField].length }} / 160 ký tự
+                                    <label :for="`entity-desc-${item.type}-${item.id}`">MÔ TẢ SEO (META DESCRIPTION) *</label>
+                                    <span class="seo-char-badge" :class="descLengthClass(getEntityDraft(item).seo_description.length)">
+                                        {{ getEntityDraft(item).seo_description.length }} / 160 ký tự khuyến nghị
                                     </span>
                                 </div>
                                 <textarea
-                                    :id="`desc-${pageItem.key}`"
-                                    v-model="form[pageItem.descField]"
+                                    :id="`entity-desc-${item.type}-${item.id}`"
+                                    v-model="getEntityDraft(item).seo_description"
                                     rows="2"
-                                    maxlength="320"
-                                    required
-                                    @focus="previewPageKey = pageItem.key"
+                                    maxlength="350"
+                                    placeholder="Mô tả tóm tắt thu hút khách hàng nhấp vào trên Google..."
+                                    @focus="selectEntityForPreview(item)"
                                 ></textarea>
                             </div>
-                        </div>
-                    </section>
-                </template>
 
-                <template v-else>
-                    <section class="site-settings-card">
-                        <div class="site-settings-card-head">
-                            <span class="site-settings-card-icon">
-                                <FontAwesomeIcon icon="fa-solid fa-sitemap" />
-                            </span>
-                            <div>
-                                <h3>Sơ đồ trang web (Sitemap XML) &amp; Robots.txt</h3>
-                                <p>Cung cấp đường dẫn tự động cập nhật để khai báo trong Google Search Console.</p>
-                            </div>
-                        </div>
-
-                        <div class="seo-url-tools-grid">
-                            <div class="seo-url-box">
-                                <span>ĐƯỜNG DẪN SITEMAP XML ĐỘNG</span>
-                                <div class="seo-url-input-row">
-                                    <input type="text" readonly :value="`${displayBaseUrl}/sitemap.xml`">
-                                    <button type="button" class="btn" @click="copyToClipboard(`${displayBaseUrl}/sitemap.xml`)">
-                                        <FontAwesomeIcon icon="fa-solid fa-copy" /> {{ copiedUrl === `${displayBaseUrl}/sitemap.xml` ? 'Đã chép' : 'Sao chép' }}
-                                    </button>
-                                    <a class="btn primary" href="/sitemap.xml" target="_blank" rel="noopener">
-                                        Mở <FontAwesomeIcon icon="fa-solid fa-arrow-up-right-from-square" />
-                                    </a>
-                                </div>
-                            </div>
-
-                            <div class="seo-url-box">
-                                <span>ĐƯỜNG DẪN FILE ROBOTS.TXT</span>
-                                <div class="seo-url-input-row">
-                                    <input type="text" readonly :value="`${displayBaseUrl}/robots.txt`">
-                                    <button type="button" class="btn" @click="copyToClipboard(`${displayBaseUrl}/robots.txt`)">
-                                        <FontAwesomeIcon icon="fa-solid fa-copy" /> {{ copiedUrl === `${displayBaseUrl}/robots.txt` ? 'Đã chép' : 'Sao chép' }}
-                                    </button>
-                                    <a class="btn" href="/robots.txt" target="_blank" rel="noopener">
-                                        Mở <FontAwesomeIcon icon="fa-solid fa-arrow-up-right-from-square" />
-                                    </a>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="seo-audit-table-wrap">
-                            <table class="seo-audit-table">
-                                <thead>
-                                    <tr>
-                                        <th>Nhóm nội dung lập chỉ mục</th>
-                                        <th>Số URL trong Sitemap</th>
-                                        <th>Độ hoàn thiện nội dung SEO</th>
-                                        <th>Cấu trúc URL</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <tr>
-                                        <td><strong>Trang đích cố định (Landing Pages)</strong></td>
-                                        <td>{{ props.seoAudit.staticPagesCount }} URL</td>
-                                        <td><span class="seo-pill is-good">100% có Title &amp; Description riêng</span></td>
-                                        <td><code>/, /products, /featured-projects, /news...</code></td>
-                                    </tr>
-                                    <tr>
-                                        <td><strong>Sản phẩm &amp; Thiết bị</strong></td>
-                                        <td>{{ props.seoAudit.productsCount }} URL</td>
-                                        <td>
-                                            <span class="seo-pill" :class="props.seoAudit.productsWithDescCount === props.seoAudit.productsCount ? 'is-good' : 'is-warn'">
-                                                {{ props.seoAudit.productsWithDescCount }}/{{ props.seoAudit.productsCount }} có mô tả · {{ props.seoAudit.productsWithImageCount }}/{{ props.seoAudit.productsCount }} có ảnh
-                                            </span>
-                                        </td>
-                                        <td><code>/products/{ten-san-pham}</code> (Slug + Schema Product)</td>
-                                    </tr>
-                                    <tr>
-                                        <td><strong>Dự án tiêu biểu (Case Studies)</strong></td>
-                                        <td>{{ props.seoAudit.projectsCount }} URL</td>
-                                        <td>
-                                            <span class="seo-pill" :class="props.seoAudit.projectsWithDescCount === props.seoAudit.projectsCount ? 'is-good' : 'is-warn'">
-                                                {{ props.seoAudit.projectsWithDescCount }}/{{ props.seoAudit.projectsCount }} có mô tả chi tiết
-                                            </span>
-                                        </td>
-                                        <td><code>/featured-projects/{ten-du-an}</code> (URL chuẩn Slug)</td>
-                                    </tr>
-                                    <tr>
-                                        <td><strong>Bài viết &amp; Tin tức kỹ thuật</strong></td>
-                                        <td>{{ props.seoAudit.articlesCount }} URL</td>
-                                        <td>
-                                            <span class="seo-pill" :class="props.seoAudit.articlesWithExcerptCount === props.seoAudit.articlesCount ? 'is-good' : 'is-warn'">
-                                                {{ props.seoAudit.articlesWithExcerptCount }}/{{ props.seoAudit.articlesCount }} có tóm tắt (Excerpt)
-                                            </span>
-                                        </td>
-                                        <td><code>/news/{slug}</code> (kèm Schema NewsArticle)</td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                        </div>
-                    </section>
-
-                    <section class="site-settings-card">
-                        <div class="site-settings-card-head">
-                            <span class="site-settings-card-icon">
-                                <FontAwesomeIcon icon="fa-solid fa-link" />
-                            </span>
-                            <div>
-                                <h3>Kiểm tra URL thân thiện SEO (Friendly Slug URLs)</h3>
-                                <p>Danh sách các đường dẫn thực tế đang được phục vụ cho Googlebot và người dùng.</p>
-                            </div>
-                        </div>
-
-                        <div class="seo-sample-links-grid">
-                            <div class="seo-sample-group">
-                                <h4>Dự án tiêu biểu (Slug tiếng Việt không dấu)</h4>
-                                <ul>
-                                    <li v-for="proj in props.seoAudit.sampleProjects" :key="proj.id">
-                                        <div>
-                                            <strong>{{ proj.name }}</strong>
-                                            <code>{{ displayBaseUrl }}/featured-projects/{{ proj.slug }}</code>
-                                        </div>
-                                        <a :href="proj.path || `/featured-projects/${proj.slug}`" target="_blank" rel="noopener" class="btn">Xem</a>
-                                    </li>
-                                </ul>
-                            </div>
-
-                            <div class="seo-sample-group">
-                                <h4>Bài viết kỹ thuật &amp; Sản phẩm mới nhất</h4>
-                                <ul>
-                                    <li v-for="art in props.seoAudit.sampleArticles" :key="`art-${art.id}`">
-                                        <div>
-                                            <strong>{{ art.title }}</strong>
-                                            <code>{{ displayBaseUrl }}/news/{{ art.slug }}</code>
-                                        </div>
-                                        <a :href="art.path || `/news/${art.slug}`" target="_blank" rel="noopener" class="btn">Xem</a>
-                                    </li>
-                                    <li v-for="prod in props.seoAudit.sampleProducts.slice(0, 3)" :key="`prod-${prod.id}`">
-                                        <div>
-                                            <strong>{{ prod.name }}</strong>
-                                            <code>{{ displayBaseUrl }}/products/{{ prod.slug || prod.id }}</code>
-                                        </div>
-                                        <a :href="prod.path || `/products/${prod.slug || prod.id}`" target="_blank" rel="noopener" class="btn">Xem</a>
-                                    </li>
-                                </ul>
+                            <div class="field full">
+                                <label :for="`entity-kw-${item.type}-${item.id}`">TỪ KHÓA MỤC TIÊU (META KEYWORDS - CÁCH NHAU BỞI DẤU PHẨY)</label>
+                                <input
+                                    :id="`entity-kw-${item.type}-${item.id}`"
+                                    v-model="getEntityDraft(item).seo_keywords"
+                                    type="text"
+                                    maxlength="500"
+                                    placeholder="Từ khóa tìm kiếm liên quan..."
+                                    @focus="selectEntityForPreview(item)"
+                                >
                             </div>
                         </div>
                     </section>
                 </template>
-            </form>
+
+                <form v-else @submit.prevent="submitSeoSettings">
+                    <template v-if="activeTab === 'general'">
+                        <section class="site-settings-card">
+                            <div class="site-settings-card-head">
+                                <span class="site-settings-card-icon">
+                                    <FontAwesomeIcon icon="fa-solid fa-magnifying-glass" />
+                                </span>
+                                <div>
+                                    <h3>Thẻ Meta Mặc Định &amp; Từ Khóa Tìm Kiếm</h3>
+                                    <p>Sử dụng làm tiêu đề và mô tả chuẩn cho Google khi trang con không có cấu hình riêng.</p>
+                                </div>
+                            </div>
+
+                            <div class="formgrid">
+                                <div class="field full">
+                                    <div class="seo-label-row">
+                                        <label for="seoMetaTitle">TIÊU ĐỀ META MẶC ĐỊNH (META TITLE) *</label>
+                                        <span class="seo-char-badge" :class="titleLengthClass(form.seo_meta_title.length)">
+                                            {{ form.seo_meta_title.length }} / 65 ký tự khuyến nghị
+                                        </span>
+                                    </div>
+                                    <input
+                                        id="seoMetaTitle"
+                                        v-model="form.seo_meta_title"
+                                        type="text"
+                                        maxlength="160"
+                                        required
+                                        placeholder="HVAC Mart - Bình Nước Nóng Ariston, Bảo Ôn K-Flex & Vật Tư HVAC"
+                                    >
+                                    <div class="seo-progress-track">
+                                        <div
+                                            class="seo-progress-bar"
+                                            :class="titleLengthClass(form.seo_meta_title.length)"
+                                            :style="{ width: `${Math.min(100, Math.round((form.seo_meta_title.length / 65) * 100))}%` }"
+                                        ></div>
+                                    </div>
+                                    <small v-if="form.errors.seo_meta_title" class="field-error">{{ form.errors.seo_meta_title }}</small>
+                                </div>
+
+                                <div class="field full">
+                                    <div class="seo-label-row">
+                                        <label for="seoMetaDesc">MÔ TẢ META MẶC ĐỊNH (META DESCRIPTION) *</label>
+                                        <span class="seo-char-badge" :class="descLengthClass(form.seo_meta_description.length)">
+                                            {{ form.seo_meta_description.length }} / 160 ký tự khuyến nghị
+                                        </span>
+                                    </div>
+                                    <textarea
+                                        id="seoMetaDesc"
+                                        v-model="form.seo_meta_description"
+                                        rows="3"
+                                        maxlength="320"
+                                        required
+                                        placeholder="Mô tả tóm tắt năng lực cung ứng vật tư HVAC, bình nước nóng Ariston và bảo ôn K-Flex..."
+                                    ></textarea>
+                                    <div class="seo-progress-track">
+                                        <div
+                                            class="seo-progress-bar"
+                                            :class="descLengthClass(form.seo_meta_description.length)"
+                                            :style="{ width: `${Math.min(100, Math.round((form.seo_meta_description.length / 160) * 100))}%` }"
+                                        ></div>
+                                    </div>
+                                    <small v-if="form.errors.seo_meta_description" class="field-error">{{ form.errors.seo_meta_description }}</small>
+                                </div>
+
+                                <div class="field full">
+                                    <label for="seoMetaKeywords">BỘ TỪ KHÓA TRỌNG TÂM (META KEYWORDS - CÁCH NHAU BỞI DẤU PHẨY)</label>
+                                    <textarea
+                                        id="seoMetaKeywords"
+                                        v-model="form.seo_meta_keywords"
+                                        rows="2"
+                                        maxlength="500"
+                                        placeholder="HVAC Mart, bình nước nóng Ariston, bảo ôn K-Flex, vật tư HVAC..."
+                                    ></textarea>
+                                    <div v-if="keywordChips.length" class="seo-keyword-chips">
+                                        <span v-for="kw in keywordChips" :key="kw" class="seo-keyword-chip">
+                                            # {{ kw }}
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                        </section>
+
+                        <section class="site-settings-card">
+                            <div class="site-settings-card-head">
+                                <span class="site-settings-card-icon">
+                                    <FontAwesomeIcon icon="fa-solid fa-robot" />
+                                </span>
+                                <div>
+                                    <h3>Cấu hình Googlebot, Schema.org &amp; OpenGraph</h3>
+                                    <p>Điều khiển cách bot tìm kiếm thu thập dữ liệu, định danh doanh nghiệp địa phương và hiển thị ảnh khi chia sẻ.</p>
+                                </div>
+                            </div>
+
+                            <div class="formgrid">
+                                <div class="field">
+                                    <label for="seoRobots">CHỈ THỊ THU THẬP DỮ LIỆU (ROBOTS META) *</label>
+                                    <select id="seoRobots" v-model="form.seo_robots">
+                                        <option value="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">
+                                            Chuẩn Google (index, follow, max-image-preview:large)
+                                        </option>
+                                        <option value="index, follow">
+                                            Cơ bản (index, follow)
+                                        </option>
+                                        <option value="noindex, follow">
+                                            Tạm ẩn trang khỏi kết quả tìm kiếm (noindex, follow)
+                                        </option>
+                                        <option value="noindex, nofollow">
+                                            Chặn hoàn toàn (noindex, nofollow)
+                                        </option>
+                                    </select>
+                                </div>
+
+                                <div class="field">
+                                    <label for="seoSchemaType">LOẠI HÌNH DOANH NGHIỆP (SCHEMA.ORG TYPE) *</label>
+                                    <select id="seoSchemaType" v-model="form.seo_schema_type">
+                                        <option value="HardwareStore">HardwareStore (Cửa hàng Thiết bị &amp; Vật tư kỹ thuật)</option>
+                                        <option value="LocalBusiness">LocalBusiness (Doanh nghiệp địa phương)</option>
+                                        <option value="Store">Store (Nhà phân phối thương mại)</option>
+                                        <option value="Organization">Organization (Tổ chức / Công ty)</option>
+                                    </select>
+                                </div>
+
+                                <div class="field">
+                                    <label for="seoCanonicalDomain">TÊN MIỀN CHÍNH THỨC (CANONICAL DOMAIN)</label>
+                                    <input
+                                        id="seoCanonicalDomain"
+                                        v-model="form.seo_canonical_domain"
+                                        type="text"
+                                        maxlength="255"
+                                        :placeholder="props.seoAudit.baseUrl"
+                                    >
+                                    <small class="seo-field-hint">Để trống sẽ tự động dùng tên miền hiện tại ({{ props.seoAudit.baseUrl }}).</small>
+                                </div>
+
+                                <div class="field">
+                                    <label for="seoOgImage">ĐƯỜNG DẪN ẢNH CHIA SẺ MẶC ĐỊNH (OG:IMAGE)</label>
+                                    <input
+                                        id="seoOgImage"
+                                        v-model="form.seo_og_image"
+                                        type="text"
+                                        maxlength="255"
+                                        placeholder="/favicon.svg"
+                                    >
+                                    <small class="seo-field-hint">Hiển thị khi chia sẻ link qua Zalo, Facebook, LinkedIn.</small>
+                                </div>
+
+                                <div class="field">
+                                    <label for="seoGeoRegion">MÃ VÙNG ĐỊA LÝ (GEO.REGION) *</label>
+                                    <input
+                                        id="seoGeoRegion"
+                                        v-model="form.seo_geo_region"
+                                        type="text"
+                                        maxlength="40"
+                                        required
+                                        placeholder="VN-HN"
+                                    >
+                                </div>
+
+                                <div class="field">
+                                    <label for="seoGeoPlacename">ĐỊA DANH LOCAL SEO (GEO.PLACENAME) *</label>
+                                    <input
+                                        id="seoGeoPlacename"
+                                        v-model="form.seo_geo_placename"
+                                        type="text"
+                                        maxlength="120"
+                                        required
+                                        placeholder="Hà Nội, Việt Nam"
+                                    >
+                                </div>
+                            </div>
+                        </section>
+
+                        <section class="site-settings-card">
+                            <div class="site-settings-card-head">
+                                <span class="site-settings-card-icon">
+                                    <FontAwesomeIcon icon="fa-solid fa-chart-simple" />
+                                </span>
+                                <div>
+                                    <h3>Tích hợp Google Search Console &amp; Google Analytics 4</h3>
+                                    <p>Tự động gắn thẻ xác minh quyền sở hữu tên miền và mã theo dõi lưu lượng truy cập vào phần <code>&lt;head&gt;</code>.</p>
+                                </div>
+                            </div>
+
+                            <div class="formgrid">
+                                <div class="field">
+                                    <label for="seoGoogleVerification">MÃ XÁC MINH GOOGLE SEARCH CONSOLE</label>
+                                    <input
+                                        id="seoGoogleVerification"
+                                        v-model="form.seo_google_verification"
+                                        type="text"
+                                        maxlength="255"
+                                        placeholder="Nhập chuỗi content của google-site-verification..."
+                                    >
+                                    <small class="seo-field-hint">Sinh thẻ <code>&lt;meta name="google-site-verification" content="..."&gt;</code>.</small>
+                                </div>
+
+                                <div class="field">
+                                    <label for="seoGoogleAnalytics">MÃ ĐO LƯỜNG GOOGLE ANALYTICS 4 (MEASUREMENT ID)</label>
+                                    <input
+                                        id="seoGoogleAnalytics"
+                                        v-model="form.seo_google_analytics_id"
+                                        type="text"
+                                        maxlength="80"
+                                        placeholder="G-XXXXXXXXXX"
+                                    >
+                                    <small class="seo-field-hint">Tự động nhúng <code>gtag.js</code> khi nhập mã bắt đầu bằng <code>G-</code>.</small>
+                                </div>
+                            </div>
+                        </section>
+                    </template>
+
+                    <template v-else-if="activeTab === 'pages'">
+                        <section
+                            v-for="pageItem in pageConfigs"
+                            :key="pageItem.key"
+                            class="site-settings-card seo-page-card"
+                            :class="{ 'is-previewing': !activeEntityPreview && previewPageKey === pageItem.key }"
+                        >
+                            <div class="site-settings-card-head">
+                                <span class="site-settings-card-icon">
+                                    <FontAwesomeIcon :icon="pageItem.icon" />
+                                </span>
+                                <div class="seo-page-card-title-wrap">
+                                    <div>
+                                        <h3>{{ pageItem.label }}</h3>
+                                        <p>Đường dẫn: <code>{{ pageItem.path }}</code></p>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        class="btn seo-preview-trigger"
+                                        @click="selectStaticPagePreview(pageItem.key)"
+                                    >
+                                        <FontAwesomeIcon icon="fa-solid fa-eye" /> Xem thử trên Google
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div class="formgrid">
+                                <div class="field full">
+                                    <div class="seo-label-row">
+                                        <label :for="`title-${pageItem.key}`">TIÊU ĐỀ SEO ({{ pageItem.label.toUpperCase() }}) *</label>
+                                        <span class="seo-char-badge" :class="titleLengthClass(form[pageItem.titleField].length)">
+                                            {{ form[pageItem.titleField].length }} / 65 ký tự
+                                        </span>
+                                    </div>
+                                    <input
+                                        :id="`title-${pageItem.key}`"
+                                        v-model="form[pageItem.titleField]"
+                                        type="text"
+                                        maxlength="160"
+                                        required
+                                        @focus="selectStaticPagePreview(pageItem.key)"
+                                    >
+                                </div>
+
+                                <div class="field full">
+                                    <div class="seo-label-row">
+                                        <label :for="`desc-${pageItem.key}`">MÔ TẢ META DESCRIPTION *</label>
+                                        <span class="seo-char-badge" :class="descLengthClass(form[pageItem.descField].length)">
+                                            {{ form[pageItem.descField].length }} / 160 ký tự
+                                        </span>
+                                    </div>
+                                    <textarea
+                                        :id="`desc-${pageItem.key}`"
+                                        v-model="form[pageItem.descField]"
+                                        rows="2"
+                                        maxlength="320"
+                                        required
+                                        @focus="selectStaticPagePreview(pageItem.key)"
+                                    ></textarea>
+                                </div>
+                            </div>
+                        </section>
+                    </template>
+
+                    <template v-else>
+                        <section class="site-settings-card">
+                            <div class="site-settings-card-head">
+                                <span class="site-settings-card-icon">
+                                    <FontAwesomeIcon icon="fa-solid fa-sitemap" />
+                                </span>
+                                <div>
+                                    <h3>Sơ đồ trang web (Sitemap XML) &amp; Robots.txt</h3>
+                                    <p>Cung cấp đường dẫn tự động cập nhật để khai báo trong Google Search Console.</p>
+                                </div>
+                            </div>
+
+                            <div class="seo-url-tools-grid">
+                                <div class="seo-url-box">
+                                    <span>ĐƯỜNG DẪN SITEMAP XML ĐỘNG</span>
+                                    <div class="seo-url-input-row">
+                                        <input type="text" readonly :value="`${displayBaseUrl}/sitemap.xml`">
+                                        <button type="button" class="btn" @click="copyToClipboard(`${displayBaseUrl}/sitemap.xml`)">
+                                            <FontAwesomeIcon icon="fa-solid fa-copy" /> {{ copiedUrl === `${displayBaseUrl}/sitemap.xml` ? 'Đã chép' : 'Sao chép' }}
+                                        </button>
+                                        <a class="btn primary" href="/sitemap.xml" target="_blank" rel="noopener">
+                                            Mở <FontAwesomeIcon icon="fa-solid fa-arrow-up-right-from-square" />
+                                        </a>
+                                    </div>
+                                </div>
+
+                                <div class="seo-url-box">
+                                    <span>ĐƯỜNG DẪN FILE ROBOTS.TXT</span>
+                                    <div class="seo-url-input-row">
+                                        <input type="text" readonly :value="`${displayBaseUrl}/robots.txt`">
+                                        <button type="button" class="btn" @click="copyToClipboard(`${displayBaseUrl}/robots.txt`)">
+                                            <FontAwesomeIcon icon="fa-solid fa-copy" /> {{ copiedUrl === `${displayBaseUrl}/robots.txt` ? 'Đã chép' : 'Sao chép' }}
+                                        </button>
+                                        <a class="btn" href="/robots.txt" target="_blank" rel="noopener">
+                                            Mở <FontAwesomeIcon icon="fa-solid fa-arrow-up-right-from-square" />
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="seo-audit-table-wrap">
+                                <table class="seo-audit-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Nhóm nội dung lập chỉ mục</th>
+                                            <th>Số URL trong Sitemap</th>
+                                            <th>Độ hoàn thiện nội dung SEO</th>
+                                            <th>Cấu trúc URL</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr>
+                                            <td><strong>Trang đích cố định (Landing Pages)</strong></td>
+                                            <td>{{ props.seoAudit.staticPagesCount }} URL</td>
+                                            <td><span class="seo-pill is-good">100% có Title &amp; Description riêng</span></td>
+                                            <td><code>/, /categories, /products, /news...</code></td>
+                                        </tr>
+                                        <tr>
+                                            <td><strong>Danh mục &amp; Dòng sản phẩm</strong></td>
+                                            <td>{{ props.seoAudit.categoriesCount }} URL</td>
+                                            <td>
+                                                <span class="seo-pill" :class="props.seoAudit.categoriesWithSeoCount === props.seoAudit.categoriesCount ? 'is-good' : 'is-warn'">
+                                                    {{ props.seoAudit.categoriesWithSeoCount }}/{{ props.seoAudit.categoriesCount }} có SEO Title &amp; Description
+                                                </span>
+                                            </td>
+                                            <td><code>/categories/{danh-muc}/{dong-sp}</code> (Schema CollectionPage)</td>
+                                        </tr>
+                                        <tr>
+                                            <td><strong>Sản phẩm &amp; Thiết bị</strong></td>
+                                            <td>{{ props.seoAudit.productsCount }} URL</td>
+                                            <td>
+                                                <span class="seo-pill" :class="props.seoAudit.productsWithSeoCount === props.seoAudit.productsCount ? 'is-good' : 'is-warn'">
+                                                    {{ props.seoAudit.productsWithSeoCount }}/{{ props.seoAudit.productsCount }} có SEO chuẩn · {{ props.seoAudit.productsWithImageCount }}/{{ props.seoAudit.productsCount }} có ảnh
+                                                </span>
+                                            </td>
+                                            <td><code>/products/{ten-san-pham}</code> (Slug + Schema Product)</td>
+                                        </tr>
+                                        <tr>
+                                            <td><strong>Dự án tiêu biểu (Case Studies)</strong></td>
+                                            <td>{{ props.seoAudit.projectsCount }} URL</td>
+                                            <td>
+                                                <span class="seo-pill" :class="props.seoAudit.projectsWithDescCount === props.seoAudit.projectsCount ? 'is-good' : 'is-warn'">
+                                                    {{ props.seoAudit.projectsWithDescCount }}/{{ props.seoAudit.projectsCount }} có mô tả chi tiết
+                                                </span>
+                                            </td>
+                                            <td><code>/featured-projects/{ten-du-an}</code> (URL chuẩn Slug)</td>
+                                        </tr>
+                                        <tr>
+                                            <td><strong>Bài viết &amp; Tin tức kỹ thuật</strong></td>
+                                            <td>{{ props.seoAudit.articlesCount }} URL</td>
+                                            <td>
+                                                <span class="seo-pill" :class="props.seoAudit.articlesWithSeoCount >= props.seoAudit.articlesCount ? 'is-good' : 'is-warn'">
+                                                    {{ props.seoAudit.articlesWithSeoCount }}/{{ props.seoAudit.articlesTotalCount }} có SEO chuẩn
+                                                </span>
+                                            </td>
+                                            <td><code>/news/{slug}</code> (kèm Schema NewsArticle)</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </section>
+                    </template>
+                </form>
+            </div>
 
             <aside class="seo-side-column">
                 <section class="site-settings-card seo-serp-card">
@@ -526,7 +676,7 @@
                     </div>
 
                     <div class="seo-serp-controls">
-                        <select v-model="previewPageKey" aria-label="Chọn trang để xem trước">
+                        <select v-model="previewPageKey" aria-label="Chọn trang để xem trước" @change="activeEntityPreview = null">
                             <option value="default">Mặc định toàn hệ thống</option>
                             <option v-for="item in pageConfigs" :key="item.key" :value="item.key">
                                 {{ item.label }} ({{ item.path }})
@@ -620,7 +770,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, reactive, ref, watch } from 'vue';
 import { router, useForm } from '@inertiajs/vue3';
 import AdminLayout from '../../layout/AdminLayout.Vue';
 
@@ -642,6 +792,8 @@ type SeoSettingsMap = {
     seo_geo_placename: string;
     seo_home_title: string;
     seo_home_description: string;
+    seo_categories_title: string;
+    seo_categories_description: string;
     seo_products_title: string;
     seo_products_description: string;
     seo_projects_title: string;
@@ -654,23 +806,78 @@ type SeoSettingsMap = {
     seo_contacts_description: string;
 };
 
+type SeoProductEntity = {
+    id: number;
+    name: string;
+    slug: string;
+    subtitle: string | null;
+    category_name?: string | null;
+    subcategory_name?: string | null;
+    seo_title: string;
+    seo_description: string;
+    seo_keywords: string;
+    url: string;
+    path: string;
+};
+
+type SeoCategoryEntity = {
+    id: number;
+    name: string;
+    slug: string;
+    parent_id: number | null;
+    parent_name?: string | null;
+    description?: string | null;
+    seo_title: string;
+    seo_description: string;
+    seo_keywords: string;
+    url: string;
+    path: string;
+};
+
+type SeoArticleEntity = {
+    id: number;
+    title: string;
+    slug: string;
+    excerpt?: string | null;
+    is_published: boolean;
+    seo_title: string;
+    seo_description: string;
+    seo_keywords: string;
+    url: string;
+    path: string;
+};
+
+type UnifiedSeoEntity = {
+    type: 'product' | 'category' | 'article';
+    id: number;
+    displayName: string;
+    badgeLabel: string;
+    path: string;
+    url: string;
+    seo_title: string;
+    seo_description: string;
+    seo_keywords: string;
+};
+
 type SeoAuditPayload = {
     staticPagesCount: number;
+    categoriesCount: number;
+    categoriesWithSeoCount: number;
     productsCount: number;
     productsWithDescCount: number;
     productsWithImageCount: number;
+    productsWithSeoCount: number;
     projectsCount: number;
     projectsWithDescCount: number;
     articlesCount: number;
+    articlesTotalCount: number;
     articlesWithExcerptCount: number;
+    articlesWithSeoCount: number;
     cataloguesCount: number;
     totalIndexedUrls: number;
     sitemapUrl: string;
     robotsUrl: string;
     baseUrl: string;
-    sampleProjects: Array<{ id: number; name: string; slug: string; url: string; path?: string; location: string }>;
-    sampleProducts: Array<{ id: number; name: string; slug?: string; subtitle: string | null; url: string; path?: string }>;
-    sampleArticles: Array<{ id: number; title: string; slug: string; url: string; path?: string }>;
 };
 
 type AdminStat = {
@@ -682,6 +889,11 @@ type AdminStat = {
 const props = defineProps<{
     settings: SeoSettingsMap;
     defaults: SeoSettingsMap;
+    seoEntities: {
+        products: SeoProductEntity[];
+        categories: SeoCategoryEntity[];
+        articles: SeoArticleEntity[];
+    };
     seoAudit: SeoAuditPayload;
     stats: AdminStat[];
     openRequestsCount: number;
@@ -689,11 +901,185 @@ const props = defineProps<{
     supportProjectsCount?: number;
 }>();
 
-const activeTab = ref<'general' | 'pages' | 'audit'>('general');
-const previewPageKey = ref<'default' | 'home' | 'products' | 'projects' | 'news' | 'catalogues' | 'contacts'>('home');
+const activeTab = ref<'entities' | 'general' | 'pages' | 'audit'>('entities');
+const entitySubTab = ref<'product' | 'category' | 'article'>('product');
+const entitySearch = ref('');
+const previewPageKey = ref<'default' | 'home' | 'categories' | 'products' | 'projects' | 'news' | 'catalogues' | 'contacts'>('home');
+const activeEntityPreview = ref<UnifiedSeoEntity | null>(null);
 const serpDevice = ref<'desktop' | 'mobile'>('desktop');
 const copiedUrl = ref<string | null>(null);
 const isPinging = ref(false);
+const isGeneratingAll = ref(false);
+const savingEntityKey = ref<string | null>(null);
+
+const entityDrafts = reactive<Record<string, { seo_title: string; seo_description: string; seo_keywords: string }>>({});
+
+const syncDraftsFromProps = (): void => {
+    for (const prod of props.seoEntities.products) {
+        entityDrafts[`product-${prod.id}`] = {
+            seo_title: prod.seo_title || '',
+            seo_description: prod.seo_description || '',
+            seo_keywords: prod.seo_keywords || '',
+        };
+    }
+    for (const cat of props.seoEntities.categories) {
+        entityDrafts[`category-${cat.id}`] = {
+            seo_title: cat.seo_title || '',
+            seo_description: cat.seo_description || '',
+            seo_keywords: cat.seo_keywords || '',
+        };
+    }
+    for (const art of props.seoEntities.articles) {
+        entityDrafts[`article-${art.id}`] = {
+            seo_title: art.seo_title || '',
+            seo_description: art.seo_description || '',
+            seo_keywords: art.seo_keywords || '',
+        };
+    }
+};
+
+syncDraftsFromProps();
+
+watch(
+    () => props.seoEntities,
+    () => {
+        syncDraftsFromProps();
+    },
+    { deep: true },
+);
+
+function getEntityDraft(item: UnifiedSeoEntity): { seo_title: string; seo_description: string; seo_keywords: string } {
+    const key = `${item.type}-${item.id}`;
+    if (!entityDrafts[key]) {
+        entityDrafts[key] = {
+            seo_title: item.seo_title || '',
+            seo_description: item.seo_description || '',
+            seo_keywords: item.seo_keywords || '',
+        };
+    }
+
+    return entityDrafts[key];
+}
+
+const totalEntitiesCount = computed<number>(
+    () => props.seoEntities.products.length + props.seoEntities.categories.length + props.seoEntities.articles.length,
+);
+
+const currentSubTabEntities = computed<UnifiedSeoEntity[]>(() => {
+    if (entitySubTab.value === 'product') {
+        return props.seoEntities.products.map((prod) => ({
+            type: 'product' as const,
+            id: prod.id,
+            displayName: prod.name,
+            badgeLabel: [prod.category_name, prod.subcategory_name].filter(Boolean).join(' · ') || 'Sản phẩm',
+            path: prod.path,
+            url: prod.url,
+            seo_title: prod.seo_title,
+            seo_description: prod.seo_description,
+            seo_keywords: prod.seo_keywords,
+        }));
+    }
+
+    if (entitySubTab.value === 'category') {
+        return props.seoEntities.categories.map((cat) => ({
+            type: 'category' as const,
+            id: cat.id,
+            displayName: cat.name,
+            badgeLabel: cat.parent_name ? `Dòng sản phẩm (${cat.parent_name})` : 'Danh mục chính',
+            path: cat.path,
+            url: cat.url,
+            seo_title: cat.seo_title,
+            seo_description: cat.seo_description,
+            seo_keywords: cat.seo_keywords,
+        }));
+    }
+
+    return props.seoEntities.articles.map((art) => ({
+        type: 'article' as const,
+        id: art.id,
+        displayName: art.title,
+        badgeLabel: art.is_published ? 'Bài viết công khai' : 'Bản nháp',
+        path: art.path,
+        url: art.url,
+        seo_title: art.seo_title,
+        seo_description: art.seo_description,
+        seo_keywords: art.seo_keywords,
+    }));
+});
+
+const filteredEntities = computed<UnifiedSeoEntity[]>(() => {
+    const q = entitySearch.value.trim().toLowerCase();
+    if (!q) {
+        return currentSubTabEntities.value;
+    }
+
+    return currentSubTabEntities.value.filter((item) => {
+        const draft = getEntityDraft(item);
+
+        return [
+            item.displayName,
+            item.badgeLabel,
+            item.path,
+            draft.seo_title,
+            draft.seo_description,
+            draft.seo_keywords,
+        ]
+            .join(' ')
+            .toLowerCase()
+            .includes(q);
+    });
+});
+
+function selectEntityForPreview(item: UnifiedSeoEntity): void {
+    activeEntityPreview.value = item;
+}
+
+function selectStaticPagePreview(key: typeof previewPageKey.value): void {
+    activeEntityPreview.value = null;
+    previewPageKey.value = key;
+}
+
+function triggerGenerateAllSeo(): void {
+    isGeneratingAll.value = true;
+    router.post('/admin/seo/generate-all', {}, {
+        preserveScroll: true,
+        onFinish: () => {
+            isGeneratingAll.value = false;
+        },
+    });
+}
+
+function saveSingleEntitySeo(item: UnifiedSeoEntity): void {
+    const key = `${item.type}-${item.id}`;
+    const draft = getEntityDraft(item);
+    savingEntityKey.value = key;
+
+    router.put(`/admin/seo/entities/${item.type}/${item.id}`, {
+        seo_title: draft.seo_title,
+        seo_description: draft.seo_description,
+        seo_keywords: draft.seo_keywords,
+        auto_generate: false,
+    }, {
+        preserveScroll: true,
+        onFinish: () => {
+            savingEntityKey.value = null;
+        },
+    });
+}
+
+function regenerateSingleEntitySeo(item: UnifiedSeoEntity): void {
+    const key = `${item.type}-${item.id}`;
+    savingEntityKey.value = key;
+
+    router.put(`/admin/seo/entities/${item.type}/${item.id}`, {
+        auto_generate: true,
+    }, {
+        preserveScroll: true,
+        onFinish: () => {
+            savingEntityKey.value = null;
+        },
+    });
+}
 
 function triggerManualPing(): void {
     isPinging.value = true;
@@ -719,6 +1105,8 @@ const form = useForm<SeoSettingsMap>({
     seo_geo_placename: props.settings.seo_geo_placename ?? props.defaults.seo_geo_placename,
     seo_home_title: props.settings.seo_home_title ?? props.defaults.seo_home_title,
     seo_home_description: props.settings.seo_home_description ?? props.defaults.seo_home_description,
+    seo_categories_title: props.settings.seo_categories_title ?? props.defaults.seo_categories_title,
+    seo_categories_description: props.settings.seo_categories_description ?? props.defaults.seo_categories_description,
     seo_products_title: props.settings.seo_products_title ?? props.defaults.seo_products_title,
     seo_products_description: props.settings.seo_products_description ?? props.defaults.seo_products_description,
     seo_projects_title: props.settings.seo_projects_title ?? props.defaults.seo_projects_title,
@@ -732,7 +1120,7 @@ const form = useForm<SeoSettingsMap>({
 });
 
 type PageConfigItem = {
-    key: 'home' | 'products' | 'projects' | 'news' | 'catalogues' | 'contacts';
+    key: 'home' | 'categories' | 'products' | 'projects' | 'news' | 'catalogues' | 'contacts';
     label: string;
     path: string;
     icon: string;
@@ -750,8 +1138,16 @@ const pageConfigs: PageConfigItem[] = [
         descField: 'seo_home_description',
     },
     {
+        key: 'categories',
+        label: 'Trang Danh mục chính & Dòng sản phẩm',
+        path: '/categories',
+        icon: 'fa-solid fa-sitemap',
+        titleField: 'seo_categories_title',
+        descField: 'seo_categories_description',
+    },
+    {
         key: 'products',
-        label: 'Danh mục Sản phẩm & Thiết bị',
+        label: 'Danh sách Sản phẩm & Thiết bị',
         path: '/products',
         icon: 'fa-solid fa-box',
         titleField: 'seo_products_title',
@@ -817,6 +1213,10 @@ const displayHost = computed<string>(() => {
 });
 
 const activePreviewUrl = computed<string>(() => {
+    if (activeEntityPreview.value) {
+        return `${displayBaseUrl.value}${activeEntityPreview.value.path}`;
+    }
+
     const matched = pageConfigs.find((item) => item.key === previewPageKey.value);
     const path = matched ? matched.path : '/';
 
@@ -824,6 +1224,12 @@ const activePreviewUrl = computed<string>(() => {
 });
 
 const activePreviewTitle = computed<string>(() => {
+    if (activeEntityPreview.value) {
+        const draft = getEntityDraft(activeEntityPreview.value);
+
+        return draft.seo_title || activeEntityPreview.value.displayName || 'HVAC Mart';
+    }
+
     const matched = pageConfigs.find((item) => item.key === previewPageKey.value);
     const raw = matched ? (form[matched.titleField] || form.seo_meta_title) : form.seo_meta_title;
 
@@ -831,6 +1237,12 @@ const activePreviewTitle = computed<string>(() => {
 });
 
 const activePreviewDescription = computed<string>(() => {
+    if (activeEntityPreview.value) {
+        const draft = getEntityDraft(activeEntityPreview.value);
+
+        return draft.seo_description || form.seo_meta_description;
+    }
+
     const matched = pageConfigs.find((item) => item.key === previewPageKey.value);
     const raw = matched ? (form[matched.descField] || form.seo_meta_description) : form.seo_meta_description;
 
@@ -867,6 +1279,14 @@ const seoChecklist = computed(() => {
 
     return [
         {
+            label: 'SEO cho 100% Sản phẩm, Danh mục & Bài viết',
+            detail: `${props.seoAudit.productsWithSeoCount}/${props.seoAudit.productsCount} sản phẩm · ${props.seoAudit.categoriesWithSeoCount}/${props.seoAudit.categoriesCount} danh mục · ${props.seoAudit.articlesWithSeoCount}/${props.seoAudit.articlesTotalCount} bài viết.`,
+            passed:
+                props.seoAudit.productsWithSeoCount === props.seoAudit.productsCount
+                && props.seoAudit.categoriesWithSeoCount === props.seoAudit.categoriesCount
+                && props.seoAudit.articlesWithSeoCount === props.seoAudit.articlesTotalCount,
+        },
+        {
             label: 'Độ dài Meta Title chuẩn Google (30–70 ký tự)',
             detail: `Hiện tại: ${titleLen} ký tự.`,
             passed: titleLen >= 30 && titleLen <= 70,
@@ -893,13 +1313,8 @@ const seoChecklist = computed(() => {
         },
         {
             label: 'Dữ liệu có cấu trúc Schema.org JSON-LD',
-            detail: `Đã kích hoạt ${form.seo_schema_type}, WebSite SearchAction, Product & NewsArticle.`,
+            detail: `Đã kích hoạt ${form.seo_schema_type}, BreadcrumbList, CollectionPage, Product & NewsArticle.`,
             passed: Boolean(form.seo_schema_type),
-        },
-        {
-            label: 'URL thân thiện SEO (Slug tiếng Việt không dấu)',
-            detail: 'Áp dụng cho toàn bộ trang Dự án tiêu biểu và Bài viết tin tức.',
-            passed: true,
         },
     ];
 });
@@ -962,3 +1377,20 @@ function submitSeoSettings(): void {
     });
 }
 </script>
+
+<style scoped>
+.seo-entity-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-top: 8px;
+}
+
+.seo-entity-toolbar .search {
+    min-width: 280px;
+    flex: 1;
+    max-width: 380px;
+}
+</style>

@@ -27,6 +27,35 @@
                         />
                     </div>
                     <div class="field full">
+                        <div class="seo-label-row">
+                            <label>TỐI ƯU SEO GOOGLE (ĐỂ TRỐNG SẼ TỰ ĐỘNG TẠO CHUẨN SEO)</label>
+                            <button type="button" class="mini" @click="autoFillArticleSeo">✨ Tự động tạo SEO</button>
+                        </div>
+                        <input
+                            v-model="seoTitle"
+                            name="seo_title"
+                            type="text"
+                            maxlength="180"
+                            placeholder="Tiêu đề SEO (Meta Title) - Để trống tự động tạo"
+                            style="margin-bottom: 8px"
+                        >
+                        <textarea
+                            v-model="seoDescription"
+                            name="seo_description"
+                            rows="2"
+                            maxlength="350"
+                            placeholder="Mô tả SEO (Meta Description) - Để trống tự động tạo"
+                            style="margin-bottom: 8px"
+                        ></textarea>
+                        <input
+                            v-model="seoKeywords"
+                            name="seo_keywords"
+                            type="text"
+                            maxlength="500"
+                            placeholder="Từ khóa SEO (Meta Keywords, cách nhau bởi dấu phẩy)"
+                        >
+                    </div>
+                    <div class="field full">
                         <label>Ảnh bìa</label>
                         <label class="image-upload">
                             <div>
@@ -75,6 +104,9 @@
         title: string;
         excerpt: string;
         content: string;
+        seo_title?: string | null;
+        seo_description?: string | null;
+        seo_keywords?: string | null;
         is_published: boolean;
         image_url: string | null;
     };
@@ -92,11 +124,24 @@
     const title = ref('');
     const excerpt = ref('');
     const content = ref('');
+    const seoTitle = ref('');
+    const seoDescription = ref('');
+    const seoKeywords = ref('');
     const isPublished = ref(true);
     const cover = ref<File | null>(null);
     const coverPreview = ref<string | null>(null);
     const isSubmitting = ref(false);
     const errorMessage = ref('');
+
+    function autoFillArticleSeo(): void {
+        const artTitle = title.value.trim() || 'Bài viết kỹ thuật HVAC';
+        seoTitle.value = (artTitle.length < 28 ? `${artTitle} - Cẩm Nang Kỹ Thuật | HVAC Mart` : `${artTitle} | HVAC Mart`).slice(0, 160);
+        const rawExcerpt = excerpt.value.trim() || content.value.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+        seoDescription.value = (rawExcerpt
+            ? (rawExcerpt.length < 95 ? `${rawExcerpt}. Chuyên đề kỹ thuật cơ điện MEP và giải pháp vật tư công trình từ HVAC Mart.` : rawExcerpt)
+            : `Tìm hiểu chi tiết ${artTitle} cùng đội ngũ kỹ sư HVAC Mart.`).slice(0, 160);
+        seoKeywords.value = [artTitle, 'cẩm nang kỹ thuật HVAC', 'giải pháp cơ điện MEP', 'bình nước nóng Ariston', 'bảo ôn K-Flex', 'HVAC Mart'].join(', ');
+    }
 
     watch(
         () => props.open,
@@ -108,6 +153,9 @@
             title.value = props.article?.title ?? '';
             excerpt.value = props.article?.excerpt ?? '';
             content.value = props.article?.content ?? '';
+            seoTitle.value = props.article?.seo_title ?? '';
+            seoDescription.value = props.article?.seo_description ?? '';
+            seoKeywords.value = props.article?.seo_keywords ?? '';
             isPublished.value = props.article?.is_published ?? true;
             errorMessage.value = '';
             clearCover();
@@ -165,6 +213,9 @@
             title: title.value,
             excerpt: excerpt.value,
             content: content.value,
+            seo_title: seoTitle.value.trim() || null,
+            seo_description: seoDescription.value.trim() || null,
+            seo_keywords: seoKeywords.value.trim() || null,
             is_published: isPublished.value,
         };
 

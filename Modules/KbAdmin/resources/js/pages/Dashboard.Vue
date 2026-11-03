@@ -100,6 +100,10 @@
                     </div>
                     <strong>{{ metric.count }}</strong>
                 </div>
+
+                <div style="margin-top:16px">
+                    <Link class="btn primary" href="/admin/visits">Xem 20 lượt truy cập gần nhất <FontAwesomeIcon :icon="['fas', 'arrow-right']" class="icon-ne" /></Link>
+                </div>
             </div>
 
             <div class="card">

@@ -150,22 +150,25 @@ const normalize = (value: string): string =>
 const visibleProducts = computed(() => {
     const query = normalize(searchQuery.value.trim());
 
-    return props.products.filter((product) => {
-        const category = product.category?.name ?? '';
-        const subcategory = product.subcategory?.name ?? '';
-        const matchesFilter =
-            activeFilter.value === 'all' ||
-            String(product.category_id) === activeFilter.value;
-        const matchesSubcategory =
-            activeSubcategoryId.value === null ||
-            product.subcategory_id === activeSubcategoryId.value;
-        const matchesSearch =
-            query === '' ||
-            normalize(`${product.product_title ?? ''} ${product.name} ${product.description} ${category} ${subcategory}`)
-                .includes(query);
+    return props.products
+        .filter((product) => Number(product.tag ?? 1) === 1)
+        .slice(0, 8)
+        .filter((product) => {
+            const category = product.category?.name ?? '';
+            const subcategory = product.subcategory?.name ?? '';
+            const matchesFilter =
+                activeFilter.value === 'all' ||
+                String(product.category_id) === activeFilter.value;
+            const matchesSubcategory =
+                activeSubcategoryId.value === null ||
+                product.subcategory_id === activeSubcategoryId.value;
+            const matchesSearch =
+                query === '' ||
+                normalize(`${product.product_title ?? ''} ${product.name} ${product.description} ${category} ${subcategory}`)
+                    .includes(query);
 
-        return matchesFilter && matchesSubcategory && matchesSearch;
-    });
+            return matchesFilter && matchesSubcategory && matchesSearch;
+        });
 });
 
 const productsPerPage = 8;

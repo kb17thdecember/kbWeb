@@ -24,6 +24,9 @@ class Article extends Model
         'slug',
         'excerpt',
         'content',
+        'seo_title',
+        'seo_description',
+        'seo_keywords',
         'is_published',
         'published_at',
     ];
@@ -47,6 +50,10 @@ class Article extends Model
     {
         static::creating(function (Article $article): void {
             $article->slug = static::uniqueSlug($article->title);
+        });
+
+        static::saving(function (Article $article): void {
+            SeoAutoIndexService::ensureArticleSeo($article);
         });
 
         static::saved(function (Article $article): void {

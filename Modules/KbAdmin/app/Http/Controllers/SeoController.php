@@ -21,6 +21,8 @@ class SeoController extends Controller
 {
     public function index(AdminDashboardStats $dashboardStats): Response
     {
+        SeoAutoIndexService::syncAllEntitiesSeo(false);
+
         $productsCount = Product::query()->count();
         $productsWithDescCount = Product::query()
             ->whereNotNull('description')
@@ -28,6 +30,12 @@ class SeoController extends Controller
             ->count();
         $productsWithImageCount = Product::query()
             ->whereHas('images')
+            ->count();
+        $productsWithSeoCount = Product::query()
+            ->whereNotNull('seo_title')
+            ->whereRaw('LENGTH(TRIM(seo_title)) >= 10')
+            ->whereNotNull('seo_description')
+            ->whereRaw('LENGTH(TRIM(seo_description)) >= 30')
             ->count();
 
         $projectsCount = FeaturedProject::query()->count();
@@ -42,9 +50,21 @@ class SeoController extends Controller
             ->whereNotNull('excerpt')
             ->whereRaw('LENGTH(TRIM(excerpt)) >= 30')
             ->count();
+        $articlesWithSeoCount = Article::query()
+            ->whereNotNull('seo_title')
+            ->whereRaw('LENGTH(TRIM(seo_title)) >= 10')
+            ->whereNotNull('seo_description')
+            ->whereRaw('LENGTH(TRIM(seo_description)) >= 30')
+            ->count();
 
         $cataloguesCount = Catalogue::query()->published()->count();
         $categoryUrlsCount = Category::query()->count();
+        $categoriesWithSeoCount = Category::query()
+            ->whereNotNull('seo_title')
+            ->whereRaw('LENGTH(TRIM(seo_title)) >= 10')
+            ->whereNotNull('seo_description')
+            ->whereRaw('LENGTH(TRIM(seo_description)) >= 30')
+            ->count();
         $staticPagesCount = 9;
 
         $sampleProjects = FeaturedProject::query()
@@ -61,29 +81,66 @@ class SeoController extends Controller
             ])
             ->values();
 
-        $sampleProducts = Product::query()
-            ->latest('id')
-            ->limit(5)
-            ->get(['id', 'name', 'product_title'])
+        $allProducts = Product::query()
+            ->with(['category:id,name', 'subcategory:id,name'])
+            ->orderByDesc('id')
+            ->get(['id', 'name', 'product_title', 'category_id', 'subcategory_id', 'description', 'seo_title', 'seo_description', 'seo_keywords'])
             ->map(fn (Product $product): array => [
                 'id' => $product->id,
                 'name' => $product->name,
                 'slug' => $product->slug,
                 'subtitle' => $product->product_title,
+                'category_name' => $product->category?->name,
+                'subcategory_name' => $product->subcategory?->name,
+                'seo_title' => (string) ($product->seo_title ?? ''),
+                'seo_description' => (string) ($product->seo_description ?? ''),
+                'seo_keywords' => (string) ($product->seo_keywords ?? ''),
                 'url' => SiteSetting::canonicalUrl('/products/'.$product->slug),
                 'path' => '/products/'.$product->slug,
             ])
             ->values();
 
-        $sampleArticles = Article::query()
-            ->published()
-            ->latest('published_at')
-            ->limit(5)
-            ->get(['id', 'title', 'slug'])
+        $allCategories = Category::query()
+            ->with('parent:id,name')
+            ->orderByRaw('CASE WHEN parent_id IS NULL THEN 0 ELSE 1 END')
+            ->orderBy('parent_id')
+            ->orderBy('name')
+            ->get(['id', 'name', 'parent_id', 'description', 'seo_title', 'seo_description', 'seo_keywords'])
+            ->map(function (Category $category): array {
+                $parentSlug = $category->parent?->slug ?? (string) $category->parent_id;
+                $path = $category->parent_id !== null
+                    ? '/categories/'.$parentSlug.'/'.$category->slug
+                    : '/categories/'.$category->slug;
+
+                return [
+                    'id' => $category->id,
+                    'name' => $category->name,
+                    'slug' => $category->slug,
+                    'parent_id' => $category->parent_id,
+                    'parent_name' => $category->parent?->name,
+                    'description' => $category->description,
+                    'seo_title' => (string) ($category->seo_title ?? ''),
+                    'seo_description' => (string) ($category->seo_description ?? ''),
+                    'seo_keywords' => (string) ($category->seo_keywords ?? ''),
+                    'url' => SiteSetting::canonicalUrl($path),
+                    'path' => $path,
+                ];
+            })
+            ->values();
+
+        $allArticles = Article::query()
+            ->orderByDesc('published_at')
+            ->orderByDesc('id')
+            ->get(['id', 'title', 'slug', 'excerpt', 'is_published', 'published_at', 'seo_title', 'seo_description', 'seo_keywords'])
             ->map(fn (Article $article): array => [
                 'id' => $article->id,
                 'title' => $article->title,
                 'slug' => $article->slug,
+                'excerpt' => $article->excerpt,
+                'is_published' => (bool) $article->is_published,
+                'seo_title' => (string) ($article->seo_title ?? ''),
+                'seo_description' => (string) ($article->seo_description ?? ''),
+                'seo_keywords' => (string) ($article->seo_keywords ?? ''),
                 'url' => SiteSetting::canonicalUrl('/news/'.$article->slug),
                 'path' => '/news/'.$article->slug,
             ])
@@ -92,23 +149,33 @@ class SeoController extends Controller
         return Inertia::render('seo/Index', [
             'settings' => SiteSetting::allSettings(),
             'defaults' => SiteSetting::defaults(),
+            'seoEntities' => [
+                'products' => $allProducts,
+                'categories' => $allCategories,
+                'articles' => $allArticles,
+            ],
             'seoAudit' => [
                 'staticPagesCount' => $staticPagesCount,
+                'categoriesCount' => $categoryUrlsCount,
+                'categoriesWithSeoCount' => $categoriesWithSeoCount,
                 'productsCount' => $productsCount,
                 'productsWithDescCount' => $productsWithDescCount,
                 'productsWithImageCount' => $productsWithImageCount,
+                'productsWithSeoCount' => $productsWithSeoCount,
                 'projectsCount' => $projectsCount,
                 'projectsWithDescCount' => $projectsWithDescCount,
                 'articlesCount' => $articlesCount,
+                'articlesTotalCount' => $allArticles->count(),
                 'articlesWithExcerptCount' => $articlesWithExcerptCount,
+                'articlesWithSeoCount' => $articlesWithSeoCount,
                 'cataloguesCount' => $cataloguesCount,
                 'totalIndexedUrls' => $staticPagesCount + $categoryUrlsCount + $productsCount + $projectsCount + $articlesCount,
                 'sitemapUrl' => SiteSetting::canonicalUrl('/sitemap.xml'),
                 'robotsUrl' => SiteSetting::canonicalUrl('/robots.txt'),
                 'baseUrl' => SiteSetting::canonicalBaseUrl(),
                 'sampleProjects' => $sampleProjects,
-                'sampleProducts' => $sampleProducts,
-                'sampleArticles' => $sampleArticles,
+                'sampleProducts' => $allProducts->take(5)->values(),
+                'sampleArticles' => $allArticles->where('is_published', true)->take(5)->values(),
             ],
             ...$dashboardStats->summary(),
         ]);
@@ -130,6 +197,8 @@ class SeoController extends Controller
             'seo_geo_placename' => ['required', 'string', 'max:120'],
             'seo_home_title' => ['required', 'string', 'max:160'],
             'seo_home_description' => ['required', 'string', 'max:320'],
+            'seo_categories_title' => ['nullable', 'string', 'max:160'],
+            'seo_categories_description' => ['nullable', 'string', 'max:320'],
             'seo_products_title' => ['required', 'string', 'max:160'],
             'seo_products_description' => ['required', 'string', 'max:320'],
             'seo_projects_title' => ['required', 'string', 'max:160'],
@@ -171,6 +240,84 @@ class SeoController extends Controller
 
         return to_route('admin.seo.index')
             ->with('toast', 'Đã lưu cấu hình SEO & đồng bộ chuẩn hiển thị Google thành công.');
+    }
+
+    public function generateAll(): RedirectResponse
+    {
+        $counts = SeoAutoIndexService::syncAllEntitiesSeo(true);
+
+        return to_route('admin.seo.index')
+            ->with(
+                'toast',
+                sprintf(
+                    'Đã tự động tạo & chuẩn hóa SEO cho %d sản phẩm, %d danh mục và %d bài viết.',
+                    $counts['products'],
+                    $counts['categories'],
+                    $counts['articles'],
+                ),
+            );
+    }
+
+    public function updateEntity(Request $request, string $type, int $id): RedirectResponse
+    {
+        abort_unless(in_array($type, ['product', 'category', 'article'], true), 404);
+
+        $autoGenerate = $request->boolean('auto_generate');
+
+        $validated = $request->validate([
+            'seo_title' => [$autoGenerate ? 'nullable' : 'required', 'string', 'max:180'],
+            'seo_description' => [$autoGenerate ? 'nullable' : 'required', 'string', 'max:350'],
+            'seo_keywords' => ['nullable', 'string', 'max:500'],
+        ]);
+
+        if ($type === 'product') {
+            $product = Product::query()->with(['category:id,name', 'subcategory:id,name'])->findOrFail($id);
+            if ($autoGenerate) {
+                $generated = SeoAutoIndexService::generateProductSeo($product);
+                $product->forceFill($generated)->save();
+            } else {
+                $product->forceFill([
+                    'seo_title' => trim((string) $validated['seo_title']),
+                    'seo_description' => trim((string) $validated['seo_description']),
+                    'seo_keywords' => trim((string) ($validated['seo_keywords'] ?? '')),
+                ])->save();
+            }
+
+            return to_route('admin.seo.index')
+                ->with('toast', 'Đã cập nhật SEO cho sản phẩm: '.$product->name);
+        }
+
+        if ($type === 'category') {
+            $category = Category::query()->with('parent:id,name')->findOrFail($id);
+            if ($autoGenerate) {
+                $generated = SeoAutoIndexService::generateCategorySeo($category);
+                $category->forceFill($generated)->save();
+            } else {
+                $category->forceFill([
+                    'seo_title' => trim((string) $validated['seo_title']),
+                    'seo_description' => trim((string) $validated['seo_description']),
+                    'seo_keywords' => trim((string) ($validated['seo_keywords'] ?? '')),
+                ])->save();
+            }
+
+            return to_route('admin.seo.index')
+                ->with('toast', 'Đã cập nhật SEO cho danh mục: '.$category->name);
+        }
+
+        $article = Article::query()->findOrFail($id);
+        if ($autoGenerate) {
+            $generated = SeoAutoIndexService::generateArticleSeo($article);
+            $article->forceFill($generated)->save();
+        } else {
+            $article->forceFill([
+                'seo_title' => trim((string) $validated['seo_title']),
+                'seo_description' => trim((string) $validated['seo_description']),
+                'seo_keywords' => trim((string) ($validated['seo_keywords'] ?? '')),
+            ])->save();
+        }
+
+        return to_route('admin.seo.index')
+            ->with('toast', 'Đã cập nhật SEO cho bài viết: '.$article->title);
     }
 
     public function ping(): RedirectResponse

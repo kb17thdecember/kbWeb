@@ -6,13 +6,20 @@
                 <p>Thêm, sửa, xóa mặt hàng và quản lý thư viện ảnh.</p>
             </div>
             <div class="actions">
-                <Link class="btn" href="/admin/kflex-prices">🏷️ Bảng giá chi tiết K-Flex</Link>
                 <button class="btn primary" type="button" @click="createProduct">＋ Thêm sản phẩm</button>
                 <input v-model="search" class="search" type="search" placeholder="Tìm sản phẩm..." aria-label="Tìm sản phẩm">
             </div>
         </div>
 
         <div class="filters">
+            <label>
+                LOẠI SẢN PHẨM
+                <select v-model="tagFilter" aria-label="Lọc theo loại sản phẩm">
+                    <option value="all">Tất cả ({{ products.length }})</option>
+                    <option value="1">Nổi bật ({{ featuredProductsCount }})</option>
+                    <option value="0">Thông thường ({{ products.length - featuredProductsCount }})</option>
+                </select>
+            </label>
             <div class="filter-group">
                 <span>TỪ NGÀY</span>
                 <AdminDatePicker v-model="dateFrom" placeholder="Chọn từ ngày..." aria-label="Lọc sản phẩm từ ngày" />
@@ -22,11 +29,11 @@
                 <AdminDatePicker v-model="dateTo" placeholder="Chọn đến ngày..." aria-label="Lọc sản phẩm đến ngày" />
             </div>
             <button
-                v-if="dateFrom || dateTo"
+                v-if="dateFrom || dateTo || tagFilter !== 'all'"
                 class="btn"
                 type="button"
                 @click="clearDates"
-            >Xóa lọc ngày</button>
+            >Xóa lọc</button>
             <em>{{ filteredProducts.length }} / {{ products.length }} sản phẩm</em>
         </div>
 
@@ -36,6 +43,7 @@
                     <tr>
                         <th>Sản phẩm</th>
                         <th>Danh mục</th>
+                        <th>Loại sản phẩm</th>
                         <th>Giá tham khảo</th>
                         <th>Ảnh</th>
                         <th>Thao tác</th>
@@ -52,16 +60,29 @@
                                 <div>
                                     <b>{{ product.name }}</b>
                                     <small>{{ product.product_title }}</small>
-                                    <small>{{ product.tag }}</small>
                                 </div>
                             </div>
                         </td>
                         <td>
-                            {{ product.category?.name ?? 'Không xác định' }} -
-                            <small>{{ product.subcategory?.name ?? 'Chưa có dòng sản phẩm' }}</small>
+                            <b>{{ product.category?.name ?? 'Không xác định' }}</b>
+                            <small class="muted">{{ product.subcategory?.name ?? 'Chưa có dòng sản phẩm' }}</small>
                         </td>
-                        <td>{{ product.price }}</td>
-                        <td>{{ product.image?.length ?? 0 }}</td>
+                        <td>
+                            <span
+                                v-if="Number(product.tag) === 1"
+                                class="badge"
+                                style="background: #f1e8d6; color: #8e7443; border: 1px solid #d8c398"
+                            >★ Nổi bật</span>
+                            <span v-else class="badge">Thông thường</span>
+                        </td>
+                        <td>
+                            <b>{{ formatPrice(product.price) }}</b>
+                        </td>
+                        <td>
+                            <span class="badge" style="background: #f4efe4; color: #6b5e43">
+                                {{ product.image?.length ?? 0 }} ảnh
+                            </span>
+                        </td>
                         <td>
                             <div class="row-actions">
                                 <button
@@ -140,8 +161,12 @@
                         <div>{{ detailProduct.subcategory?.name ?? 'Chưa có dòng sản phẩm' }}</div>
                     </div>
                     <div class="request-detail-item">
+                        <small>Loại sản phẩm</small>
+                        <div>{{ Number(detailProduct.tag) === 1 ? 'Nổi bật (Hiển thị trang chủ)' : 'Thông thường' }}</div>
+                    </div>
+                    <div class="request-detail-item">
                         <small>Giá tham khảo</small>
-                        <div>{{ detailProduct.price }}</div>
+                        <div>{{ formatPrice(detailProduct.price) }}</div>
                     </div>
                     <div class="request-detail-item">
                         <small>Ngày tạo</small>
@@ -170,7 +195,7 @@
 </template>
 
 <script setup lang="ts">
-    import { Link, router } from '@inertiajs/vue3';
+    import { router } from '@inertiajs/vue3';
     import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
     import AdminLayout from '../../layout/AdminLayout.Vue';
     import AdminDatePicker from '../../components/AdminDatePicker.Vue';
@@ -215,6 +240,7 @@
 
     const isProductModalOpen = ref(false);
     const search = ref('');
+    const tagFilter = ref<'all' | '0' | '1'>('all');
     const dateFrom = ref('');
     const dateTo = ref('');
     const selectedProduct = ref<Product | null>(null);
@@ -224,21 +250,31 @@
     const toastMessage = ref('');
     let toastTimeout: ReturnType<typeof setTimeout> | undefined;
 
+    const featuredProductsCount = computed(
+        () => props.products.filter((product) => Number(product.tag) === 1).length,
+    );
+
     const filteredProducts = computed(() => {
         const query = search.value.trim().toLocaleLowerCase();
 
         return props.products.filter((product) => {
+            const productTagLabel = Number(product.tag) === 1 ? 'nổi bật' : 'thông thường';
             const matchesQuery = !query || [
                 product.name,
                 product.product_title ?? '',
                 product.category?.name ?? '',
                 product.subcategory?.name ?? '',
-                product.tag?.toString() ?? '',
+                productTagLabel,
             ].some((value) => value.toLocaleLowerCase().includes(query));
+            const matchesTag =
+                tagFilter.value === 'all'
+                || (tagFilter.value === '1' && Number(product.tag) === 1)
+                || (tagFilter.value === '0' && Number(product.tag) !== 1);
             const createdDate = dateKey(product.created_at);
 
             return (
                 matchesQuery
+                && matchesTag
                 && (!dateFrom.value || (createdDate && createdDate >= dateFrom.value))
                 && (!dateTo.value || (createdDate && createdDate <= dateTo.value))
             );
@@ -246,7 +282,7 @@
     });
     const { currentPage, goToPage, paginatedItems: paginatedProducts, resetPage } = useClientPagination(filteredProducts);
 
-    watch([search, dateFrom, dateTo], resetPage);
+    watch([search, tagFilter, dateFrom, dateTo], resetPage);
 
     function dateKey(value?: string | null): string {
         if (!value) {
@@ -263,6 +299,10 @@
         const day = String(date.getDate()).padStart(2, '0');
 
         return `${year}-${month}-${day}`;
+    }
+
+    function formatPrice(price: number): string {
+        return price > 0 ? `${new Intl.NumberFormat('vi-VN').format(price)} ₫` : 'Liên hệ';
     }
 
     function formatDate(value?: string | null): string {
@@ -285,6 +325,7 @@
     }
 
     function clearDates(): void {
+        tagFilter.value = 'all';
         dateFrom.value = '';
         dateTo.value = '';
     }

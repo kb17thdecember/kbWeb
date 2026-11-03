@@ -62,6 +62,9 @@ class CategoryController extends Controller
             ],
             'description' => ['nullable', 'string', 'max:255'],
             'description_2' => ['nullable', 'string', 'max:65535'],
+            'seo_title' => ['nullable', 'string', 'max:180'],
+            'seo_description' => ['nullable', 'string', 'max:350'],
+            'seo_keywords' => ['nullable', 'string', 'max:500'],
             'image' => ['nullable', 'image', 'max:5120'],
         ]);
 
@@ -93,6 +96,9 @@ class CategoryController extends Controller
             ],
             'description' => ['nullable', 'string', 'max:255'],
             'description_2' => ['nullable', 'string', 'max:65535'],
+            'seo_title' => ['nullable', 'string', 'max:180'],
+            'seo_description' => ['nullable', 'string', 'max:350'],
+            'seo_keywords' => ['nullable', 'string', 'max:500'],
             'image' => ['nullable', 'image', 'max:5120'],
             'remove_image' => ['sometimes', 'boolean'],
         ]);

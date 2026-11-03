@@ -24,73 +24,203 @@
 
     $extraSchemas = [];
 
+    $toArrayPayload = static function (mixed $item): ?array {
+        if ($item instanceof \Illuminate\Contracts\Support\Arrayable) {
+            return $item->toArray();
+        }
+        if (is_array($item)) {
+            return $item;
+        }
+        if (is_object($item)) {
+            return (array) $item;
+        }
+
+        return null;
+    };
+
+    $resolveAbsImage = static function (?string $rawPath) use ($canonicalBase): ?string {
+        $trimmed = trim((string) $rawPath);
+        if ($trimmed === '' || str_starts_with($trimmed, 'data:')) {
+            return null;
+        }
+        if (str_starts_with($trimmed, 'http://') || str_starts_with($trimmed, 'https://')) {
+            return $trimmed;
+        }
+
+        return $canonicalBase . '/' . (str_starts_with($trimmed, '/') ? ltrim($trimmed, '/') : 'storage/' . $trimmed);
+    };
+
     if ($componentName === 'Home') {
         $seoTitle = $siteSettings['seo_home_title'] ?: $seoTitle;
         $seoDescription = $siteSettings['seo_home_description'] ?: $seoDescription;
     } elseif ($componentName === 'products/Index' || $componentName === 'categories/Index') {
-        $seoTitle = $siteSettings['seo_products_title'] ?: $seoTitle;
-        $seoDescription = $siteSettings['seo_products_description'] ?: $seoDescription;
-        $selCat = is_array($pageProps['selectedCategory'] ?? null) ? $pageProps['selectedCategory'] : null;
-        $selSub = is_array($pageProps['selectedSubcategory'] ?? null) ? $pageProps['selectedSubcategory'] : null;
+        if ($componentName === 'categories/Index') {
+            $seoTitle = ($siteSettings['seo_categories_title'] ?? '') ?: ($siteSettings['seo_products_title'] ?: $seoTitle);
+            $seoDescription = ($siteSettings['seo_categories_description'] ?? '') ?: ($siteSettings['seo_products_description'] ?: $seoDescription);
+        } else {
+            $seoTitle = $siteSettings['seo_products_title'] ?: $seoTitle;
+            $seoDescription = $siteSettings['seo_products_description'] ?: $seoDescription;
+        }
+
+        $selCat = $toArrayPayload($pageProps['selectedCategory'] ?? null);
+        $selSub = $toArrayPayload($pageProps['selectedSubcategory'] ?? null);
 
         if ($selCat !== null) {
             $catName = trim((string) ($selCat['name'] ?? ''));
             $catSlug = trim((string) ($selCat['slug'] ?? $selCat['id'] ?? ''));
             $catDesc = strip_tags((string) ($selCat['description'] ?? ''));
+            $catSeoTitle = trim((string) ($selCat['seo_title'] ?? ''));
+            $catSeoDesc = trim((string) ($selCat['seo_description'] ?? ''));
+            $catSeoKeywords = trim((string) ($selCat['seo_keywords'] ?? ''));
+            $catImg = $resolveAbsImage((string) ($selCat['image_url'] ?? $selCat['image'] ?? ''));
 
             if ($selSub !== null) {
                 $subName = trim((string) ($selSub['name'] ?? ''));
                 $subSlug = trim((string) ($selSub['slug'] ?? $selSub['id'] ?? ''));
                 $subDesc = strip_tags((string) ($selSub['description'] ?? ''));
+                $subSeoTitle = trim((string) ($selSub['seo_title'] ?? ''));
+                $subSeoDesc = trim((string) ($selSub['seo_description'] ?? ''));
+                $subSeoKeywords = trim((string) ($selSub['seo_keywords'] ?? ''));
+                $subImg = $resolveAbsImage((string) ($selSub['image_url'] ?? $selSub['image'] ?? '')) ?? $catImg;
 
-                if ($subName !== '') {
-                    $seoTitle = $subName . ($catName !== '' ? ' - ' . $catName : '') . ' | ' . $companyName;
+                if ($subSeoTitle !== '') {
+                    $seoTitle = $subSeoTitle;
+                } elseif ($subName !== '') {
+                    $seoTitle = $subName . ($catName !== '' ? ' - ' . $catName : '') . ' Chính Hãng | ' . $companyName;
                 }
-                if ($subDesc !== '') {
+
+                if ($subSeoDesc !== '') {
+                    $seoDescription = $subSeoDesc;
+                } elseif ($subDesc !== '') {
                     $seoDescription = \Illuminate\Support\Str::limit($subDesc, 160);
+                } elseif ($catSeoDesc !== '') {
+                    $seoDescription = $catSeoDesc;
                 } elseif ($catDesc !== '') {
                     $seoDescription = \Illuminate\Support\Str::limit($catDesc, 160);
                 }
+
+                if ($subSeoKeywords !== '') {
+                    $seoKeywords = $subSeoKeywords;
+                } elseif ($catSeoKeywords !== '') {
+                    $seoKeywords = $catSeoKeywords;
+                }
+
+                if ($subImg !== null) {
+                    $seoImage = $subImg;
+                }
+
                 if ($catSlug !== '' && $subSlug !== '') {
                     $canonicalUrl = $canonicalBase . '/categories/' . $catSlug . '/' . $subSlug;
                 }
+
+                $extraSchemas[] = [
+                    '@context' => 'https://schema.org',
+                    '@type' => 'CollectionPage',
+                    'name' => $seoTitle,
+                    'description' => $seoDescription,
+                    'url' => $canonicalUrl,
+                ];
+                $extraSchemas[] = [
+                    '@context' => 'https://schema.org',
+                    '@type' => 'BreadcrumbList',
+                    'itemListElement' => [
+                        ['@type' => 'ListItem', 'position' => 1, 'name' => 'Trang chủ', 'item' => $canonicalBase . '/'],
+                        ['@type' => 'ListItem', 'position' => 2, 'name' => 'Danh mục', 'item' => $canonicalBase . '/categories'],
+                        ['@type' => 'ListItem', 'position' => 3, 'name' => $catName, 'item' => $canonicalBase . '/categories/' . $catSlug],
+                        ['@type' => 'ListItem', 'position' => 4, 'name' => $subName, 'item' => $canonicalUrl],
+                    ],
+                ];
             } else {
-                if ($catName !== '') {
-                    $seoTitle = 'Danh mục ' . $catName . ' | ' . $companyName;
+                if ($catSeoTitle !== '') {
+                    $seoTitle = $catSeoTitle;
+                } elseif ($catName !== '') {
+                    $seoTitle = 'Danh mục ' . $catName . ' Chính Hãng | ' . $companyName;
                 }
-                if ($catDesc !== '') {
+
+                if ($catSeoDesc !== '') {
+                    $seoDescription = $catSeoDesc;
+                } elseif ($catDesc !== '') {
                     $seoDescription = \Illuminate\Support\Str::limit($catDesc, 160);
                 }
+
+                if ($catSeoKeywords !== '') {
+                    $seoKeywords = $catSeoKeywords;
+                }
+
+                if ($catImg !== null) {
+                    $seoImage = $catImg;
+                }
+
                 if ($catSlug !== '') {
                     $canonicalUrl = $canonicalBase . '/categories/' . $catSlug;
                 }
+
+                $extraSchemas[] = [
+                    '@context' => 'https://schema.org',
+                    '@type' => 'CollectionPage',
+                    'name' => $seoTitle,
+                    'description' => $seoDescription,
+                    'url' => $canonicalUrl,
+                ];
+                $extraSchemas[] = [
+                    '@context' => 'https://schema.org',
+                    '@type' => 'BreadcrumbList',
+                    'itemListElement' => [
+                        ['@type' => 'ListItem', 'position' => 1, 'name' => 'Trang chủ', 'item' => $canonicalBase . '/'],
+                        ['@type' => 'ListItem', 'position' => 2, 'name' => 'Danh mục', 'item' => $canonicalBase . '/categories'],
+                        ['@type' => 'ListItem', 'position' => 3, 'name' => $catName, 'item' => $canonicalUrl],
+                    ],
+                ];
             }
         }
     } elseif ($componentName === 'products/Show' && ! empty($pageProps['product'])) {
-        $prod = (array) $pageProps['product'];
+        $prod = $toArrayPayload($pageProps['product']) ?? [];
         $prodName = trim((string) ($prod['name'] ?? 'Sản phẩm HVAC'));
         $prodSub = trim((string) ($prod['product_title'] ?? ''));
-        $seoTitle = $prodName . ($prodSub !== '' ? ' - ' . $prodSub : '') . ' | ' . $companyName;
+        $prodSlug = trim((string) ($prod['slug'] ?? $prod['id'] ?? ''));
+        $customProdTitle = trim((string) ($prod['seo_title'] ?? ''));
+        $customProdDesc = trim((string) ($prod['seo_description'] ?? ''));
+        $customProdKeywords = trim((string) ($prod['seo_keywords'] ?? ''));
+
+        $seoTitle = $customProdTitle !== ''
+            ? $customProdTitle
+            : ($prodName . ($prodSub !== '' ? ' - ' . $prodSub : '') . ' | ' . $companyName);
+
         $rawDesc = strip_tags((string) ($prod['description'] ?? ''));
-        $seoDescription = $rawDesc !== ''
-            ? \Illuminate\Support\Str::limit($rawDesc, 160)
-            : ('Thông số kỹ thuật và báo giá ' . $prodName . ' chính hãng tại ' . $companyName . '.');
-        $firstImg = is_array($prod['image'] ?? null) ? ($prod['image'][0] ?? null) : null;
-        if (is_string($firstImg) && $firstImg !== '') {
-            $seoImage = str_starts_with($firstImg, 'http')
-                ? $firstImg
-                : $canonicalBase . '/' . (str_starts_with($firstImg, '/') ? ltrim($firstImg, '/') : 'storage/' . $firstImg);
+        $seoDescription = $customProdDesc !== ''
+            ? $customProdDesc
+            : ($rawDesc !== ''
+                ? \Illuminate\Support\Str::limit($rawDesc, 160)
+                : ('Thông số kỹ thuật và báo giá ' . $prodName . ' chính hãng tại ' . $companyName . '.'));
+
+        if ($customProdKeywords !== '') {
+            $seoKeywords = $customProdKeywords;
         }
+
+        if ($prodSlug !== '') {
+            $canonicalUrl = $canonicalBase . '/products/' . $prodSlug;
+        }
+
+        $firstImg = is_array($prod['image'] ?? null) ? ($prod['image'][0] ?? null) : null;
+        $resolvedProdImg = is_string($firstImg) ? $resolveAbsImage($firstImg) : null;
+        if ($resolvedProdImg !== null) {
+            $seoImage = $resolvedProdImg;
+        }
+
         $ogType = 'product';
-        $extraSchemas[] = [
+        $brandName = (string) data_get($prod, 'category.name', $companyName);
+        $subCatName = (string) data_get($prod, 'subcategory.name', $brandName);
+        $productSchema = [
             '@context' => 'https://schema.org',
             '@type' => 'Product',
             'name' => $prodName,
+            'sku' => 'SP-' . ($prod['id'] ?? '0'),
+            'category' => $subCatName,
             'description' => $seoDescription,
             'image' => [$seoImage],
             'brand' => [
                 '@type' => 'Brand',
-                'name' => data_get($prod, 'category.name', $companyName),
+                'name' => $brandName,
             ],
             'offers' => [
                 '@type' => 'Offer',
@@ -98,13 +228,40 @@
                 'priceCurrency' => 'VND',
                 'price' => (float) ($prod['price'] ?? 0),
                 'availability' => 'https://schema.org/InStock',
+                'seller' => [
+                    '@type' => 'Organization',
+                    'name' => $companyName,
+                ],
+            ],
+        ];
+
+        $reviewsCount = (int) ($pageProps['reviewsCount'] ?? 0);
+        $averageRating = (float) ($pageProps['averageRating'] ?? 0);
+        if ($reviewsCount > 0 && $averageRating > 0) {
+            $productSchema['aggregateRating'] = [
+                '@type' => 'AggregateRating',
+                'ratingValue' => $averageRating,
+                'reviewCount' => $reviewsCount,
+                'bestRating' => 5,
+                'worstRating' => 1,
+            ];
+        }
+
+        $extraSchemas[] = $productSchema;
+        $extraSchemas[] = [
+            '@context' => 'https://schema.org',
+            '@type' => 'BreadcrumbList',
+            'itemListElement' => [
+                ['@type' => 'ListItem', 'position' => 1, 'name' => 'Trang chủ', 'item' => $canonicalBase . '/'],
+                ['@type' => 'ListItem', 'position' => 2, 'name' => 'Sản phẩm', 'item' => $canonicalBase . '/products'],
+                ['@type' => 'ListItem', 'position' => 3, 'name' => $prodName, 'item' => $canonicalUrl],
             ],
         ];
     } elseif ($componentName === 'featured projects/Index') {
         $seoTitle = $siteSettings['seo_projects_title'] ?: $seoTitle;
         $seoDescription = $siteSettings['seo_projects_description'] ?: $seoDescription;
     } elseif ($componentName === 'featured projects/Show' && ! empty($pageProps['project'])) {
-        $proj = (array) $pageProps['project'];
+        $proj = $toArrayPayload($pageProps['project']) ?? [];
         $projName = trim((string) ($proj['name'] ?? 'Dự án tiêu biểu'));
         $projLocation = trim((string) ($proj['location'] ?? ''));
         $seoTitle = $projName . ($projLocation !== '' ? ' (' . $projLocation . ')' : '') . ' - Dự Án Tiêu Biểu | ' . $companyName;
@@ -112,36 +269,56 @@
         $seoDescription = $rawDesc !== ''
             ? \Illuminate\Support\Str::limit($rawDesc, 160)
             : ('Hồ sơ cung ứng vật tư cơ điện MEP cho dự án ' . $projName . ' tại ' . $companyName . '.');
-        $projImg = (string) ($proj['image_url'] ?? $proj['image'] ?? '');
-        if ($projImg !== '') {
-            $seoImage = str_starts_with($projImg, 'http')
-                ? $projImg
-                : $canonicalBase . '/' . (str_starts_with($projImg, '/') ? ltrim($projImg, '/') : 'storage/' . $projImg);
+        $projImg = $resolveAbsImage((string) ($proj['image_url'] ?? $proj['image'] ?? ''));
+        if ($projImg !== null) {
+            $seoImage = $projImg;
         }
         $ogType = 'article';
     } elseif ($componentName === 'news/Index') {
         $seoTitle = $siteSettings['seo_news_title'] ?: $seoTitle;
         $seoDescription = $siteSettings['seo_news_description'] ?: $seoDescription;
     } elseif ($componentName === 'news/Show' && ! empty($pageProps['article'])) {
-        $art = (array) $pageProps['article'];
+        $art = $toArrayPayload($pageProps['article']) ?? [];
         $artTitle = trim((string) ($art['title'] ?? 'Bài viết kỹ thuật'));
-        $seoTitle = $artTitle . ' | ' . $companyName;
+        $artSlug = trim((string) ($art['slug'] ?? ''));
+        $customArtTitle = trim((string) ($art['seo_title'] ?? ''));
+        $customArtDesc = trim((string) ($art['seo_description'] ?? ''));
+        $customArtKeywords = trim((string) ($art['seo_keywords'] ?? ''));
+
+        $seoTitle = $customArtTitle !== '' ? $customArtTitle : ($artTitle . ' | ' . $companyName);
         $rawExcerpt = strip_tags((string) ($art['excerpt'] ?? $art['content'] ?? ''));
-        $seoDescription = $rawExcerpt !== ''
-            ? \Illuminate\Support\Str::limit($rawExcerpt, 160)
-            : $seoDescription;
-        $artCover = (string) ($art['cover_image_url'] ?? '');
-        if ($artCover !== '') {
-            $seoImage = str_starts_with($artCover, 'http') ? $artCover : $canonicalBase . '/' . ltrim($artCover, '/');
+        $seoDescription = $customArtDesc !== ''
+            ? $customArtDesc
+            : ($rawExcerpt !== ''
+                ? \Illuminate\Support\Str::limit($rawExcerpt, 160)
+                : $seoDescription);
+
+        if ($customArtKeywords !== '') {
+            $seoKeywords = $customArtKeywords;
+        }
+
+        if ($artSlug !== '') {
+            $canonicalUrl = $canonicalBase . '/news/' . $artSlug;
+        }
+
+        $artCover = $resolveAbsImage((string) ($art['image_url'] ?? $art['cover_image_url'] ?? ''));
+        if ($artCover !== null) {
+            $seoImage = $artCover;
         }
         $ogType = 'article';
         $extraSchemas[] = [
             '@context' => 'https://schema.org',
             '@type' => 'NewsArticle',
+            'mainEntityOfPage' => [
+                '@type' => 'WebPage',
+                '@id' => $canonicalUrl,
+            ],
             'headline' => $artTitle,
             'description' => $seoDescription,
+            'keywords' => $seoKeywords,
             'image' => [$seoImage],
             'datePublished' => (string) ($art['published_at'] ?? now()->toAtomString()),
+            'dateModified' => (string) ($art['updated_at'] ?? $art['published_at'] ?? now()->toAtomString()),
             'author' => [
                 '@type' => 'Organization',
                 'name' => (string) ($art['author_name'] ?? $companyName),
@@ -153,6 +330,15 @@
                     '@type' => 'ImageObject',
                     'url' => $canonicalBase . '/favicon.svg',
                 ],
+            ],
+        ];
+        $extraSchemas[] = [
+            '@context' => 'https://schema.org',
+            '@type' => 'BreadcrumbList',
+            'itemListElement' => [
+                ['@type' => 'ListItem', 'position' => 1, 'name' => 'Trang chủ', 'item' => $canonicalBase . '/'],
+                ['@type' => 'ListItem', 'position' => 2, 'name' => 'Tin tức & Kỹ thuật', 'item' => $canonicalBase . '/news'],
+                ['@type' => 'ListItem', 'position' => 3, 'name' => $artTitle, 'item' => $canonicalUrl],
             ],
         ];
     } elseif ($componentName === 'catalogues/Index') {

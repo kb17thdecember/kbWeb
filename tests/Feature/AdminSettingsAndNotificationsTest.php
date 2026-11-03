@@ -1,8 +1,11 @@
 <?php
 
+use App\Models\Article;
+use App\Models\Category;
 use App\Models\ChatConversation;
 use App\Models\ChatMessage;
 use App\Models\Contact;
+use App\Models\Product;
 use App\Models\ProjectReport;
 use App\Models\SiteSetting;
 use App\Models\User;
@@ -91,4 +94,87 @@ test('admin can view and update site settings and changes are shared with user p
             ->where('siteSettings.hotline', '0988.999.888')
             ->where('siteSettings.contact_email', 'contact@hvacmart.vn'),
         );
+});
+
+test('products categories and articles automatically generate seo metadata and can be managed from admin seo', function () {
+    $parentCategory = Category::query()->create([
+        'name' => 'Ariston',
+        'description' => 'Thiết bị nước nóng thương hiệu Ý',
+    ]);
+
+    $childCategory = Category::query()->create([
+        'name' => 'Bình nước nóng gián tiếp',
+        'parent_id' => $parentCategory->id,
+        'description' => 'Dòng bình nước nóng gián tiếp tiết kiệm điện',
+    ]);
+
+    $product = Product::query()->create([
+        'name' => 'Ariston AN2 30 RS',
+        'product_title' => 'Bình nước nóng gián tiếp 30L tráng men Titan',
+        'category_id' => $parentCategory->id,
+        'subcategory_id' => $childCategory->id,
+        'description' => 'Dung tích 30 lít, thanh đốt đồng, vi mạch kiểm soát an toàn.',
+        'price' => 3250000,
+        'quantity' => 10,
+    ]);
+
+    $article = Article::query()->create([
+        'title' => 'Hướng dẫn chọn độ dày bảo ôn K-Flex cho ống đồng',
+        'excerpt' => 'Cách tra cứu bảng độ dày ống bảo ôn K-Flex chống đọng sương hiệu quả.',
+        'content' => '<p>Nội dung kỹ thuật chi tiết về hệ số dẫn nhiệt và độ dày bảo ôn.</p>',
+        'is_published' => true,
+        'published_at' => now(),
+    ]);
+
+    expect($parentCategory->seo_title)->toContain('Ariston')
+        ->and($parentCategory->seo_description)->not->toBeEmpty()
+        ->and($parentCategory->seo_keywords)->toContain('Ariston')
+        ->and($childCategory->seo_title)->toContain('Bình nước nóng gián tiếp')
+        ->and($product->seo_title)->toContain('Ariston AN2 30 RS')
+        ->and($product->seo_description)->not->toBeEmpty()
+        ->and($product->seo_keywords)->toContain('Ariston AN2 30 RS')
+        ->and($article->seo_title)->toContain('Hướng dẫn chọn độ dày bảo ôn K-Flex')
+        ->and($article->seo_description)->not->toBeEmpty()
+        ->and($article->seo_keywords)->not->toBeEmpty();
+
+    $this->get(route('admin.seo.index'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('seo/Index')
+            ->has('seoEntities.products', 1)
+            ->has('seoEntities.categories', 2)
+            ->has('seoEntities.articles', 1)
+            ->where('seoAudit.productsWithSeoCount', 1)
+            ->where('seoAudit.categoriesWithSeoCount', 2)
+            ->where('seoAudit.articlesWithSeoCount', 1),
+        );
+
+    $this->put(route('admin.seo.entities.update', ['type' => 'product', 'id' => $product->id]), [
+        'seo_title' => 'Mua Bình Nước Nóng Ariston AN2 30 RS Chính Hãng | HVAC Mart',
+        'seo_description' => 'Báo giá bình nước nóng Ariston AN2 30 RS 30L chính hãng chiết khấu cao cho dự án.',
+        'seo_keywords' => 'Ariston AN2 30 RS, bình nóng lạnh 30L, báo giá Ariston',
+    ])
+        ->assertRedirect(route('admin.seo.index'));
+
+    expect($product->fresh()->seo_title)->toBe('Mua Bình Nước Nóng Ariston AN2 30 RS Chính Hãng | HVAC Mart');
+
+    $this->get('/products/'.$product->slug)
+        ->assertOk()
+        ->assertSee('Mua Bình Nước Nóng Ariston AN2 30 RS Chính Hãng | HVAC Mart', false)
+        ->assertSee('Báo giá bình nước nóng Ariston AN2 30 RS 30L chính hãng chiết khấu cao cho dự án.', false);
+
+    $this->get('/categories/'.$parentCategory->slug)
+        ->assertOk()
+        ->assertSee($parentCategory->seo_title, false);
+
+    $this->get('/categories/'.$parentCategory->slug.'/'.$childCategory->slug)
+        ->assertOk()
+        ->assertSee($childCategory->seo_title, false);
+
+    $this->get('/news/'.$article->slug)
+        ->assertOk()
+        ->assertSee($article->seo_title, false);
+
+    $this->post(route('admin.seo.generate-all'))
+        ->assertRedirect(route('admin.seo.index'));
 });

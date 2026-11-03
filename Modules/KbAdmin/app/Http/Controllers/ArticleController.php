@@ -101,6 +101,9 @@ class ArticleController extends Controller
             'title' => ['required', 'string', 'max:255'],
             'excerpt' => ['required', 'string', 'max:500'],
             'content' => ['required', 'string', 'max:100000'],
+            'seo_title' => ['nullable', 'string', 'max:180'],
+            'seo_description' => ['nullable', 'string', 'max:350'],
+            'seo_keywords' => ['nullable', 'string', 'max:500'],
             'is_published' => ['required', 'boolean'],
             'cover' => ['nullable', 'image', 'max:5120'],
         ];

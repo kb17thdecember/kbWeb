@@ -21,7 +21,7 @@ return new class extends Migration
             $table->integer('price');
             $table->integer('discount')->nullable();
             $table->json('image')->nullable();
-            $table->integer('tag')->nullable();
+            $table->integer('tag')->default(0);
             $table->integer('status')->default(0);
             $table->integer('quantity');
             $table->timestamps();

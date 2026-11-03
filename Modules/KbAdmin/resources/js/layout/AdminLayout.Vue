@@ -45,6 +45,7 @@ const props = defineProps<{
 
 const menuItems = [
     { label: 'Dashboard', icon: 'fa-solid fa-house', href: '/admin/dashboard' },
+    { label: 'Lượt Truy Cập', icon: 'fa-solid fa-eye', href: '/admin/visits' },
     { label: 'Sản Phẩm', icon: 'fa-solid fa-box', href: '/admin/products' },
     { label: 'Bảng Giá K-Flex', icon: 'fa-solid fa-tags', href: '/admin/kflex-prices' },
     { label: 'Danh Mục', icon: 'fa-solid fa-layer-group', href: '/admin/categories' },

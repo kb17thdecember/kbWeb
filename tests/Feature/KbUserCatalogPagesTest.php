@@ -116,6 +116,50 @@ test('the home page includes every featured project with an image URL', function
         );
 });
 
+test('the home page only displays up to 8 featured products with tag 1 and excludes regular products with tag 0', function () {
+    $category = Category::factory()->create(['name' => 'Ariston']);
+    $subcategory = Category::factory()->create([
+        'name' => 'Bình nước nóng gián tiếp',
+        'parent_id' => $category->id,
+    ]);
+
+    foreach (range(1, 10) as $number) {
+        Product::query()->create([
+            'name' => "Sản phẩm nổi bật {$number}",
+            'product_title' => "Tiêu đề nổi bật {$number}",
+            'category_id' => $category->id,
+            'subcategory_id' => $subcategory->id,
+            'description' => 'Mô tả sản phẩm nổi bật',
+            'tag' => Product::TAG_FEATURED,
+            'price' => 1000000,
+            'quantity' => 5,
+        ]);
+    }
+
+    foreach (range(1, 3) as $number) {
+        Product::query()->create([
+            'name' => "Sản phẩm thông thường {$number}",
+            'product_title' => "Tiêu đề thông thường {$number}",
+            'category_id' => $category->id,
+            'subcategory_id' => $subcategory->id,
+            'description' => 'Mô tả sản phẩm thông thường',
+            'tag' => Product::TAG_REGULAR,
+            'price' => 500000,
+            'quantity' => 5,
+        ]);
+    }
+
+    $this->get(route('kbuser.home'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('Home')
+            ->has('products', 8)
+            ->where('products.0.name', 'Sản phẩm nổi bật 10')
+            ->where('products.0.tag', Product::TAG_FEATURED)
+            ->where('products.7.name', 'Sản phẩm nổi bật 3'),
+        );
+});
+
 test('the user about page renders the company information page', function () {
     $this->get(route('kbuser.about'))
         ->assertOk()

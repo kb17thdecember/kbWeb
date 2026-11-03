@@ -49,6 +49,35 @@
                         ></textarea>
                     </div>
                     <div class="field full">
+                        <div class="seo-label-row">
+                            <label>TỐI ƯU SEO GOOGLE (ĐỂ TRỐNG SẼ TỰ ĐỘNG TẠO CHUẨN SEO)</label>
+                            <button type="button" class="mini" @click="autoFillCategorySeo">✨ Tự động tạo SEO</button>
+                        </div>
+                        <input
+                            v-model="seoTitle"
+                            name="seo_title"
+                            type="text"
+                            maxlength="180"
+                            placeholder="Tiêu đề SEO (Meta Title) - Để trống tự động tạo"
+                            style="margin-bottom: 8px"
+                        >
+                        <textarea
+                            v-model="seoDescription"
+                            name="seo_description"
+                            rows="2"
+                            maxlength="350"
+                            placeholder="Mô tả SEO (Meta Description) - Để trống tự động tạo"
+                            style="margin-bottom: 8px"
+                        ></textarea>
+                        <input
+                            v-model="seoKeywords"
+                            name="seo_keywords"
+                            type="text"
+                            maxlength="500"
+                            placeholder="Từ khóa SEO (Meta Keywords, cách nhau bởi dấu phẩy)"
+                        >
+                    </div>
+                    <div class="field full">
                         <label>Ảnh danh mục (chọn tối đa 1 ảnh)</label>
                         <label class="image-upload">
                             <div>
@@ -100,6 +129,9 @@
             name: string;
             description: string | null;
             description_2: string | null;
+            seo_title?: string | null;
+            seo_description?: string | null;
+            seo_keywords?: string | null;
             image_url: string | null;
         } | null;
         parentId?: number | null;
@@ -131,6 +163,9 @@
     const name = ref('');
     const description = ref('');
     const description2 = ref('');
+    const seoTitle = ref('');
+    const seoDescription = ref('');
+    const seoKeywords = ref('');
     const selectedImage = ref<File | null>(null);
     const imagePreviewUrl = ref('');
     const removeExistingImage = ref(false);
@@ -139,6 +174,19 @@
     const toastMessage = ref('');
     const isToastVisible = ref(false);
     let toastTimeout: ReturnType<typeof setTimeout> | undefined;
+
+    function autoFillCategorySeo(): void {
+        const catName = name.value.trim() || 'Danh mục sản phẩm';
+        const isChild = Boolean(props.category?.parent_id || props.parentId);
+        seoTitle.value = isChild
+            ? `${catName} Chính Hãng - Thông Số & Báo Giá | HVAC Mart`.slice(0, 160)
+            : `Danh Mục ${catName} Chính Hãng - Bảng Giá & Catalogue | HVAC Mart`.slice(0, 160);
+        const rawDesc = (description.value.trim() || description2.value.trim()).replace(/[\r\n]+/g, ' ').trim();
+        seoDescription.value = (rawDesc
+            ? `${catName}: ${rawDesc}. Phân phối chính hãng tại HVAC Mart, đầy đủ CO/CQ và báo giá dự án toàn quốc.`
+            : `Phân phối chính hãng các dòng sản phẩm ${catName} tại HVAC Mart. Đầy đủ CO/CQ, hỗ trợ kỹ thuật và báo giá dự án MEP.`).slice(0, 160);
+        seoKeywords.value = [catName, `danh mục ${catName}`, `bảng giá ${catName}`, `catalogue ${catName}`, 'vật tư HVAC', 'HVAC Mart'].join(', ');
+    }
 
     watch(
         () => props.open,
@@ -153,6 +201,9 @@
         name.value = props.category?.name ?? '';
         description.value = props.category?.description ?? '';
         description2.value = props.category?.description_2 ?? '';
+        seoTitle.value = props.category?.seo_title ?? '';
+        seoDescription.value = props.category?.seo_description ?? '';
+        seoKeywords.value = props.category?.seo_keywords ?? '';
         removeImage();
         imagePreviewUrl.value = props.category?.image_url ?? '';
         removeExistingImage.value = false;
@@ -277,6 +328,9 @@
             name: name.value,
             description: description.value || null,
             description_2: description2.value || null,
+            seo_title: seoTitle.value.trim() || null,
+            seo_description: seoDescription.value.trim() || null,
+            seo_keywords: seoKeywords.value.trim() || null,
             image: selectedImage.value,
             remove_image: removeExistingImage.value,
             parent_id: props.parentId ?? null,
@@ -287,7 +341,7 @@
                 emit('update:open', false);
                 emit('saved', props.category ? 'updated' : 'created', Boolean(props.category?.parent_id || props.parentId));
             },
-            onError: (errors) => {
+            onError: (errors: Record<string, string>) => {
                 const firstError = Object.values(errors)[0];
                 showToast(typeof firstError === 'string' ? firstError : 'Không thể lưu danh mục. Vui lòng kiểm tra thông tin.');
             },

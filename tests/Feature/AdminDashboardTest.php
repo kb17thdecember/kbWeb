@@ -178,3 +178,80 @@ test('admin quotations page loads ariston products for pdf quotation builder', f
             ->where('aristonProducts.0.name', 'SLIM3 20B VN'),
         );
 });
+
+test('admin visits page keeps only the 20 most recent visits and displays device details', function () {
+    $now = CarbonImmutable::parse('2026-11-03 18:00:00');
+    $this->travelTo($now);
+
+    for ($i = 1; $i <= 23; $i++) {
+        $visit = SiteVisit::factory()->create([
+            'session_id' => "session-{$i}",
+            'ip_address' => "192.168.1.{$i}",
+            'path' => '/products',
+            'user_agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36',
+            'visited_date' => $now->toDateString(),
+        ]);
+
+        $visit->forceFill([
+            'created_at' => $now->subMinutes(30 - $i),
+            'updated_at' => $now->subMinutes(30 - $i),
+        ])->save();
+    }
+
+    $iphoneVisit = SiteVisit::factory()->create([
+        'session_id' => 'session-iphone',
+        'ip_address' => '10.0.0.99',
+        'path' => '/featured-projects',
+        'user_agent' => 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1',
+        'visited_date' => $now->toDateString(),
+    ]);
+    $iphoneVisit->forceFill([
+        'created_at' => $now,
+        'updated_at' => $now,
+    ])->save();
+
+    $this->get(route('admin.visits.index'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('visits/Index')
+            ->has('visits', 20)
+            ->where('visitSummary.total', 20)
+            ->where('visitSummary.maxLimit', 20)
+            ->where('visitSummary.mobile', 1)
+            ->where('visitSummary.desktop', 19)
+            ->where('visits.0.id', $iphoneVisit->id)
+            ->where('visits.0.device_type', 'mobile')
+            ->where('visits.0.device_label', 'Điện thoại')
+            ->where('visits.0.device_model', 'Apple iPhone')
+            ->where('visits.0.os', 'iOS 17.4')
+            ->where('visits.0.browser', 'Apple Safari')
+            ->where('visits.0.page_label', 'Dự án tiêu biểu'),
+        );
+
+    expect(SiteVisit::query()->count())->toBe(20)
+        ->and(SiteVisit::query()->whereIn('session_id', ['session-1', 'session-2', 'session-3', 'session-4'])->count())->toBe(0);
+});
+
+test('recording user visits automatically deletes older records beyond the 20 most recent visits', function () {
+    $now = CarbonImmutable::parse('2026-11-03 18:00:00');
+    $this->travelTo($now);
+
+    for ($i = 1; $i <= 21; $i++) {
+        $visit = SiteVisit::factory()->create([
+            'session_id' => "old-session-{$i}",
+            'ip_address' => "10.10.0.{$i}",
+            'visited_date' => $now->toDateString(),
+        ]);
+
+        $visit->forceFill([
+            'created_at' => $now->subHours(2)->addMinutes($i),
+            'updated_at' => $now->subHours(2)->addMinutes($i),
+        ])->save();
+    }
+
+    $this->get(route('kbuser.home'))->assertOk();
+
+    expect(SiteVisit::query()->count())->toBe(20)
+        ->and(SiteVisit::query()->where('session_id', 'old-session-1')->exists())->toBeFalse()
+        ->and(SiteVisit::query()->where('session_id', 'old-session-2')->exists())->toBeFalse();
+});

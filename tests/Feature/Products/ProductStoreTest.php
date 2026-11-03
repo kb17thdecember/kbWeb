@@ -171,7 +171,7 @@ test('products can be updated with their images', function () {
         'product_title' => 'Tiêu đề mới',
         'category_id' => $newParent->id,
         'subcategory_id' => $newChild->id,
-        'tag' => 2,
+        'tag' => 1,
         'price' => 250000,
         'description' => 'Mô tả mới',
         'images' => $images,
@@ -183,8 +183,44 @@ test('products can be updated with their images', function () {
         ->and($product->fresh()->product_title)->toBe('Tiêu đề mới')
         ->and($product->fresh()->category_id)->toBe($newParent->id)
         ->and($product->fresh()->subcategory_id)->toBe($newChild->id)
+        ->and($product->fresh()->tag)->toBe(Product::TAG_FEATURED)
         ->and($product->fresh()->quantity)->toBe(3)
         ->and($product->fresh()->load('images')->image)->toBe($images);
+});
+
+test('products default to regular tag 0 and only allow regular 0 or featured 1 tags', function () {
+    $parent = Category::factory()->create(['name' => 'Ariston']);
+    $child = Category::factory()->create([
+        'name' => 'Bình nước nóng gián tiếp',
+        'parent_id' => $parent->id,
+    ]);
+
+    $this->post(route('admin.products.store'), [
+        'name' => 'Sản phẩm mặc định',
+        'product_title' => 'Loại thông thường',
+        'category_id' => $parent->id,
+        'subcategory_id' => $child->id,
+        'price' => 1500000,
+        'description' => 'Mô tả sản phẩm thông thường',
+        'images' => [],
+    ])->assertRedirect(route('admin.products.index'));
+
+    $product = Product::query()->sole();
+    expect($product->tag)->toBe(Product::TAG_REGULAR);
+
+    $this->from(route('admin.products.index'))
+        ->post(route('admin.products.store'), [
+            'name' => 'Sản phẩm sai loại',
+            'product_title' => 'Loại không hợp lệ',
+            'category_id' => $parent->id,
+            'subcategory_id' => $child->id,
+            'tag' => 2,
+            'price' => 1500000,
+            'description' => 'Mô tả',
+            'images' => [],
+        ])
+        ->assertRedirect(route('admin.products.index'))
+        ->assertSessionHasErrors('tag');
 });
 
 test('products can be deleted', function () {

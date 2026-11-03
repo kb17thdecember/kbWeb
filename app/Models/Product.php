@@ -15,7 +15,15 @@ class Product extends Model
 {
     use HasImages;
 
+    public const TAG_REGULAR = 0;
+
+    public const TAG_FEATURED = 1;
+
     public $table = 'products';
+
+    protected $attributes = [
+        'tag' => self::TAG_REGULAR,
+    ];
 
     protected $fillable = [
         'name',
@@ -23,6 +31,9 @@ class Product extends Model
         'category_id',
         'subcategory_id',
         'description',
+        'seo_title',
+        'seo_description',
+        'seo_keywords',
         'display_order',
         'discount',
         'tag',
@@ -37,8 +48,23 @@ class Product extends Model
 
     protected $appends = ['slug', 'image'];
 
+    protected function casts(): array
+    {
+        return [
+            'tag' => 'integer',
+        ];
+    }
+
     protected static function booted(): void
     {
+        static::saving(function (Product $product): void {
+            $product->tag = ((int) ($product->tag ?? self::TAG_REGULAR)) === self::TAG_FEATURED
+                ? self::TAG_FEATURED
+                : self::TAG_REGULAR;
+
+            SeoAutoIndexService::ensureProductSeo($product);
+        });
+
         static::saved(function (Product $product): void {
             SeoAutoIndexService::scheduleModelPing($product);
         });

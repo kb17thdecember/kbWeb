@@ -17,6 +17,7 @@ use Modules\KbAdmin\Http\Controllers\ProjectReportController;
 use Modules\KbAdmin\Http\Controllers\QuotationController;
 use Modules\KbAdmin\Http\Controllers\SeoController;
 use Modules\KbAdmin\Http\Controllers\SiteSettingController;
+use Modules\KbAdmin\Http\Controllers\SiteVisitController;
 use Modules\KbAdmin\Http\Middleware\EnsureAdminAuthenticated;
 use Modules\KbAdmin\Http\Middleware\UseKbAdminRootView;
 
@@ -43,6 +44,13 @@ Route::middleware([UseKbAdminRootView::class, EnsureAdminAuthenticated::class])
         Route::get('/dashboard', [DashboardController::class, 'index'])
             ->name('admin.dashboard.index');
 
+        Route::get('/visits', [SiteVisitController::class, 'index'])
+            ->name('admin.visits.index');
+        Route::delete('/visits', [SiteVisitController::class, 'clear'])
+            ->name('admin.visits.clear');
+        Route::delete('/visits/{siteVisit}', [SiteVisitController::class, 'destroy'])
+            ->name('admin.visits.destroy');
+
         Route::get('/notifications', [NotificationController::class, 'index'])
             ->name('admin.notifications.index');
         Route::post('/notifications/read-chats', [NotificationController::class, 'markAllChatsRead'])
@@ -57,6 +65,11 @@ Route::middleware([UseKbAdminRootView::class, EnsureAdminAuthenticated::class])
             ->name('admin.seo.index');
         Route::put('/seo', [SeoController::class, 'update'])
             ->name('admin.seo.update');
+        Route::post('/seo/generate-all', [SeoController::class, 'generateAll'])
+            ->name('admin.seo.generate-all');
+        Route::put('/seo/entities/{type}/{id}', [SeoController::class, 'updateEntity'])
+            ->whereNumber('id')
+            ->name('admin.seo.entities.update');
         Route::post('/seo/ping', [SeoController::class, 'ping'])
             ->name('admin.seo.ping');
 

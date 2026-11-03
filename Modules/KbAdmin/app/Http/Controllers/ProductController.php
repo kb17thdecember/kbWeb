@@ -71,6 +71,10 @@ class ProductController extends Controller
         $images = $validated['images'] ?? [];
         unset($validated['images']);
 
+        $validated['tag'] = isset($validated['tag']) && (int) $validated['tag'] === Product::TAG_FEATURED
+            ? Product::TAG_FEATURED
+            : Product::TAG_REGULAR;
+
         $product = Product::create([
             ...$validated,
             'quantity' => 0,
@@ -106,6 +110,10 @@ class ProductController extends Controller
         $images = $validated['images'] ?? [];
         unset($validated['images']);
 
+        $validated['tag'] = isset($validated['tag']) && (int) $validated['tag'] === Product::TAG_FEATURED
+            ? Product::TAG_FEATURED
+            : Product::TAG_REGULAR;
+
         $product->update($validated);
         $product->syncImageInputs($images, 'products');
 
@@ -134,9 +142,12 @@ class ProductController extends Controller
             'product_title' => ['required', 'string', 'max:255'],
             'category_id' => ['required', 'integer', Rule::exists('categories', 'id')->whereNull('parent_id')],
             'subcategory_id' => ['required', 'integer', Rule::exists('categories', 'id')->where('parent_id', $request->input('category_id'))],
-            'tag' => ['nullable', 'integer', 'min:0', 'max:2147483647'],
+            'tag' => ['nullable', 'integer', Rule::in([Product::TAG_REGULAR, Product::TAG_FEATURED])],
             'price' => ['required', 'integer', 'min:0', 'max:2147483647'],
             'description' => ['required', 'string', 'max:65535'],
+            'seo_title' => ['nullable', 'string', 'max:180'],
+            'seo_description' => ['nullable', 'string', 'max:350'],
+            'seo_keywords' => ['nullable', 'string', 'max:500'],
             'images' => ['nullable', 'array', 'max:10'],
             'images.*' => [
                 'required',

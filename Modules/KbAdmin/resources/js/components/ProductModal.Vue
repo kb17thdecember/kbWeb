@@ -43,8 +43,11 @@
                     </select>
                 </div>
                 <div class="field ">
-                    <label>Loại hàng hóa</label>
-                    <input v-model="productTag" name="tag" type="number" min="0" max="2147483647" step="1" placeholder="">
+                    <label>Loại sản phẩm</label>
+                    <select v-model="productTag" name="tag" required>
+                        <option value="0">Thông thường</option>
+                        <option value="1">Nổi bật</option>
+                    </select>
                 </div>
                 <div class="field ">
                     <label>Giá tham khảo (VND)</label>
@@ -53,6 +56,35 @@
                 <div class="field full">
                     <label>Mô tả chi tiết</label>
                     <textarea v-model="productDescription" name="description" maxlength="65535" required placeholder="Mô tả sản phẩm"></textarea>
+                </div>
+                <div class="field full">
+                    <div class="seo-label-row">
+                        <label>TỐI ƯU SEO GOOGLE (ĐỂ TRỐNG SẼ TỰ ĐỘNG TẠO CHUẨN SEO)</label>
+                        <button type="button" class="mini" @click="autoFillProductSeo">✨ Tự động tạo SEO</button>
+                    </div>
+                    <input
+                        v-model="seoTitle"
+                        name="seo_title"
+                        type="text"
+                        maxlength="180"
+                        placeholder="Tiêu đề SEO (Meta Title) - Để trống tự động tạo"
+                        style="margin-bottom: 8px"
+                    >
+                    <textarea
+                        v-model="seoDescription"
+                        name="seo_description"
+                        rows="2"
+                        maxlength="350"
+                        placeholder="Mô tả SEO (Meta Description) - Để trống tự động tạo"
+                        style="margin-bottom: 8px"
+                    ></textarea>
+                    <input
+                        v-model="seoKeywords"
+                        name="seo_keywords"
+                        type="text"
+                        maxlength="500"
+                        placeholder="Từ khóa SEO (Meta Keywords, cách nhau bởi dấu phẩy)"
+                    >
                 </div>
                 <div class="field full image-field">
                     <label>THƯ VIỆN ẢNH — CHỌN NHIỀU ẢNH</label>
@@ -127,6 +159,9 @@
         tag: number | null;
         price: number;
         description: string;
+        seo_title?: string | null;
+        seo_description?: string | null;
+        seo_keywords?: string | null;
         image: string[] | null;
     };
 
@@ -197,10 +232,27 @@
 
     const productName = ref('');
     const productTitle = ref('');
-    const productTag = ref('1');
+    const productTag = ref('0');
     const productPrice = ref('0');
     const productDescription = ref('');
+    const seoTitle = ref('');
+    const seoDescription = ref('');
+    const seoKeywords = ref('');
     const isSubmitting = ref(false);
+
+    function autoFillProductSeo(): void {
+        const name = productName.value.trim() || 'Sản phẩm HVAC';
+        const catName = props.categories.find((c) => String(c.id) === selectedCategoryId.value)?.name ?? '';
+        const subName = visibleSubcategories.value.find((s) => String(s.id) === selectedSubcategory.value)?.name ?? '';
+        const qualifier = subName || catName || 'Chính Hãng';
+        seoTitle.value = `${name} - ${qualifier} Chính Hãng | HVAC Mart`.slice(0, 160);
+        const rawSpec = (productTitle.value.trim() ? `${productTitle.value.trim()}. ` : '')
+            + productDescription.value.replace(/[\r\n]+/g, '; ').replace(/\s+/g, ' ').trim();
+        seoDescription.value = `${name}: ${rawSpec} Phân phối chính hãng tại HVAC Mart, đầy đủ CO/CQ, báo giá dự án toàn quốc.`.slice(0, 160);
+        seoKeywords.value = [name, `báo giá ${name}`, `thông số ${name}`, subName, catName, 'vật tư HVAC', 'HVAC Mart']
+            .filter(Boolean)
+            .join(', ');
+    }
 
     function closeModal(): void {
         if (isSubmitting.value) {
@@ -217,9 +269,12 @@
         selectedSubcategory.value = String(
             product?.subcategory_id ?? visibleSubcategories.value[0]?.id ?? '',
         );
-        productTag.value = String(product?.tag ?? 1);
+        productTag.value = Number(product?.tag) === 1 ? '1' : '0';
         productPrice.value = String(product?.price ?? 0);
         productDescription.value = product?.description ?? '';
+        seoTitle.value = product?.seo_title ?? '';
+        seoDescription.value = product?.seo_description ?? '';
+        seoKeywords.value = product?.seo_keywords ?? '';
         const existingImages = product?.image ?? [];
         imageUrls.value = existingImages.filter((image) => !image.startsWith('data:image/')).join('\n');
         localImages.value = existingImages.filter((image) => image.startsWith('data:image/'));
@@ -360,9 +415,12 @@
             product_title: productTitle.value,
             category_id: Number(selectedCategoryId.value),
             subcategory_id: Number(selectedSubcategory.value),
-            tag: productTag.value === '' ? null : Number(productTag.value),
+            tag: Number(productTag.value) === 1 ? 1 : 0,
             price: Number(productPrice.value),
             description: productDescription.value,
+            seo_title: seoTitle.value.trim() || null,
+            seo_description: seoDescription.value.trim() || null,
+            seo_keywords: seoKeywords.value.trim() || null,
             images: [...imageUrlList.value, ...localImages.value],
         };
         const options = {
@@ -371,7 +429,7 @@
                 emit('update:open', false);
                 emit('saved', props.product ? 'updated' : 'created');
             },
-            onError: (errors) => {
+            onError: (errors: Record<string, string>) => {
                 const firstError = Object.values(errors)[0];
                 showToast(typeof firstError === 'string' ? firstError : 'Không thể lưu sản phẩm. Vui lòng kiểm tra lại thông tin.');
             },

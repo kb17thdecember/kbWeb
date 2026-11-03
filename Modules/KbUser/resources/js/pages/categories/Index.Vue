@@ -9,6 +9,9 @@ type CategoryItem = {
     name: string;
     parent_id: number | null;
     description: string | null;
+    seo_title?: string | null;
+    seo_description?: string | null;
+    seo_keywords?: string | null;
     image_url: string | null;
     children_count: number;
     children: {
@@ -17,6 +20,9 @@ type CategoryItem = {
         name: string;
         parent_id: number;
         description: string | null;
+        seo_title?: string | null;
+        seo_description?: string | null;
+        seo_keywords?: string | null;
         image_url: string | null;
         products_count: number;
     }[];
@@ -52,7 +58,14 @@ const categoryProductsUrl = (
 
 <template>
     <div>
-        <Head :title=" selectedCategory ? `HVAC Mart | ${selectedCategory.name}` : 'HVAC Mart | Danh mục sản phẩm'" />
+        <Head :title="selectedCategory?.seo_title || (selectedCategory ? `Danh mục ${selectedCategory.name} Chính Hãng | HVAC Mart` : 'Danh Mục Thiết Bị Ariston, Bảo Ôn K-Flex & Vật Tư MEP | HVAC Mart')">
+            <meta
+                v-if="selectedCategory?.seo_description || selectedCategory?.description"
+                name="description"
+                :content="selectedCategory?.seo_description || selectedCategory?.description || ''"
+            />
+            <meta v-if="selectedCategory?.seo_keywords" name="keywords" :content="selectedCategory.seo_keywords" />
+        </Head>
 
         <UserLayout :cart-count="0" active-page="categories">
             <main>

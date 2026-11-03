@@ -55,12 +55,17 @@ class UseKbUserRootView
             ->latest('updated_at')
             ->first();
 
+        $currentPath = '/'.ltrim($request->path(), '/');
+
         if ($recentVisit !== null) {
             $recentVisit->forceFill([
                 'session_id' => $sessionId ?? $recentVisit->session_id,
                 'user_id' => $request->user()?->id ?? $recentVisit->user_id,
+                'path' => $currentPath,
                 'updated_at' => now(),
             ])->save();
+
+            SiteVisit::pruneOldVisits();
 
             return;
         }
@@ -70,9 +75,11 @@ class UseKbUserRootView
             'user_id' => $request->user()?->id,
             'ip_address' => $ipAddress,
             'user_agent' => $userAgent,
-            'path' => '/'.ltrim($request->path(), '/'),
+            'path' => $currentPath,
             'visited_date' => now()->toDateString(),
         ]);
+
+        SiteVisit::pruneOldVisits();
     }
 
     private function shouldRecordVisit(Request $request, Response $response): bool

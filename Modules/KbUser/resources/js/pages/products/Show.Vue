@@ -37,9 +37,13 @@ type CommentItem = {
 
 type ProductDetail = {
     id: number;
+    slug?: string;
     name: string;
     product_title: string | null;
     description: string;
+    seo_title?: string | null;
+    seo_description?: string | null;
+    seo_keywords?: string | null;
     price: number;
     image: string[] | null;
     category_id: number;
@@ -225,7 +229,13 @@ onUnmounted(() => {
 
 <template>
     <div>
-        <Head :title="`${product.product_title || product.name} | Sản phẩm HVAC Mart`" />
+        <Head :title="product.seo_title || `${product.product_title || product.name} | Sản phẩm HVAC Mart`">
+            <meta v-if="product.seo_description" name="description" :content="product.seo_description" />
+            <meta v-if="product.seo_keywords" name="keywords" :content="product.seo_keywords" />
+            <meta property="og:title" :content="product.seo_title || `${product.product_title || product.name} | Sản phẩm HVAC Mart`" />
+            <meta v-if="product.seo_description" property="og:description" :content="product.seo_description" />
+            <meta v-if="currentImage" property="og:image" :content="currentImage" />
+        </Head>
 
         <UserLayout :cart-count="0" active-page="products">
             <main>

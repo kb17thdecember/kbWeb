@@ -28,7 +28,20 @@ type ProductCategory = {
     id: number;
     slug?: string;
     name: string;
-    children: { id: number; slug?: string; name: string; parent_id: number }[];
+    description?: string | null;
+    seo_title?: string | null;
+    seo_description?: string | null;
+    seo_keywords?: string | null;
+    children: {
+        id: number;
+        slug?: string;
+        name: string;
+        parent_id: number;
+        description?: string | null;
+        seo_title?: string | null;
+        seo_description?: string | null;
+        seo_keywords?: string | null;
+    }[];
 };
 
 const props = defineProps<{
@@ -74,6 +87,36 @@ const filters = computed(() => [
 const selectedCategory = computed(
     () => props.categories.find((category) => String(category.id) === activeFilter.value) ?? null,
 );
+
+const selectedSubcategory = computed(
+    () => selectedCategory.value?.children.find((child) => child.id === activeSubcategoryId.value) ?? null,
+);
+
+const dynamicPageSeoTitle = computed<string>(() => {
+    if (selectedSubcategory.value) {
+        return selectedSubcategory.value.seo_title || `${selectedSubcategory.value.name} - ${selectedCategory.value?.name ?? ''} Chính Hãng | HVAC Mart`;
+    }
+    if (selectedCategory.value) {
+        return selectedCategory.value.seo_title || `Danh mục ${selectedCategory.value.name} Chính Hãng | HVAC Mart`;
+    }
+
+    return siteSettings.value.seo_products_title || 'HVAC Mart | Danh Mục Sản Phẩm Bình Nước Nóng Ariston & Bảo Ôn K-Flex';
+});
+
+const dynamicPageSeoDescription = computed<string>(() => {
+    if (selectedSubcategory.value?.seo_description) {
+        return selectedSubcategory.value.seo_description;
+    }
+    if (selectedCategory.value?.seo_description) {
+        return selectedCategory.value.seo_description;
+    }
+
+    return siteSettings.value.seo_products_description || '';
+});
+
+const dynamicPageSeoKeywords = computed<string>(() => {
+    return selectedSubcategory.value?.seo_keywords || selectedCategory.value?.seo_keywords || '';
+});
 
 const compareProducts = computed<Product[]>(() =>
     compareIds.value
@@ -437,7 +480,10 @@ onUnmounted(() => {
 
 <template>
     <div>
-        <Head title="HVAC Mart | Sản Phẩm" />
+        <Head :title="dynamicPageSeoTitle">
+            <meta v-if="dynamicPageSeoDescription" name="description" :content="dynamicPageSeoDescription" />
+            <meta v-if="dynamicPageSeoKeywords" name="keywords" :content="dynamicPageSeoKeywords" />
+        </Head>
 
         <UserLayout :cart-count="cartCount" active-page="products">
             <main>

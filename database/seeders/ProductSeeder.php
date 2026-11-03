@@ -510,7 +510,7 @@ class ProductSeeder extends Seeder
                 $legacyProduct->delete();
             });
 
-        foreach ($products as $productData) {
+        foreach ($products as $index => $productData) {
             $imagePath = base_path("Modules/KbAdmin/resources/assets/images/products/{$productData['image']}");
             $imageContents = file_get_contents($imagePath);
 
@@ -544,6 +544,7 @@ class ProductSeeder extends Seeder
                     'category_id' => $productCategory->id,
                     'subcategory_id' => $productSubcategory->id,
                     'description' => implode("\n", $productData['description']),
+                    'tag' => $productData['tag'] ?? ($index < 8 ? Product::TAG_FEATURED : Product::TAG_REGULAR),
                     'price' => 0,
                     'quantity' => 0,
                 ],

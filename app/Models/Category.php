@@ -19,6 +19,10 @@ class Category extends Model
 
     protected static function booted(): void
     {
+        static::saving(function (Category $category): void {
+            SeoAutoIndexService::ensureCategorySeo($category);
+        });
+
         static::saved(function (Category $category): void {
             SeoAutoIndexService::scheduleModelPing($category);
         });
@@ -29,6 +33,9 @@ class Category extends Model
         'parent_id',
         'description',
         'description_2',
+        'seo_title',
+        'seo_description',
+        'seo_keywords',
     ];
 
     protected $hidden = ['images'];

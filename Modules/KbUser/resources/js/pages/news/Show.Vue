@@ -19,6 +19,9 @@ type NewsArticle = {
     title: string;
     slug: string;
     excerpt: string;
+    seo_title?: string | null;
+    seo_description?: string | null;
+    seo_keywords?: string | null;
     published_at: string | null;
     image_url: string | null;
     comments?: ArticleComment[];
@@ -64,11 +67,11 @@ function submitComment(): void {
 
 <template>
     <div>
-        <Head>
-            <title>{{ article.title }}</title>
-            <meta name="description" :content="article.excerpt" />
-            <meta property="og:title" :content="article.title" />
-            <meta property="og:description" :content="article.excerpt" />
+        <Head :title="article.seo_title || `${article.title} | HVAC Mart`">
+            <meta name="description" :content="article.seo_description || article.excerpt" />
+            <meta v-if="article.seo_keywords" name="keywords" :content="article.seo_keywords" />
+            <meta property="og:title" :content="article.seo_title || article.title" />
+            <meta property="og:description" :content="article.seo_description || article.excerpt" />
             <meta v-if="article.image_url" property="og:image" :content="article.image_url" />
         </Head>
 
