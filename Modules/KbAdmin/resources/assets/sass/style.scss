@@ -193,14 +193,22 @@ button {
   color: #fff;
 }
 .side-note {
-  margin-top: auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
   border: 1px solid var(--sidebar-line);
   border-radius: 3px;
   background: #1c4035;
-  padding: 13px;
+  padding: 13px 16px;
   font-size: 12px;
   line-height: 1.55;
   color: var(--sidebar-muted);
+}
+.side-note-copy {
+  min-width: 0;
 }
 .side-note b {
   display: block;
@@ -208,18 +216,27 @@ button {
   font-family: var(--serif);
   font-size: 16px;
   font-weight: 500;
-  margin-bottom: 5px;
+  margin-bottom: 2px;
+}
+.side-note-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
 }
 .side-note button {
-  width: 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
   border: 1px solid #426252;
   background: #18352e;
   color: #e8e2d3;
   border-radius: 3px;
-  padding: 9px;
-  margin-top: 10px;
+  padding: 9px 14px;
   font-weight: 700;
   font-size: 12px;
+  white-space: nowrap;
 }
 
 @media (hover:hover) and (pointer:fine) {
@@ -1469,8 +1486,23 @@ button {
   .brand {
     padding-bottom: 10px;
   }
-  .navlabel,.side-note {
+  .navlabel {
     display: none;
+  }
+  .side-note {
+    flex-direction: column;
+    align-items: stretch;
+    padding: 12px 14px;
+  }
+  .side-note-actions {
+    width: 100%;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  .side-note button {
+    width: 100%;
+    padding: 9px 10px;
   }
   .nav {
     display: flex;

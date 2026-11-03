@@ -324,59 +324,8 @@ onBeforeUnmount(() => {
     window.clearInterval(notificationPollTimer);
 });
 
-async function exportProjectReports(): Promise<void> {
-    try {
-        const response = await fetch('/admin/project-reports/export', {
-            credentials: 'same-origin',
-            headers: { Accept: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' },
-        });
-
-        if (!response.ok) {
-            throw new Error('export failed');
-        }
-
-        const fileName = /filename="?([^";]+)"?/.exec(response.headers.get('Content-Disposition') ?? '')?.[1]
-            ?? 'bao-cao-du-an.xlsx';
-        const url = URL.createObjectURL(await response.blob());
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = fileName;
-        document.body.appendChild(link);
-        link.click();
-        link.remove();
-        URL.revokeObjectURL(url);
-        showToast('Đã xuất báo cáo Excel thành công.');
-    } catch {
-        showToast('Không thể xuất báo cáo Excel. Vui lòng thử lại.');
-    }
-}
-
 function logout(): void {
     router.post('/admin/logout');
-}
-
-const importFileInput = ref<HTMLInputElement | null>(null);
-const isImporting = ref(false);
-
-function importProjectReports(event: Event): void {
-    const input = event.target as HTMLInputElement;
-    const file = input.files?.[0];
-
-    if (!file) {
-        return;
-    }
-
-    isImporting.value = true;
-    router.post('/admin/project-reports/import', { file }, {
-        forceFormData: true,
-        preserveScroll: true,
-        onSuccess: () => showToast('Nhập dữ liệu Excel thành công.'),
-        onError: (errors) => showToast(Object.values(errors).join(' ')),
-        onFinish: () => {
-            isImporting.value = false;
-            input.value = '';
-        },
-    });
 }
 </script>
 
@@ -419,9 +368,6 @@ function importProjectReports(event: Event): void {
                 >{{ supportProjectsBadge }}</span>
             </Link>
           </nav>
-        </div>
-        <div class="side-note">
-          <b>Khu vực quản trị</b>Chỉnh sửa dữ liệu và xuất báo cáo dự án.<button id="exportBtn" type="button" @click="exportProjectReports"><FontAwesomeIcon icon="fa-solid fa-file-export" /> Xuất báo cáo Excel</button><button id="importBtn" type="button" :disabled="isImporting" @click="importFileInput?.click()"><FontAwesomeIcon :icon="isImporting ? 'fa-solid fa-spinner' : 'fa-solid fa-file-import'" /> {{ isImporting ? 'Đang nhập...' : 'Nhập dữ liệu Excel' }}</button><input ref="importFileInput" class="hidden" type="file" id="importFile" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" @change="importProjectReports">
         </div>
       </aside>
       <main class="main">

@@ -5337,10 +5337,10 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 }
 @media (max-width:760px) {
   .navbar-tools {
-    gap: 8px;
+    gap: 6px;
   }
   .navbar-search-panel {
-    right: -48px;
+    right: 0;
   }
 }
 
@@ -5705,7 +5705,8 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
   .kb-user-name {
     display: none;
   }
-  .kb-auth-trigger {
+  .kb-auth-trigger,
+  .kb-user-trigger {
     width: 42px;
     padding: 0;
     justify-content: center;
@@ -8294,20 +8295,134 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
     display: grid !important;
     flex: 0 0 auto;
   }
+  .kb-auth-trigger span,
+  .kb-user-name {
+    display: none;
+  }
+  .kb-user-menu-wrap {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+  }
+  .kb-auth-trigger,
+  .kb-user-trigger {
+    width: 42px;
+    height: 42px;
+    min-width: 42px;
+    min-height: 42px;
+    padding: 0;
+    justify-content: center;
+  }
 }
 
-@media (max-width: 540px) {
+@media (max-width: 760px) {
+  .nav.wrap {
+    width: calc(100% - 30px);
+  }
+  .brandname small {
+    display: none;
+  }
   .navactions,
   .navbar-tools {
-    gap: 5px;
+    gap: 6px;
   }
   .navactions .icon-btn,
   .kb-auth-trigger,
   .kb-user-trigger {
-    width: 36px;
+    width: 38px;
+    height: 38px;
+    min-width: 38px;
+    min-height: 38px;
+    padding: 0;
+    justify-content: center;
+  }
+  .navactions .icon-btn svg,
+  .kb-auth-trigger svg {
+    width: 17px;
+    height: 17px;
+  }
+  .kb-user-avatar,
+  .kb-user-initial {
+    width: 26px;
+    height: 26px;
+    min-width: 26px;
+    min-height: 26px;
+    flex: 0 0 26px;
+    font-size: 11px;
+  }
+}
+
+@media (max-width: 640px) {
+  .nav {
+    flex-wrap: wrap;
+    min-height: auto;
+    height: auto;
+    padding: 8px 0;
+    row-gap: 8px;
+    column-gap: 10px;
+  }
+  .brand {
+    order: 1;
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+  .navactions {
+    display: contents;
+  }
+  .menu-toggle {
+    order: 2;
+    margin-left: auto;
+    width: 38px;
+    height: 38px;
+    min-width: 38px;
+    min-height: 38px;
+  }
+  .navbar-tools {
+    order: 3;
+    flex: 0 0 100%;
+    width: 100%;
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    align-items: center;
+    gap: 6px;
+    padding: 5px 6px;
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    background: light-dark(rgba(255, 255, 255, .82), rgba(23, 23, 20, .76));
+    box-shadow: 0 4px 14px rgba(23, 23, 20, .04);
+  }
+  .navbar-tools > .icon-btn,
+  .navbar-tools > .kb-auth-trigger,
+  .navbar-tools > .kb-user-menu-wrap {
+    width: 100%;
+  }
+  .navbar-tools .icon-btn,
+  .navbar-tools .kb-auth-trigger,
+  .navbar-tools .kb-user-trigger {
+    width: 100%;
     height: 36px;
-    min-width: 36px;
+    min-width: 0;
     min-height: 36px;
+    padding: 0;
+    justify-content: center;
+    border-radius: 3px;
+  }
+  .navbar-search-panel {
+    left: 0;
+    right: 0;
+    width: 100%;
+    top: calc(100% + 8px);
+  }
+  .kb-user-dropdown {
+    right: 0;
+    width: min(240px, calc(100vw - 28px));
+  }
+}
+
+@media (max-width: 540px) {
+  .nav.wrap {
+    width: calc(100% - 28px);
   }
   .kb-user-avatar,
   .kb-user-initial {
@@ -8318,23 +8433,33 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
     flex: 0 0 24px;
     font-size: 11px;
   }
-  .brandname small {
-    display: none;
-  }
 }
 
 @media (max-width: 380px) {
-  .navactions,
-  .navbar-tools {
-    gap: 4px;
+  .nav.wrap {
+    width: calc(100% - 22px);
   }
-  .navactions .icon-btn,
-  .kb-auth-trigger,
-  .kb-user-trigger {
+  .menu-toggle {
     width: 34px;
     height: 34px;
     min-width: 34px;
     min-height: 34px;
+  }
+  .navbar-tools {
+    gap: 4px;
+    padding: 4px 5px;
+  }
+  .navbar-tools .icon-btn,
+  .navbar-tools .kb-auth-trigger,
+  .navbar-tools .kb-user-trigger {
+    height: 34px;
+    min-height: 34px;
+  }
+  .navbar-tools .icon-btn svg,
+  .navbar-tools .kb-auth-trigger svg,
+  .menu-toggle svg {
+    width: 16px;
+    height: 16px;
   }
   .kb-user-avatar,
   .kb-user-initial {
