@@ -73,6 +73,11 @@ class KbUserController extends Controller
     {
         $this->deduplicateLegacyKflexProducts();
 
+        $catColumns = ['id', 'name', 'parent_id', 'description'];
+        if (Schema::hasColumn('categories', 'seo_title')) {
+            $catColumns = [...$catColumns, 'seo_title', 'seo_description', 'seo_keywords'];
+        }
+
         $categories = Category::query()
             ->whereNull('parent_id')
             ->with([
@@ -84,7 +89,7 @@ class KbUserController extends Controller
             ])
             ->withCount('children')
             ->orderBy('name')
-            ->get(['id', 'name', 'parent_id', 'description', 'seo_title', 'seo_description', 'seo_keywords']);
+            ->get($catColumns);
 
         $rawCategoryKey = trim((string) ($categorySlug ?: $request->query('category', '')));
         $selectedCategory = null;
@@ -109,11 +114,21 @@ class KbUserController extends Controller
     {
         $this->deduplicateLegacyKflexProducts();
 
+        $hasCategorySeo = Schema::hasColumn('categories', 'seo_title');
+        $hasProductSeo = Schema::hasColumn('products', 'seo_title');
+
+        $childRelation = $hasCategorySeo
+            ? 'children:id,name,parent_id,description,seo_title,seo_description,seo_keywords'
+            : 'children:id,name,parent_id,description';
+        $catColumns = $hasCategorySeo
+            ? ['id', 'name', 'description', 'seo_title', 'seo_description', 'seo_keywords']
+            : ['id', 'name', 'description'];
+
         $categories = Category::query()
-            ->with(['images', 'children:id,name,parent_id,description,seo_title,seo_description,seo_keywords'])
+            ->with(['images', $childRelation])
             ->whereNull('parent_id')
             ->orderBy('name')
-            ->get(['id', 'name', 'description', 'seo_title', 'seo_description', 'seo_keywords']);
+            ->get($catColumns);
 
         $rawCategoryKey = trim((string) ($categorySlug ?: $request->query('category', '')));
         $rawSubcategoryKey = trim((string) ($subcategorySlug ?: $request->query('subcategory', '')));
@@ -139,24 +154,26 @@ class KbUserController extends Controller
             );
         }
 
+        $productColumns = [
+            'id',
+            'name',
+            'product_title',
+            'category_id',
+            'subcategory_id',
+            'description',
+            'price',
+            'tag',
+        ];
+        if ($hasProductSeo) {
+            $productColumns = [...$productColumns, 'seo_title', 'seo_description', 'seo_keywords'];
+        }
+
         $products = Product::query()
             ->with(['category:id,name', 'subcategory:id,name', 'images'])
             ->withAvg('reviews', 'rating')
             ->withCount('reviews')
             ->orderByDesc('id')
-            ->get([
-                'id',
-                'name',
-                'product_title',
-                'category_id',
-                'subcategory_id',
-                'description',
-                'seo_title',
-                'seo_description',
-                'seo_keywords',
-                'price',
-                'tag',
-            ]);
+            ->get($productColumns);
 
         return Inertia::render('products/Index', [
             'categories' => $categories,

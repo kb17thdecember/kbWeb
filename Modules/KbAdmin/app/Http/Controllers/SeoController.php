@@ -12,6 +12,7 @@ use App\Models\SiteSetting;
 use App\Services\SeoAutoIndexService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Schema;
 use Inertia\Inertia;
 use Inertia\Response;
 use Modules\KbAdmin\Support\AdminDashboardStats;
@@ -23,6 +24,11 @@ class SeoController extends Controller
     {
         SeoAutoIndexService::syncAllEntitiesSeo(false);
 
+        $hasProductSeo = Schema::hasColumn('products', 'seo_title');
+        $hasCategorySeo = Schema::hasColumn('categories', 'seo_title');
+        $hasArticleSeo = Schema::hasColumn('articles', 'seo_title');
+        $hasProjectSeo = Schema::hasColumn('featured_projects', 'seo_title');
+
         $productsCount = Product::query()->count();
         $productsWithDescCount = Product::query()
             ->whereNotNull('description')
@@ -31,24 +37,28 @@ class SeoController extends Controller
         $productsWithImageCount = Product::query()
             ->whereHas('images')
             ->count();
-        $productsWithSeoCount = Product::query()
-            ->whereNotNull('seo_title')
-            ->whereRaw('LENGTH(TRIM(seo_title)) >= 10')
-            ->whereNotNull('seo_description')
-            ->whereRaw('LENGTH(TRIM(seo_description)) >= 30')
-            ->count();
+        $productsWithSeoCount = $hasProductSeo
+            ? Product::query()
+                ->whereNotNull('seo_title')
+                ->whereRaw('LENGTH(TRIM(seo_title)) >= 10')
+                ->whereNotNull('seo_description')
+                ->whereRaw('LENGTH(TRIM(seo_description)) >= 30')
+                ->count()
+            : $productsCount;
 
         $projectsCount = FeaturedProject::query()->count();
         $projectsWithDescCount = FeaturedProject::query()
             ->whereNotNull('description')
             ->whereRaw('LENGTH(TRIM(description)) >= 30')
             ->count();
-        $projectsWithSeoCount = FeaturedProject::query()
-            ->whereNotNull('seo_title')
-            ->whereRaw('LENGTH(TRIM(seo_title)) >= 10')
-            ->whereNotNull('seo_description')
-            ->whereRaw('LENGTH(TRIM(seo_description)) >= 30')
-            ->count();
+        $projectsWithSeoCount = $hasProjectSeo
+            ? FeaturedProject::query()
+                ->whereNotNull('seo_title')
+                ->whereRaw('LENGTH(TRIM(seo_title)) >= 10')
+                ->whereNotNull('seo_description')
+                ->whereRaw('LENGTH(TRIM(seo_description)) >= 30')
+                ->count()
+            : $projectsCount;
 
         $articlesCount = Article::query()->published()->count();
         $articlesWithExcerptCount = Article::query()
@@ -56,21 +66,25 @@ class SeoController extends Controller
             ->whereNotNull('excerpt')
             ->whereRaw('LENGTH(TRIM(excerpt)) >= 30')
             ->count();
-        $articlesWithSeoCount = Article::query()
-            ->whereNotNull('seo_title')
-            ->whereRaw('LENGTH(TRIM(seo_title)) >= 10')
-            ->whereNotNull('seo_description')
-            ->whereRaw('LENGTH(TRIM(seo_description)) >= 30')
-            ->count();
+        $articlesWithSeoCount = $hasArticleSeo
+            ? Article::query()
+                ->whereNotNull('seo_title')
+                ->whereRaw('LENGTH(TRIM(seo_title)) >= 10')
+                ->whereNotNull('seo_description')
+                ->whereRaw('LENGTH(TRIM(seo_description)) >= 30')
+                ->count()
+            : Article::query()->count();
 
         $cataloguesCount = Catalogue::query()->published()->count();
         $categoryUrlsCount = Category::query()->count();
-        $categoriesWithSeoCount = Category::query()
-            ->whereNotNull('seo_title')
-            ->whereRaw('LENGTH(TRIM(seo_title)) >= 10')
-            ->whereNotNull('seo_description')
-            ->whereRaw('LENGTH(TRIM(seo_description)) >= 30')
-            ->count();
+        $categoriesWithSeoCount = $hasCategorySeo
+            ? Category::query()
+                ->whereNotNull('seo_title')
+                ->whereRaw('LENGTH(TRIM(seo_title)) >= 10')
+                ->whereNotNull('seo_description')
+                ->whereRaw('LENGTH(TRIM(seo_description)) >= 30')
+                ->count()
+            : $categoryUrlsCount;
         $staticPagesCount = 9;
 
         $sampleProjects = FeaturedProject::query()
@@ -87,36 +101,55 @@ class SeoController extends Controller
             ])
             ->values();
 
+        $productColumns = ['id', 'name', 'product_title', 'category_id', 'subcategory_id', 'description'];
+        if ($hasProductSeo) {
+            $productColumns = [...$productColumns, 'seo_title', 'seo_description', 'seo_keywords'];
+        }
+
         $allProducts = Product::query()
             ->with(['category:id,name', 'subcategory:id,name'])
             ->orderByDesc('id')
-            ->get(['id', 'name', 'product_title', 'category_id', 'subcategory_id', 'description', 'seo_title', 'seo_description', 'seo_keywords'])
-            ->map(fn (Product $product): array => [
-                'id' => $product->id,
-                'name' => $product->name,
-                'slug' => $product->slug,
-                'subtitle' => $product->product_title,
-                'category_name' => $product->category?->name,
-                'subcategory_name' => $product->subcategory?->name,
-                'seo_title' => (string) ($product->seo_title ?? ''),
-                'seo_description' => (string) ($product->seo_description ?? ''),
-                'seo_keywords' => (string) ($product->seo_keywords ?? ''),
-                'url' => SiteSetting::canonicalUrl('/products/'.$product->slug),
-                'path' => '/products/'.$product->slug,
-            ])
+            ->get($productColumns)
+            ->map(function (Product $product): array {
+                $generated = ($product->seo_title && $product->seo_description)
+                    ? null
+                    : SeoAutoIndexService::generateProductSeo($product);
+
+                return [
+                    'id' => $product->id,
+                    'name' => $product->name,
+                    'slug' => $product->slug,
+                    'subtitle' => $product->product_title,
+                    'category_name' => $product->category?->name,
+                    'subcategory_name' => $product->subcategory?->name,
+                    'seo_title' => (string) ($product->seo_title ?: ($generated['seo_title'] ?? '')),
+                    'seo_description' => (string) ($product->seo_description ?: ($generated['seo_description'] ?? '')),
+                    'seo_keywords' => (string) ($product->seo_keywords ?: ($generated['seo_keywords'] ?? '')),
+                    'url' => SiteSetting::canonicalUrl('/products/'.$product->slug),
+                    'path' => '/products/'.$product->slug,
+                ];
+            })
             ->values();
+
+        $categoryColumns = ['id', 'name', 'parent_id', 'description'];
+        if ($hasCategorySeo) {
+            $categoryColumns = [...$categoryColumns, 'seo_title', 'seo_description', 'seo_keywords'];
+        }
 
         $allCategories = Category::query()
             ->with('parent:id,name')
             ->orderByRaw('CASE WHEN parent_id IS NULL THEN 0 ELSE 1 END')
             ->orderBy('parent_id')
             ->orderBy('name')
-            ->get(['id', 'name', 'parent_id', 'description', 'seo_title', 'seo_description', 'seo_keywords'])
+            ->get($categoryColumns)
             ->map(function (Category $category): array {
                 $parentSlug = $category->parent?->slug ?? (string) $category->parent_id;
                 $path = $category->parent_id !== null
                     ? '/categories/'.$parentSlug.'/'.$category->slug
                     : '/categories/'.$category->slug;
+                $generated = ($category->seo_title && $category->seo_description)
+                    ? null
+                    : SeoAutoIndexService::generateCategorySeo($category);
 
                 return [
                     'id' => $category->id,
@@ -125,49 +158,71 @@ class SeoController extends Controller
                     'parent_id' => $category->parent_id,
                     'parent_name' => $category->parent?->name,
                     'description' => $category->description,
-                    'seo_title' => (string) ($category->seo_title ?? ''),
-                    'seo_description' => (string) ($category->seo_description ?? ''),
-                    'seo_keywords' => (string) ($category->seo_keywords ?? ''),
+                    'seo_title' => (string) ($category->seo_title ?: ($generated['seo_title'] ?? '')),
+                    'seo_description' => (string) ($category->seo_description ?: ($generated['seo_description'] ?? '')),
+                    'seo_keywords' => (string) ($category->seo_keywords ?: ($generated['seo_keywords'] ?? '')),
                     'url' => SiteSetting::canonicalUrl($path),
                     'path' => $path,
                 ];
             })
             ->values();
 
+        $articleColumns = ['id', 'title', 'slug', 'excerpt', 'is_published', 'published_at'];
+        if ($hasArticleSeo) {
+            $articleColumns = [...$articleColumns, 'seo_title', 'seo_description', 'seo_keywords'];
+        }
+
         $allArticles = Article::query()
             ->orderByDesc('published_at')
             ->orderByDesc('id')
-            ->get(['id', 'title', 'slug', 'excerpt', 'is_published', 'published_at', 'seo_title', 'seo_description', 'seo_keywords'])
-            ->map(fn (Article $article): array => [
-                'id' => $article->id,
-                'title' => $article->title,
-                'slug' => $article->slug,
-                'excerpt' => $article->excerpt,
-                'is_published' => (bool) $article->is_published,
-                'seo_title' => (string) ($article->seo_title ?? ''),
-                'seo_description' => (string) ($article->seo_description ?? ''),
-                'seo_keywords' => (string) ($article->seo_keywords ?? ''),
-                'url' => SiteSetting::canonicalUrl('/news/'.$article->slug),
-                'path' => '/news/'.$article->slug,
-            ])
+            ->get($articleColumns)
+            ->map(function (Article $article): array {
+                $generated = ($article->seo_title && $article->seo_description)
+                    ? null
+                    : SeoAutoIndexService::generateArticleSeo($article);
+
+                return [
+                    'id' => $article->id,
+                    'title' => $article->title,
+                    'slug' => $article->slug,
+                    'excerpt' => $article->excerpt,
+                    'is_published' => (bool) $article->is_published,
+                    'seo_title' => (string) ($article->seo_title ?: ($generated['seo_title'] ?? '')),
+                    'seo_description' => (string) ($article->seo_description ?: ($generated['seo_description'] ?? '')),
+                    'seo_keywords' => (string) ($article->seo_keywords ?: ($generated['seo_keywords'] ?? '')),
+                    'url' => SiteSetting::canonicalUrl('/news/'.$article->slug),
+                    'path' => '/news/'.$article->slug,
+                ];
+            })
             ->values();
+
+        $projectColumns = ['id', 'name', 'location', 'category', 'subcategory', 'description'];
+        if ($hasProjectSeo) {
+            $projectColumns = [...$projectColumns, 'seo_title', 'seo_description', 'seo_keywords'];
+        }
 
         $allProjects = FeaturedProject::query()
             ->orderByDesc('id')
-            ->get(['id', 'name', 'location', 'category', 'subcategory', 'description', 'seo_title', 'seo_description', 'seo_keywords'])
-            ->map(fn (FeaturedProject $project): array => [
-                'id' => $project->id,
-                'name' => $project->name,
-                'slug' => $project->slug,
-                'location' => $project->location,
-                'category' => $project->category,
-                'subcategory' => $project->subcategory,
-                'seo_title' => (string) ($project->seo_title ?? ''),
-                'seo_description' => (string) ($project->seo_description ?? ''),
-                'seo_keywords' => (string) ($project->seo_keywords ?? ''),
-                'url' => SiteSetting::canonicalUrl('/featured-projects/'.$project->slug),
-                'path' => '/featured-projects/'.$project->slug,
-            ])
+            ->get($projectColumns)
+            ->map(function (FeaturedProject $project): array {
+                $generated = ($project->seo_title && $project->seo_description)
+                    ? null
+                    : SeoAutoIndexService::generateProjectSeo($project);
+
+                return [
+                    'id' => $project->id,
+                    'name' => $project->name,
+                    'slug' => $project->slug,
+                    'location' => $project->location,
+                    'category' => $project->category,
+                    'subcategory' => $project->subcategory,
+                    'seo_title' => (string) ($project->seo_title ?: ($generated['seo_title'] ?? '')),
+                    'seo_description' => (string) ($project->seo_description ?: ($generated['seo_description'] ?? '')),
+                    'seo_keywords' => (string) ($project->seo_keywords ?: ($generated['seo_keywords'] ?? '')),
+                    'url' => SiteSetting::canonicalUrl('/featured-projects/'.$project->slug),
+                    'path' => '/featured-projects/'.$project->slug,
+                ];
+            })
             ->values();
 
         return Inertia::render('seo/Index', [

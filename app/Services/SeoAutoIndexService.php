@@ -9,6 +9,7 @@ use App\Models\FeaturedProject;
 use App\Models\Product;
 use App\Models\SiteSetting;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
@@ -344,11 +345,37 @@ class SeoAutoIndexService
         }
     }
 
+    public static function ensureSeoSchema(): void
+    {
+        $tables = [
+            'products' => 'description',
+            'categories' => 'description_2',
+            'articles' => 'content',
+            'featured_projects' => 'description',
+        ];
+
+        foreach ($tables as $table => $afterColumn) {
+            try {
+                if (Schema::hasTable($table) && ! Schema::hasColumn($table, 'seo_title')) {
+                    Schema::table($table, function (Blueprint $blueprint) use ($afterColumn): void {
+                        $blueprint->string('seo_title', 180)->nullable()->after($afterColumn);
+                        $blueprint->string('seo_description', 350)->nullable()->after('seo_title');
+                        $blueprint->string('seo_keywords', 500)->nullable()->after('seo_description');
+                    });
+                }
+            } catch (Throwable) {
+                // Ignore schema modification errors on read-only connections
+            }
+        }
+    }
+
     /**
      * @return array{products: int, categories: int, articles: int, projects: int}
      */
     public static function syncAllEntitiesSeo(bool $overwrite = false): array
     {
+        self::ensureSeoSchema();
+
         $categoriesUpdated = 0;
         $productsUpdated = 0;
         $articlesUpdated = 0;
