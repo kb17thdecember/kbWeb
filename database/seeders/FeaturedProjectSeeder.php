@@ -51,6 +51,10 @@ class FeaturedProjectSeeder extends Seeder
             }
             $projectData['description'] = implode("\n", $projectData['description']);
 
+            FeaturedProject::query()
+                ->where('name', $projectData['name'].'.')
+                ->delete();
+
             $project = FeaturedProject::query()->updateOrCreate(
                 ['name' => $projectData['name']],
                 $projectData,
