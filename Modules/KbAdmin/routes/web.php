@@ -15,6 +15,7 @@ use Modules\KbAdmin\Http\Controllers\NotificationController;
 use Modules\KbAdmin\Http\Controllers\ProductController;
 use Modules\KbAdmin\Http\Controllers\ProjectReportController;
 use Modules\KbAdmin\Http\Controllers\QuotationController;
+use Modules\KbAdmin\Http\Controllers\SeoController;
 use Modules\KbAdmin\Http\Controllers\SiteSettingController;
 use Modules\KbAdmin\Http\Middleware\EnsureAdminAuthenticated;
 use Modules\KbAdmin\Http\Middleware\UseKbAdminRootView;
@@ -51,6 +52,13 @@ Route::middleware([UseKbAdminRootView::class, EnsureAdminAuthenticated::class])
             ->name('admin.settings.index');
         Route::put('/settings', [SiteSettingController::class, 'update'])
             ->name('admin.settings.update');
+
+        Route::get('/seo', [SeoController::class, 'index'])
+            ->name('admin.seo.index');
+        Route::put('/seo', [SeoController::class, 'update'])
+            ->name('admin.seo.update');
+        Route::post('/seo/ping', [SeoController::class, 'ping'])
+            ->name('admin.seo.ping');
 
         Route::get('/products', [ProductController::class, 'index'])
             ->name('admin.products.index');

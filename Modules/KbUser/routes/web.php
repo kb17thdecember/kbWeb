@@ -1,6 +1,10 @@
 <?php
 
 use App\Models\Article;
+use App\Models\FeaturedProject;
+use App\Models\Product;
+use App\Models\SiteSetting;
+use App\Services\SeoAutoIndexService;
 use Illuminate\Support\Facades\Route;
 use Modules\KbUser\Http\Controllers\ChatController;
 use Modules\KbUser\Http\Controllers\KbUserController;
@@ -8,16 +12,147 @@ use Modules\KbUser\Http\Controllers\QuotationController;
 use Modules\KbUser\Http\Controllers\UserAuthController;
 use Modules\KbUser\Http\Middleware\UseKbUserRootView;
 
+Route::get('/robots.txt', function () {
+    $settings = SiteSetting::allSettings();
+    $robotsDirective = strtolower($settings['seo_robots'] ?? 'index, follow');
+    $disallowAll = str_contains($robotsDirective, 'noindex');
+
+    $lines = [
+        'User-agent: *',
+        $disallowAll ? 'Disallow: /' : 'Allow: /',
+        'Disallow: /admin',
+        'Disallow: /chat/',
+        'Disallow: /my-account',
+        'Disallow: /quotations/login',
+        '',
+        'Sitemap: '.SiteSetting::canonicalUrl('/sitemap.xml'),
+    ];
+
+    return response(implode("\n", $lines), 200, ['Content-Type' => 'text/plain; charset=UTF-8']);
+})->name('kbuser.robots');
+
 Route::get('/sitemap.xml', function () {
-    $paths = ['/', '/categories', '/products', '/catalogues', '/featured-projects', '/news', '/about-us', '/contacts'];
-    $urls = collect($paths)->map(fn (string $path): string => '<url><loc>'.e(url($path)).'</loc></url>')
-        ->concat(Article::query()->published()->get(['slug'])->map(
-            fn (Article $article): string => '<url><loc>'.e(url('/news/'.$article->slug)).'</loc></url>',
+    $staticPages = [
+        ['path' => '/', 'priority' => '1.0', 'changefreq' => 'daily'],
+        ['path' => '/products', 'priority' => '0.9', 'changefreq' => 'daily'],
+        ['path' => '/categories', 'priority' => '0.8', 'changefreq' => 'weekly'],
+        ['path' => '/featured-projects', 'priority' => '0.9', 'changefreq' => 'weekly'],
+        ['path' => '/catalogues', 'priority' => '0.8', 'changefreq' => 'weekly'],
+        ['path' => '/news', 'priority' => '0.8', 'changefreq' => 'daily'],
+        ['path' => '/about-us', 'priority' => '0.7', 'changefreq' => 'monthly'],
+        ['path' => '/contacts', 'priority' => '0.8', 'changefreq' => 'monthly'],
+    ];
+
+    $today = now()->toAtomString();
+
+    $urls = collect($staticPages)->map(
+        fn (array $page): string => '<url>'
+            .'<loc>'.e(SiteSetting::canonicalUrl($page['path'])).'</loc>'
+            .'<lastmod>'.e($today).'</lastmod>'
+            .'<changefreq>'.$page['changefreq'].'</changefreq>'
+            .'<priority>'.$page['priority'].'</priority>'
+            .'</url>',
+    )
+        ->concat(Product::query()->get(['id', 'updated_at'])->map(
+            fn (Product $product): string => '<url>'
+                .'<loc>'.e(SiteSetting::canonicalUrl('/products/'.$product->id)).'</loc>'
+                .'<lastmod>'.e(($product->updated_at ?? now())->toAtomString()).'</lastmod>'
+                .'<changefreq>weekly</changefreq>'
+                .'<priority>0.8</priority>'
+                .'</url>',
+        ))
+        ->concat(FeaturedProject::query()->get(['id', 'name', 'updated_at'])->map(
+            fn (FeaturedProject $project): string => '<url>'
+                .'<loc>'.e(SiteSetting::canonicalUrl('/featured-projects/'.$project->slug)).'</loc>'
+                .'<lastmod>'.e(($project->updated_at ?? now())->toAtomString()).'</lastmod>'
+                .'<changefreq>weekly</changefreq>'
+                .'<priority>0.8</priority>'
+                .'</url>',
+        ))
+        ->concat(Article::query()->published()->get(['slug', 'updated_at', 'published_at'])->map(
+            fn (Article $article): string => '<url>'
+                .'<loc>'.e(SiteSetting::canonicalUrl('/news/'.$article->slug)).'</loc>'
+                .'<lastmod>'.e(($article->updated_at ?? $article->published_at ?? now())->toAtomString()).'</lastmod>'
+                .'<changefreq>weekly</changefreq>'
+                .'<priority>0.7</priority>'
+                .'</url>',
         ))
         ->implode('');
 
-    return response('<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'.$urls.'</urlset>', 200, ['Content-Type' => 'application/xml']);
+    return response(
+        '<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'.$urls.'</urlset>',
+        200,
+        ['Content-Type' => 'application/xml; charset=UTF-8'],
+    );
 })->name('kbuser.sitemap');
+
+Route::get('/feed.xml', function () {
+    $settings = SiteSetting::allSettings();
+    $companyName = $settings['company_name'] ?? 'HVAC Mart';
+    $siteDesc = $settings['seo_meta_description'] ?? 'HVAC Mart - Vật tư HVAC, bình nước nóng Ariston và bảo ôn K-Flex.';
+    $baseUrl = SiteSetting::canonicalBaseUrl();
+
+    $items = collect()
+        ->concat(Product::query()->latest('updated_at')->limit(15)->get(['id', 'name', 'description', 'updated_at'])->map(
+            fn (Product $product): array => [
+                'title' => '[Sản phẩm] '.$product->name,
+                'link' => SiteSetting::canonicalUrl('/products/'.$product->id),
+                'description' => strip_tags((string) ($product->description ?: $product->name)),
+                'pubDate' => ($product->updated_at ?? now())->toRssString(),
+                'timestamp' => ($product->updated_at ?? now())->getTimestamp(),
+            ],
+        ))
+        ->concat(FeaturedProject::query()->latest('updated_at')->limit(15)->get(['id', 'name', 'description', 'updated_at'])->map(
+            fn (FeaturedProject $project): array => [
+                'title' => '[Dự án tiêu biểu] '.$project->name,
+                'link' => SiteSetting::canonicalUrl('/featured-projects/'.$project->slug),
+                'description' => strip_tags((string) ($project->description ?: $project->name)),
+                'pubDate' => ($project->updated_at ?? now())->toRssString(),
+                'timestamp' => ($project->updated_at ?? now())->getTimestamp(),
+            ],
+        ))
+        ->concat(Article::query()->published()->latest('updated_at')->limit(15)->get(['title', 'slug', 'excerpt', 'updated_at'])->map(
+            fn (Article $article): array => [
+                'title' => $article->title,
+                'link' => SiteSetting::canonicalUrl('/news/'.$article->slug),
+                'description' => strip_tags((string) ($article->excerpt ?: $article->title)),
+                'pubDate' => ($article->updated_at ?? now())->toRssString(),
+                'timestamp' => ($article->updated_at ?? now())->getTimestamp(),
+            ],
+        ))
+        ->sortByDesc('timestamp')
+        ->take(30)
+        ->map(fn (array $item): string => '<item>'
+            .'<title>'.e($item['title']).'</title>'
+            .'<link>'.e($item['link']).'</link>'
+            .'<guid isPermaLink="true">'.e($item['link']).'</guid>'
+            .'<description>'.e($item['description']).'</description>'
+            .'<pubDate>'.e($item['pubDate']).'</pubDate>'
+            .'</item>')
+        ->implode('');
+
+    $feedXml = '<?xml version="1.0" encoding="UTF-8"?>'
+        .'<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">'
+        .'<channel>'
+        .'<title>'.e($companyName).'</title>'
+        .'<link>'.e($baseUrl).'/</link>'
+        .'<description>'.e($siteDesc).'</description>'
+        .'<language>vi-VN</language>'
+        .'<atom:link href="'.e(SiteSetting::canonicalUrl('/feed.xml')).'" rel="self" type="application/rss+xml" />'
+        .'<atom:link href="https://pubsubhubbub.appspot.com/" rel="hub" />'
+        .$items
+        .'</channel>'
+        .'</rss>';
+
+    return response($feedXml, 200, ['Content-Type' => 'application/rss+xml; charset=UTF-8']);
+})->name('kbuser.feed');
+
+Route::get('/indexnow-{key}.txt', function (string $key) {
+    $expectedKey = SeoAutoIndexService::indexNowKey();
+    abort_if($key !== $expectedKey, 404);
+
+    return response($expectedKey, 200, ['Content-Type' => 'text/plain; charset=UTF-8']);
+})->name('kbuser.indexnow.key');
 
 Route::middleware(UseKbUserRootView::class)->group(function () {
     Route::get('/', [KbUserController::class, 'index'])->name('kbuser.home');
@@ -29,6 +164,7 @@ Route::middleware(UseKbUserRootView::class)->group(function () {
     Route::post('/products/{product}/reviews', [KbUserController::class, 'storeProductReview'])->whereNumber('product')->middleware('auth')->name('kbuser.products.reviews.store');
     Route::post('/products/{product}/comments', [KbUserController::class, 'storeProductComment'])->whereNumber('product')->middleware('auth')->name('kbuser.products.comments.store');
     Route::get('/featured-projects', [KbUserController::class, 'featuredProjects'])->name('kbuser.featured-projects');
+    Route::get('/featured-projects/{projectSlug}', [KbUserController::class, 'showFeaturedProject'])->name('kbuser.featured-projects.show');
     Route::get('/about-us', [KbUserController::class, 'about'])->name('kbuser.about');
     Route::get('/news', [KbUserController::class, 'news'])->name('kbuser.news');
     Route::get('/news/{article:slug}', [KbUserController::class, 'showArticle'])->name('kbuser.news.show');

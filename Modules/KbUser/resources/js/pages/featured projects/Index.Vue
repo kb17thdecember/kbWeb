@@ -16,6 +16,7 @@ type RelatedProduct = {
 
 type FeaturedProject = {
     id: number;
+    slug?: string;
     name: string;
     description: string;
     location: string;
@@ -116,6 +117,9 @@ const formatPrice = (price: number): string =>
 
 const productDetailUrl = (product: RelatedProduct): string =>
     product.id ? `/products/${product.id}` : `/products`;
+
+const projectDetailUrl = (project: FeaturedProject): string =>
+    `/featured-projects/${project.slug || project.id}`;
 
 const goToProductDetail = (product: RelatedProduct): void => {
     releasePageScrollLock?.();
@@ -281,7 +285,7 @@ onUnmounted(() => {
                                             :key="project.id"
                                             class="project-detail-card"
                                         >
-                                            <div class="project-detail-art">
+                                            <Link :href="projectDetailUrl(project)" class="project-detail-art">
                                                 <img
                                                     class="project-detail-image"
                                                     :src="imageUrl(project)"
@@ -289,10 +293,12 @@ onUnmounted(() => {
                                                     loading="lazy"
                                                 >
                                                 <span class="project-image-tag">{{ projectTypeLabel(project.type) }}</span>
-                                            </div>
+                                            </Link>
                                             <div class="project-detail-copy">
                                                 <span class="project-detail-type">CASE STUDY · {{ projectTypeLabel(project.type) }}</span>
-                                                <h3>{{ project.name }}</h3>
+                                                <h3>
+                                                    <Link :href="projectDetailUrl(project)">{{ project.name }}</Link>
+                                                </h3>
                                                 <p>{{ projectSummary(project.description) }}</p>
                                                 <div class="project-detail-meta">
                                                     <div><span>Vị trí</span><strong>{{ project.location }}</strong></div>
@@ -315,8 +321,16 @@ onUnmounted(() => {
                                                     Thông tin dự án được cập nhật theo dữ liệu hiện có. Vui lòng liên hệ để xác nhận phạm vi cung ứng.
                                                 </div>
                                                 <div class="project-card-actions">
-                                                    <button class="project-view-detail" type="button" @click="openProject(project)">
-                                                        Xem chi tiết dự án <FontAwesomeIcon :icon="['fas', 'arrow-right']" class="icon-ne" />
+                                                    <Link class="project-view-detail" :href="projectDetailUrl(project)">
+                                                        <span>Xem chi tiết dự án</span>
+                                                        <FontAwesomeIcon :icon="['fas', 'arrow-right']" class="icon-ne" />
+                                                    </Link>
+                                                    <button class="project-quick-view-btn" type="button" @click="openProject(project)">
+                                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                                            <path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0" />
+                                                            <circle cx="12" cy="12" r="3" />
+                                                        </svg>
+                                                        <span>Xem nhanh</span>
                                                     </button>
                                                 </div>
                                             </div>
@@ -487,9 +501,14 @@ onUnmounted(() => {
                                 <p class="project-detail-note">
                                     Thông tin địa điểm và hạng mục được cung cấp theo dữ liệu dự án. Vui lòng liên hệ để xác nhận chi tiết.
                                 </p>
-                                <Link class="btn btn-primary" href="/contacts" @click="selectedProject = null">
-                                    Trao đổi về hạng mục này <FontAwesomeIcon :icon="['fas', 'arrow-right']" class="icon-ne" />
-                                </Link>
+                                <div class="project-modal-footer-actions">
+                                    <Link class="btn btn-primary" :href="projectDetailUrl(selectedProject)" @click="selectedProject = null">
+                                        Xem trang chi tiết dự án <FontAwesomeIcon :icon="['fas', 'arrow-right']" class="icon-ne" />
+                                    </Link>
+                                    <Link class="btn btn-outline" href="/contacts" @click="selectedProject = null">
+                                        Trao đổi về hạng mục này
+                                    </Link>
+                                </div>
                             </div>
                         </div>
                     </section>

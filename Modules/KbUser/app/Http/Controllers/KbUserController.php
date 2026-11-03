@@ -300,6 +300,65 @@ class KbUserController extends Controller
         ]);
     }
 
+    public function showFeaturedProject(string $projectSlug): InertiaResponse
+    {
+        $this->deduplicateLegacyKflexProducts();
+
+        $columns = [
+            'id',
+            'name',
+            'description',
+            'location',
+            'category',
+            'subcategory',
+            'type',
+        ];
+
+        if (Schema::hasColumn('featured_projects', 'products')) {
+            $columns[] = 'products';
+        }
+
+        $normalizedSlug = Str::slug($projectSlug);
+
+        $featuredProject = FeaturedProject::query()
+            ->with('images')
+            ->get($columns)
+            ->first(fn (FeaturedProject $item): bool => $item->slug === $projectSlug
+                || ($normalizedSlug !== '' && $item->slug === $normalizedSlug)
+                || (ctype_digit($projectSlug) && $item->id === (int) $projectSlug));
+
+        abort_if(! $featuredProject instanceof FeaturedProject, 404);
+
+        $allProducts = Product::query()
+            ->with(['category:id,name', 'subcategory:id,name', 'images'])
+            ->get([
+                'id',
+                'name',
+                'product_title',
+                'category_id',
+                'subcategory_id',
+                'description',
+                'price',
+            ]);
+
+        $project = $this->mapFeaturedProjectWithProducts($featuredProject, $allProducts);
+
+        $relatedProjects = FeaturedProject::query()
+            ->with('images')
+            ->whereKeyNot($featuredProject->id)
+            ->orderByRaw('CASE WHEN type = ? THEN 0 ELSE 1 END', [(string) $featuredProject->type])
+            ->latest()
+            ->limit(3)
+            ->get($columns)
+            ->map(fn (FeaturedProject $item): array => $this->mapFeaturedProjectWithProducts($item, $allProducts))
+            ->values();
+
+        return Inertia::render('featured projects/Show', [
+            'project' => $project,
+            'relatedProjects' => $relatedProjects,
+        ]);
+    }
+
     /**
      * @param  Collection<int, Product>  $allProducts
      * @return Collection<int, array<string, mixed>>
@@ -324,59 +383,66 @@ class KbUserController extends Controller
             ->with('images')
             ->latest()
             ->get($columns)
-            ->map(function (FeaturedProject $project) use ($allProducts): array {
-                $seededProducts = is_array($project->products) ? array_values(array_filter($project->products)) : [];
+            ->map(fn (FeaturedProject $project): array => $this->mapFeaturedProjectWithProducts($project, $allProducts));
+    }
 
-                if ($seededProducts !== []) {
-                    $relatedProducts = collect($seededProducts)
-                        ->map(function (mixed $reference) use ($allProducts, $project): array {
-                            $matchedProduct = $this->findMatchingProduct($allProducts, $reference);
+    /**
+     * @param  Collection<int, Product>  $allProducts
+     * @return array<string, mixed>
+     */
+    private function mapFeaturedProjectWithProducts(FeaturedProject $project, Collection $allProducts): array
+    {
+        $seededProducts = is_array($project->products) ? array_values(array_filter($project->products)) : [];
 
-                            if (! $matchedProduct instanceof Product) {
-                                $matchedProduct = $this->ensureSeededProductExists((string) $reference, $project);
-                                if ($matchedProduct instanceof Product) {
-                                    $allProducts->push($matchedProduct);
-                                }
-                            }
+        if ($seededProducts !== []) {
+            $relatedProducts = collect($seededProducts)
+                ->map(function (mixed $reference) use ($allProducts, $project): array {
+                    $matchedProduct = $this->findMatchingProduct($allProducts, $reference);
 
-                            if ($matchedProduct instanceof Product) {
-                                return $matchedProduct->toArray();
-                            }
+                    if (! $matchedProduct instanceof Product) {
+                        $matchedProduct = $this->ensureSeededProductExists((string) $reference, $project);
+                        if ($matchedProduct instanceof Product) {
+                            $allProducts->push($matchedProduct);
+                        }
+                    }
 
-                            return [
-                                'id' => 0,
-                                'name' => trim((string) $reference),
-                                'product_title' => null,
-                                'price' => 0,
-                                'image' => [],
-                                'category' => ['id' => 0, 'name' => (string) $project->category],
-                                'subcategory' => ['id' => 0, 'name' => (string) $project->subcategory],
-                            ];
-                        })
-                        ->values()
-                        ->all();
-                } else {
-                    $catLower = mb_strtolower(trim((string) $project->category));
-                    $subLower = mb_strtolower(trim((string) $project->subcategory));
+                    if ($matchedProduct instanceof Product) {
+                        return $matchedProduct->toArray();
+                    }
 
-                    $relatedProducts = $allProducts->filter(function (Product $product) use ($catLower, $subLower): bool {
-                        $pCat = mb_strtolower(trim((string) $product->category?->name));
-                        $pSub = mb_strtolower(trim((string) $product->subcategory?->name));
+                    return [
+                        'id' => 0,
+                        'name' => trim((string) $reference),
+                        'product_title' => null,
+                        'price' => 0,
+                        'image' => [],
+                        'category' => ['id' => 0, 'name' => (string) $project->category],
+                        'subcategory' => ['id' => 0, 'name' => (string) $project->subcategory],
+                    ];
+                })
+                ->values()
+                ->all();
+        } else {
+            $catLower = mb_strtolower(trim((string) $project->category));
+            $subLower = mb_strtolower(trim((string) $project->subcategory));
 
-                        return ($subLower !== '' && $pSub === $subLower)
-                            || ($catLower !== '' && $pCat === $catLower);
-                    })->sortByDesc(function (Product $product) use ($subLower): int {
-                        $pSub = mb_strtolower(trim((string) $product->subcategory?->name));
+            $relatedProducts = $allProducts->filter(function (Product $product) use ($catLower, $subLower): bool {
+                $pCat = mb_strtolower(trim((string) $product->category?->name));
+                $pSub = mb_strtolower(trim((string) $product->subcategory?->name));
 
-                        return ($subLower !== '' && $pSub === $subLower) ? 1 : 0;
-                    })->take(4)->values()->toArray();
-                }
+                return ($subLower !== '' && $pSub === $subLower)
+                    || ($catLower !== '' && $pCat === $catLower);
+            })->sortByDesc(function (Product $product) use ($subLower): int {
+                $pSub = mb_strtolower(trim((string) $product->subcategory?->name));
 
-                return [
-                    ...$project->toArray(),
-                    'related_products' => $relatedProducts,
-                ];
-            });
+                return ($subLower !== '' && $pSub === $subLower) ? 1 : 0;
+            })->take(4)->values()->toArray();
+        }
+
+        return [
+            ...$project->toArray(),
+            'related_products' => $relatedProducts,
+        ];
     }
 
     /**

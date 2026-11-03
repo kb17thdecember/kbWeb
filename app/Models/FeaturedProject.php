@@ -3,8 +3,10 @@
 namespace App\Models;
 
 use App\Models\Concerns\HasImages;
+use App\Services\SeoAutoIndexService;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Str;
 
 class FeaturedProject extends Model
 {
@@ -22,7 +24,14 @@ class FeaturedProject extends Model
 
     protected $hidden = ['images'];
 
-    protected $appends = ['image', 'image_url', 'images_url'];
+    protected $appends = ['slug', 'image', 'image_url', 'images_url'];
+
+    protected static function booted(): void
+    {
+        static::saved(function (FeaturedProject $project): void {
+            SeoAutoIndexService::scheduleModelPing($project);
+        });
+    }
 
     /**
      * @return array<string, string>
@@ -32,6 +41,14 @@ class FeaturedProject extends Model
         return [
             'products' => 'array',
         ];
+    }
+
+    /**
+     * @return Attribute<string, never>
+     */
+    protected function slug(): Attribute
+    {
+        return Attribute::get(fn (): string => Str::slug((string) $this->name) ?: (string) $this->id);
     }
 
     /**

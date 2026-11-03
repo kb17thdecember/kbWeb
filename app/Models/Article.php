@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Models\Concerns\HasImages;
+use App\Services\SeoAutoIndexService;
 use Database\Factories\ArticleFactory;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Casts\Attribute;
@@ -46,6 +47,10 @@ class Article extends Model
     {
         static::creating(function (Article $article): void {
             $article->slug = static::uniqueSlug($article->title);
+        });
+
+        static::saved(function (Article $article): void {
+            SeoAutoIndexService::scheduleModelPing($article);
         });
     }
 

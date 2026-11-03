@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Models\Concerns\HasImages;
+use App\Services\SeoAutoIndexService;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -34,6 +35,13 @@ class Product extends Model
     protected $hidden = ['images'];
 
     protected $appends = ['image'];
+
+    protected static function booted(): void
+    {
+        static::saved(function (Product $product): void {
+            SeoAutoIndexService::scheduleModelPing($product);
+        });
+    }
 
     /**
      * Danh sách URL ảnh (giữ nguyên tên `image` cho giao diện hiện có).

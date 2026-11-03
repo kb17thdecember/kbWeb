@@ -1,5 +1,8 @@
 User-agent: *
+Allow: /
 Disallow: /admin
 Disallow: /chat/
+Disallow: /my-account
+Disallow: /quotations/login
 
 Sitemap: https://hvacmart.io.vn/sitemap.xml

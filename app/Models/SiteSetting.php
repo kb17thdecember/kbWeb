@@ -13,21 +13,7 @@ class SiteSetting extends Model
     ];
 
     /**
-     * @return array{
-     *     company_name: string,
-     *     company_tagline: string,
-     *     announcement_text: string,
-     *     footer_description: string,
-     *     copyright_text: string,
-     *     hotline: string,
-     *     zalo_phone: string,
-     *     contact_email: string,
-     *     address: string,
-     *     working_hours: string,
-     *     facebook_url: string,
-     *     linkedin_url: string,
-     *     zalo_url: string
-     * }
+     * @return array<string, string>
      */
     public static function defaults(): array
     {
@@ -45,6 +31,33 @@ class SiteSetting extends Model
             'facebook_url' => '/contacts',
             'linkedin_url' => '/contacts',
             'zalo_url' => 'https://zalo.me/0979807234',
+            'seo_meta_title' => 'HVAC Mart - Bình Nước Nóng Ariston, Bảo Ôn K-Flex & Vật Tư HVAC Công Trình',
+            'seo_meta_description' => 'HVAC Mart phân phối chính hãng bình nước nóng Ariston, bảo ôn cách nhiệt K-Flex và vật tư cơ điện MEP cho dự án xây dựng toàn quốc. Hỗ trợ kỹ thuật, đầy đủ CO/CQ.',
+            'seo_meta_keywords' => 'HVAC Mart, bình nước nóng Ariston, bảo ôn K-Flex, vật tư HVAC, vật tư cơ điện MEP, ống bảo ôn K-Flex, bơm nhiệt Ariston, báo giá vật tư HVAC',
+            'seo_og_image' => '/favicon.svg',
+            'seo_robots' => 'index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1',
+            'seo_canonical_domain' => 'https://hvacmart.io.vn',
+            'seo_google_verification' => '',
+            'seo_google_analytics_id' => '',
+            'seo_schema_type' => 'HardwareStore',
+            'seo_geo_region' => 'VN-HN',
+            'seo_geo_placename' => 'Hà Nội, Việt Nam',
+            'seo_home_title' => 'HVAC Mart - Bình Nước Nóng Ariston và Bảo Ôn K-Flex Chính Hãng',
+            'seo_home_description' => 'HVAC Mart cung cấp giải pháp bình nước nóng Ariston và bảo ôn K-Flex cho dự án xây dựng trên toàn quốc. Hỗ trợ kỹ thuật, tư vấn MEP và báo giá công trình.',
+            'seo_products_title' => 'Danh Mục Sản Phẩm Bình Nước Nóng Ariston & Bảo Ôn K-Flex | HVAC Mart',
+            'seo_products_description' => 'Tra cứu bảng giá và thông số kỹ thuật bình nước nóng Ariston, bơm nhiệt Heatpump, ống và tấm bảo ôn cách nhiệt K-Flex chính hãng cho dự án MEP.',
+            'seo_projects_title' => 'Dự Án Tiêu Biểu & Hồ Sơ Cung Ứng Vật Tư MEP | HVAC Mart',
+            'seo_projects_description' => 'Khám phá các dự án chung cư, tòa nhà văn phòng, khách sạn, bệnh viện và khu công nghiệp tiêu biểu do HVAC Mart cung ứng vật tư Ariston và K-Flex.',
+            'seo_news_title' => 'Tin Tức & Cẩm Nang Kỹ Thuật HVAC, Bảo Ôn, Nước Nóng | HVAC Mart',
+            'seo_news_description' => 'Cập nhật kiến thức kỹ thuật cơ điện MEP, hướng dẫn tính chọn độ dày bảo ôn K-Flex, giải pháp nước nóng trung tâm Ariston và tin tức dự án.',
+            'seo_catalogues_title' => 'Thư Viện Catalogue & Tài Liệu Kỹ Thuật Ariston, K-Flex PDF | HVAC Mart',
+            'seo_catalogues_description' => 'Tải miễn phí Catalogue, Datasheet, chứng chỉ kỹ thuật và tài liệu Submittal chính hãng của Ariston và bảo ôn K-Flex phục vụ hồ sơ thầu MEP.',
+            'seo_contacts_title' => 'Liên Hệ Tư Vấn Kỹ Thuật & Nhận Báo Giá Dự Án | HVAC Mart',
+            'seo_contacts_description' => 'Gửi khối lượng BOQ hoặc yêu cầu tư vấn vật tư HVAC, bình nước nóng Ariston, bảo ôn K-Flex để nhận báo giá chiết khấu tốt nhất cho công trình.',
+            'seo_indexnow_key' => 'hvacmart8f92a3c4d5e6718293a4b5c6',
+            'seo_last_ping_at' => '',
+            'seo_last_ping_url' => '',
+            'seo_last_ping_status' => 'Tự động kích hoạt khi thêm/sửa Sản phẩm, Dự án, Bài viết',
         ];
     }
 
@@ -54,6 +67,12 @@ class SiteSetting extends Model
     public static function allSettings(): array
     {
         $defaults = self::defaults();
+        $optionalEmptyKeys = [
+            'seo_google_verification',
+            'seo_google_analytics_id',
+            'seo_last_ping_at',
+            'seo_last_ping_url',
+        ];
 
         try {
             $stored = self::query()
@@ -65,8 +84,14 @@ class SiteSetting extends Model
         }
 
         foreach ($defaults as $key => $defaultValue) {
-            if (array_key_exists($key, $stored) && $stored[$key] !== null && trim((string) $stored[$key]) !== '') {
-                $defaults[$key] = (string) $stored[$key];
+            if (! array_key_exists($key, $stored)) {
+                continue;
+            }
+
+            $rawValue = trim((string) ($stored[$key] ?? ''));
+
+            if ($rawValue !== '' || in_array($key, $optionalEmptyKeys, true)) {
+                $defaults[$key] = $rawValue;
             }
         }
 
@@ -90,5 +115,21 @@ class SiteSetting extends Model
                 ['value' => $value !== null ? trim($value) : null],
             );
         }
+    }
+
+    public static function canonicalBaseUrl(): string
+    {
+        $settings = self::allSettings();
+        $configured = rtrim(trim((string) ($settings['seo_canonical_domain'] ?? '')), '/');
+
+        return $configured !== '' ? $configured : 'https://hvacmart.io.vn';
+    }
+
+    public static function canonicalUrl(string $path = '/'): string
+    {
+        $base = self::canonicalBaseUrl();
+        $normalizedPath = '/'.ltrim($path, '/');
+
+        return $normalizedPath === '/' ? $base.'/' : $base.$normalizedPath;
     }
 }
