@@ -106,7 +106,7 @@ function resetInactivityTimer(): void {
 }
 
 const isNotificationOpen = ref(false);
-const notificationFilter = ref<'all' | 'consultation' | 'chat' | 'project'>('all');
+const notificationFilter = ref<'all' | 'consultation' | 'chat'>('all');
 const notificationWrapRef = ref<HTMLElement | null>(null);
 const liveNotifications = ref<AdminNotificationsPayload | null>(null);
 
@@ -128,7 +128,7 @@ const notificationsData = computed<AdminNotificationsPayload>(() => {
         pendingRequestsCount: openRequests,
         chatUnreadCount: chatUnread,
         supportProjectsCount: supportProjects,
-        totalCount: openRequests + chatUnread + supportProjects,
+        totalCount: openRequests + chatUnread,
         items: [],
     };
 });
@@ -438,14 +438,6 @@ function logout(): void {
                       >
                           Chat ({{ chatUnreadCount }})
                       </button>
-                      <button
-                          type="button"
-                          class="admin-notif-tab"
-                          :class="{ active: notificationFilter === 'project' }"
-                          @click="notificationFilter = 'project'"
-                      >
-                          Dự án ({{ supportProjectsBadge }})
-                      </button>
                   </div>
 
                   <div v-if="filteredNotifications.length > 0" class="admin-notif-list">
@@ -473,7 +465,7 @@ function logout(): void {
                   <div v-else class="admin-notif-empty">
                       <FontAwesomeIcon icon="fa-solid fa-circle-check" />
                       <b>Không có mục tồn đọng</b>
-                      <span>Mọi yêu cầu tư vấn, tin nhắn và dự án đều đã được xử lý.</span>
+                      <span>Mọi yêu cầu tư vấn và tin nhắn đều đã được xử lý.</span>
                   </div>
 
                   <div class="admin-notif-foot">

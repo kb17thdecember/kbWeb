@@ -49,13 +49,13 @@ test('admin notifications endpoint and shared props return unhandled counts and 
         ->assertJsonPath('pendingRequestsCount', 1)
         ->assertJsonPath('chatUnreadCount', 1)
         ->assertJsonPath('supportProjectsCount', 1)
-        ->assertJsonPath('totalCount', 3)
-        ->assertJsonCount(3, 'items');
+        ->assertJsonPath('totalCount', 2)
+        ->assertJsonCount(2, 'items');
 
     $this->postJson(route('admin.notifications.read-chats'))
         ->assertOk()
         ->assertJsonPath('chatUnreadCount', 0)
-        ->assertJsonPath('totalCount', 2);
+        ->assertJsonPath('totalCount', 1);
 });
 
 test('admin can view and update site settings and changes are shared with user pages', function () {

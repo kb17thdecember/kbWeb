@@ -133,24 +133,6 @@ class AdminDashboardStats
                 ];
             }
 
-            $supportProjects = ProjectReport::query()
-                ->where('project_status', '3')
-                ->orderByDesc('updated_at')
-                ->limit(5)
-                ->get();
-
-            foreach ($supportProjects as $report) {
-                $items[] = [
-                    'id' => 'project-'.$report->id,
-                    'type' => 'project',
-                    'title' => $report->project_name.' ('.$report->project_code.')',
-                    'subtitle' => $report->project_area.' · '.Str::limit((string) $report->project_update, 55),
-                    'badge' => 'Cần hỗ trợ',
-                    'href' => '/admin/project-reports',
-                    'created_at' => $report->updated_at?->toIso8601String(),
-                ];
-            }
-
             usort(
                 $items,
                 fn (array $first, array $second): int => strcmp((string) ($second['created_at'] ?? ''), (string) ($first['created_at'] ?? '')),
@@ -161,7 +143,7 @@ class AdminDashboardStats
                 'pendingRequestsCount' => $pendingRequestsCount,
                 'chatUnreadCount' => $chatUnreadCount,
                 'supportProjectsCount' => $supportProjectsCount,
-                'totalCount' => $openRequestsCount + $chatUnreadCount + $supportProjectsCount,
+                'totalCount' => $openRequestsCount + $chatUnreadCount,
                 'items' => array_slice($items, 0, 12),
             ];
         } catch (Throwable) {
