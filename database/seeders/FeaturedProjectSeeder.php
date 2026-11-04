@@ -53,7 +53,7 @@ class FeaturedProjectSeeder extends Seeder
                     'Chúng tôi rất vinh dự được đồng hành cùng chủ đầu tư và các nhà thầu trong việc cung cấp giải pháp bảo ôn K-Flex model K-Protect cho dự án Crystal Holidays Harbour Vân Đồn. Đây là dòng vật liệu bảo ôn cao cấp đến từ thương hiệu K-Flex của Ý, được phát triển nhằm đáp ứng các yêu cầu kỹ thuật về cách nhiệt, bảo vệ hệ thống đường ống và thiết bị cơ điện trong các công trình xây dựng hiện đại.',
                     'Việc lựa chọn giải pháp bảo ôn K-Flex K-Protect góp phần nâng cao hiệu quả vận hành hệ thống cơ điện, hỗ trợ kiểm soát nhiệt độ, hạn chế thất thoát năng lượng và bảo vệ thiết bị trong quá trình sử dụng. Sự hiện diện của sản phẩm tại dự án tiếp tục khẳng định năng lực cung cấp vật tư và giải pháp kỹ thuật của chúng tôi trong lĩnh vực HVAC và cơ điện công trình.'
                 ],
-                'location' => 'Lô M1, Khu Đô Thị Du Lịch Và Bến Cảng Cao Cấp Ao Tiên, Đăng Khu Vân Đồn, Quảng Ninh.',
+                'location' => 'Lô M1, Khu Đô Thị Du Lịch Và Bến Cảng Cao Cấp Ao Tiên, Đặc Khu Vân Đồn, Quảng Ninh.',
                 'category' => 'K-FLEX',
                 'subcategory' => 'Polyolefin XLPE',
                 'products' => [
