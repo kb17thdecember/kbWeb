@@ -22,7 +22,7 @@ class UseKbUserRootView
 
         if ($this->shouldRecordVisit($request, $response)) {
             try {
-                $this->recordVisit($request);
+                self::recordConfirmedVisit($request);
             } catch (Throwable $exception) {
                 report($exception);
             }
@@ -31,8 +31,12 @@ class UseKbUserRootView
         return $response;
     }
 
-    private function recordVisit(Request $request): void
+    public static function recordConfirmedVisit(Request $request, ?string $customPath = null): void
     {
+        if (SiteVisit::isBotUserAgent($request->userAgent())) {
+            return;
+        }
+
         $sessionId = $request->hasSession() ? $request->session()->getId() : null;
         $ipAddress = $request->ip();
         $userAgent = Str::limit((string) $request->userAgent(), 500, '') ?: null;
@@ -55,7 +59,10 @@ class UseKbUserRootView
             ->latest('updated_at')
             ->first();
 
-        $currentPath = '/'.ltrim($request->path(), '/');
+        $rawPath = $customPath !== null && trim($customPath) !== ''
+            ? $customPath
+            : $request->path();
+        $currentPath = '/'.ltrim($rawPath, '/');
 
         if ($recentVisit !== null) {
             $recentVisit->forceFill([
@@ -88,14 +95,65 @@ class UseKbUserRootView
             return false;
         }
 
-        if ($request->expectsJson() && ! $request->header('X-Inertia')) {
+        if (($request->expectsJson() || $request->ajax()) && ! $request->header('X-Inertia')) {
             return false;
+        }
+
+        if ($this->isPrefetchOrPreviewRequest($request)) {
+            return false;
+        }
+
+        if (! $request->header('X-Inertia')) {
+            $secFetchMode = strtolower(trim((string) $request->header('Sec-Fetch-Mode', '')));
+            if ($secFetchMode !== '' && $secFetchMode !== 'navigate') {
+                return false;
+            }
+
+            $secFetchDest = strtolower(trim((string) $request->header('Sec-Fetch-Dest', '')));
+            if ($secFetchDest !== '' && ! in_array($secFetchDest, ['document', 'empty'], true)) {
+                return false;
+            }
         }
 
         if (SiteVisit::isBotUserAgent($request->userAgent())) {
             return false;
         }
 
-        return ! $request->is('auth/google/*');
+        return ! $request->is(
+            'auth/google/*',
+            'products/search',
+            'chat/*',
+            'my-account/overview',
+            'site-visits/*',
+        );
+    }
+
+    private function isPrefetchOrPreviewRequest(Request $request): bool
+    {
+        $purposeHeaders = [
+            $request->header('Purpose'),
+            $request->header('Sec-Purpose'),
+            $request->header('X-Purpose'),
+            $request->header('X-Moz'),
+            $request->header('X-Preview'),
+        ];
+
+        foreach ($purposeHeaders as $headerValue) {
+            $normalized = strtolower(trim((string) $headerValue));
+            if ($normalized === '') {
+                continue;
+            }
+
+            if (
+                str_contains($normalized, 'prefetch')
+                || str_contains($normalized, 'prerender')
+                || str_contains($normalized, 'preview')
+                || $normalized === '1'
+            ) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

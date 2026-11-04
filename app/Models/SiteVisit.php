@@ -14,7 +14,7 @@ class SiteVisit extends Model
 
     public const MAX_RECENT_VISITS = 20;
 
-    private const BOT_USER_AGENT_PATTERN = '/bot|crawl|spider|slurp|ahrefs|semrush|mj12bot|dotbot|bytespider|petalbot|yandex|baiduspider|duckduckbot|facebookexternalhit|facebot|ia_archiver|mediapartners|adsbot|bingpreview|lighthouse|headlesschrome|gtmetrix|pingdom|uptimerobot|curl\/|wget\/|python-requests|go-http-client|axios\/|postmanruntime/i';
+    private const BOT_USER_AGENT_PATTERN = '/bot|crawl|spider|slurp|ahrefs|semrush|mj12bot|dotbot|bytespider|petalbot|yandex|baiduspider|duckduckbot|facebookexternalhit|facebot|ia_archiver|mediapartners|adsbot|bingpreview|googleother|google-inspectiontool|google-safety|feedfetcher|apis-google|lighthouse|pagespeed|headless|phantomjs|puppeteer|playwright|gtmetrix|pingdom|uptimerobot|statuscake|whatsapp|telegram|discord|slackbot|twitterbot|linkedinbot|embedly|pinterest|vkshare|zalopc|curl\/|wget\/|python-requests|python-urllib|go-http-client|java\/|apache-httpclient|okhttp|axios\/|node-fetch|undici|guzzlehttp|postmanruntime/i';
 
     protected $fillable = [
         'session_id',
@@ -37,7 +37,7 @@ class SiteVisit extends Model
     {
         $ua = trim((string) $userAgent);
         if ($ua === '') {
-            return false;
+            return true;
         }
 
         return (bool) preg_match(self::BOT_USER_AGENT_PATTERN, $ua);

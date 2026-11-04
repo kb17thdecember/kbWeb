@@ -215,6 +215,7 @@ watch([isMenuOpen, isGlobalCalculatorOpen], ([menuOpen, calcOpen]) => {
 });
 
 let removeSuccessListener: (() => void) | undefined;
+let removePrerenderListener: (() => void) | undefined;
 
 const onCustomToast = (event: Event): void => {
     const message = (event as CustomEvent<{ message?: string }>).detail?.message;
@@ -223,10 +224,52 @@ const onCustomToast = (event: Event): void => {
     }
 };
 
+const confirmActivePageVisit = (): void => {
+    if (typeof window === 'undefined' || typeof document === 'undefined') {
+        return;
+    }
+
+    if ((navigator as Navigator & { webdriver?: boolean }).webdriver) {
+        return;
+    }
+
+    const xsrfToken = decodeURIComponent(
+        document.cookie.match(/(?:^|; )XSRF-TOKEN=([^;]*)/)?.[1] ?? '',
+    );
+
+    void fetch('/site-visits/track', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            Accept: 'application/json',
+            'X-Requested-With': 'XMLHttpRequest',
+            ...(xsrfToken ? { 'X-XSRF-TOKEN': xsrfToken } : {}),
+        },
+        body: JSON.stringify({
+            path: window.location.pathname || '/',
+        }),
+        keepalive: true,
+    }).catch(() => {
+        // Ignore background visit tracking network errors
+    });
+};
+
 onMounted(() => {
     window.addEventListener('keydown', onEscapeKey);
     window.addEventListener('kbuser-calculator-open', openGlobalCalculator);
     window.addEventListener('kbuser-toast', onCustomToast);
+
+    const docWithPrerender = document as Document & { prerendering?: boolean };
+    if (docWithPrerender.prerendering) {
+        const onPrerenderActivate = (): void => {
+            confirmActivePageVisit();
+        };
+        document.addEventListener('prerenderingchange', onPrerenderActivate, { once: true });
+        removePrerenderListener = () => {
+            document.removeEventListener('prerenderingchange', onPrerenderActivate);
+        };
+    }
+
     removeSuccessListener = router.on('success', (event) => {
         const flashedToast = (event.detail.page.props as { toast?: string | null }).toast;
 
@@ -238,6 +281,7 @@ onMounted(() => {
 
 onUnmounted(() => {
     removeSuccessListener?.();
+    removePrerenderListener?.();
     window.removeEventListener('keydown', onEscapeKey);
     window.removeEventListener('kbuser-calculator-open', openGlobalCalculator);
     window.removeEventListener('kbuser-toast', onCustomToast);

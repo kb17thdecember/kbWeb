@@ -6,6 +6,7 @@ use App\Models\FeaturedProject;
 use App\Models\Product;
 use App\Models\SiteSetting;
 use App\Services\SeoAutoIndexService;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use Modules\KbUser\Http\Controllers\ChatController;
 use Modules\KbUser\Http\Controllers\KbUserController;
@@ -234,6 +235,12 @@ Route::middleware(UseKbUserRootView::class)->group(function () {
     Route::get('/my-account/overview', [KbUserController::class, 'accountOverview'])->middleware('auth')->name('kbuser.account.overview');
     Route::get('/chat/messages', [ChatController::class, 'messages'])->middleware('throttle:120,1')->name('kbuser.chat.messages');
     Route::post('/chat/messages', [ChatController::class, 'store'])->middleware('throttle:20,1')->name('kbuser.chat.store');
+    Route::post('/site-visits/track', function (Request $request) {
+        $path = trim((string) $request->input('path', '/'));
+        UseKbUserRootView::recordConfirmedVisit($request, $path !== '' ? $path : '/');
+
+        return response()->json(['recorded' => true]);
+    })->middleware('throttle:60,1')->name('kbuser.visits.track');
 
     Route::post('/login', [UserAuthController::class, 'login'])->name('kbuser.login.store');
     Route::post('/register', [UserAuthController::class, 'register'])->name('kbuser.register.store');

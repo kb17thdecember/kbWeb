@@ -275,3 +275,34 @@ test('bot user agents such as ahrefsbot are ignored and pruned so only real visi
         ->and(SiteVisit::query()->where('session_id', 'bot-session')->exists())->toBeFalse()
         ->and(SiteVisit::query()->first()->path)->toBe('/products');
 });
+
+test('prefetch prerender and preview requests are not counted until the visitor actually enters the page', function () {
+    $browserUa = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/131.0.0.0 Safari/537.36';
+
+    $this->get(route('kbuser.home'), [
+        'User-Agent' => $browserUa,
+        'Sec-Purpose' => 'prefetch;prerender',
+    ])->assertOk();
+
+    $this->get(route('kbuser.products'), [
+        'User-Agent' => $browserUa,
+        'Purpose' => 'prefetch',
+    ])->assertOk();
+
+    $this->get(route('kbuser.products.search', ['q' => 'ariston']), [
+        'User-Agent' => $browserUa,
+        'Sec-Fetch-Mode' => 'cors',
+        'Sec-Fetch-Dest' => 'empty',
+    ])->assertOk();
+
+    expect(SiteVisit::query()->count())->toBe(0);
+
+    $this->get(route('kbuser.home'), [
+        'User-Agent' => $browserUa,
+        'Sec-Fetch-Mode' => 'navigate',
+        'Sec-Fetch-Dest' => 'document',
+    ])->assertOk();
+
+    expect(SiteVisit::query()->count())->toBe(1)
+        ->and(SiteVisit::query()->first()->path)->toBe('/');
+});
