@@ -252,8 +252,10 @@ class SeoController extends Controller
                 'cataloguesCount' => $cataloguesCount,
                 'totalIndexedUrls' => $staticPagesCount + $categoryUrlsCount + $productsCount + $projectsCount + $articlesCount,
                 'sitemapUrl' => SiteSetting::canonicalUrl('/sitemap.xml'),
+                'feedUrl' => SiteSetting::canonicalUrl('/feed.xml'),
                 'robotsUrl' => SiteSetting::canonicalUrl('/robots.txt'),
                 'baseUrl' => SiteSetting::canonicalBaseUrl(),
+                'googleServiceAccount' => SeoAutoIndexService::googleServiceAccountSummary(),
                 'sampleProjects' => $sampleProjects,
                 'sampleProducts' => $allProducts->take(5)->values(),
                 'sampleArticles' => $allArticles->where('is_published', true)->take(5)->values(),
@@ -273,6 +275,27 @@ class SeoController extends Controller
             'seo_canonical_domain' => ['nullable', 'string', 'max:255'],
             'seo_google_verification' => ['nullable', 'string', 'max:255'],
             'seo_google_analytics_id' => ['nullable', 'string', 'max:80'],
+            'seo_google_service_account_json' => [
+                'nullable',
+                'string',
+                'max:20000',
+                function (string $attribute, mixed $value, \Closure $fail): void {
+                    $raw = trim((string) $value);
+                    if ($raw === '') {
+                        return;
+                    }
+
+                    $decoded = json_decode($raw, true);
+                    if (
+                        ! is_array($decoded)
+                        || empty($decoded['client_email'])
+                        || empty($decoded['private_key'])
+                        || ! str_contains((string) $decoded['private_key'], 'PRIVATE KEY')
+                    ) {
+                        $fail('Nội dung Google Service Account JSON không hợp lệ (thiếu client_email hoặc private_key).');
+                    }
+                },
+            ],
             'seo_schema_type' => ['required', 'string', 'max:80'],
             'seo_geo_region' => ['required', 'string', 'max:40'],
             'seo_geo_placename' => ['required', 'string', 'max:120'],
@@ -432,18 +455,18 @@ class SeoController extends Controller
             SiteSetting::canonicalUrl('/contacts'),
             SiteSetting::canonicalUrl('/quotations'),
         ])
-            ->concat(Category::query()->with('parent:id,name')->latest('id')->limit(30)->get(['id', 'parent_id', 'name'])->map(
+            ->concat(Category::query()->with('parent:id,name')->latest('id')->get(['id', 'parent_id', 'name'])->map(
                 fn (Category $category): string => $category->parent_id !== null
                     ? SiteSetting::canonicalUrl('/categories/'.($category->parent?->slug ?? $category->parent_id).'/'.$category->slug)
                     : SiteSetting::canonicalUrl('/categories/'.$category->slug),
             ))
-            ->concat(Product::query()->latest('id')->limit(30)->get(['id', 'name'])->map(
+            ->concat(Product::query()->latest('id')->get(['id', 'name'])->map(
                 fn (Product $product): string => SiteSetting::canonicalUrl('/products/'.$product->slug),
             ))
-            ->concat(FeaturedProject::query()->latest('id')->limit(30)->get(['id', 'name'])->map(
+            ->concat(FeaturedProject::query()->latest('id')->get(['id', 'name'])->map(
                 fn (FeaturedProject $project): string => SiteSetting::canonicalUrl('/featured-projects/'.$project->slug),
             ))
-            ->concat(Article::query()->published()->latest('id')->limit(30)->get(['slug'])->map(
+            ->concat(Article::query()->published()->latest('id')->get(['slug'])->map(
                 fn (Article $article): string => SiteSetting::canonicalUrl('/news/'.$article->slug),
             ))
             ->values()
@@ -451,7 +474,15 @@ class SeoController extends Controller
 
         $result = SeoAutoIndexService::pingUrls($urls);
 
+        $toastMessage = ! empty($result['gsc_sitemap_submitted'])
+            ? 'Đã nộp lại Sitemap.xml & Feed.xml ('
+                .$result['urls_count']
+                .' URL) trực tiếp lên Google Search Console API + WebSub & IndexNow.'
+            : (! empty($result['gsc_message'])
+                ? 'Đã gửi '.$result['urls_count'].' URL qua WebSub & IndexNow. Lưu ý Search Console API: '.$result['gsc_message']
+                : 'Đã đồng bộ '.$result['urls_count'].' URL trong Sitemap.xml & Feed.xml lên Google WebSub Hub & IndexNow.');
+
         return to_route('admin.seo.index')
-            ->with('toast', 'Đã gửi tín hiệu đề xuất lập chỉ mục '.$result['urls_count'].' URL lên Google Hub & IndexNow.');
+            ->with('toast', $toastMessage);
     }
 }

@@ -63,12 +63,14 @@
 
             <div class="seo-metric-card">
                 <span class="seo-metric-label">TỰ ĐỘNG ĐỀ XUẤT LÊN GOOGLE</span>
-                <strong class="seo-metric-value">Auto-Ping Bật</strong>
+                <strong class="seo-metric-value">
+                    {{ detectedServiceAccountEmail ? 'Search Console API' : 'Auto-Ping Bật' }}
+                </strong>
                 <small v-if="props.settings.seo_last_ping_at">
-                    Gần nhất: {{ props.settings.seo_last_ping_at }} ({{ props.settings.seo_last_ping_url }})
+                    Gần nhất: {{ props.settings.seo_last_ping_at }} · {{ props.settings.seo_last_ping_status || props.settings.seo_last_ping_url }}
                 </small>
                 <small v-else>
-                    Tự động bắn tín hiệu WebSub &amp; IndexNow khi thêm Sản phẩm / Danh mục / Bài viết
+                    Tự động bắn tín hiệu Sitemap API, WebSub &amp; IndexNow khi thêm Sản phẩm / Danh mục / Bài viết
                 </small>
             </div>
         </section>
@@ -499,6 +501,61 @@
                                     >
                                     <small class="seo-field-hint">Tự động nhúng <code>gtag.js</code> khi nhập mã bắt đầu bằng <code>G-</code>.</small>
                                 </div>
+
+                                <div class="field full">
+                                    <div class="seo-label-row">
+                                        <label for="seoGoogleServiceAccountJson">
+                                            GOOGLE SEARCH CONSOLE API — SERVICE ACCOUNT JSON (CẬP NHẬT SITEMAP TỨC THÌ)
+                                        </label>
+                                        <div class="row-actions" style="gap: 8px">
+                                            <span
+                                                class="seo-char-badge"
+                                                :class="detectedServiceAccountEmail ? 'is-good' : 'is-warn'"
+                                            >
+                                                {{
+                                                    detectedServiceAccountEmail
+                                                        ? `Đã cấu hình: ${detectedServiceAccountEmail}`
+                                                        : 'Chưa gắn Service Account JSON'
+                                                }}
+                                            </span>
+                                            <label class="btn" style="cursor: pointer; margin: 0">
+                                                <FontAwesomeIcon icon="fa-solid fa-file-arrow-up" /> Tải file .json
+                                                <input
+                                                    type="file"
+                                                    accept=".json,application/json"
+                                                    style="display: none"
+                                                    @change="handleServiceAccountFileUpload"
+                                                >
+                                            </label>
+                                        </div>
+                                    </div>
+                                    <textarea
+                                        id="seoGoogleServiceAccountJson"
+                                        v-model="form.seo_google_service_account_json"
+                                        rows="5"
+                                        placeholder='Dán nội dung file JSON của Google Cloud Service Account vào đây ({"type": "service_account", "client_email": "...", "private_key": "..."})'
+                                    ></textarea>
+                                    <small v-if="form.errors.seo_google_service_account_json" class="field-error">
+                                        {{ form.errors.seo_google_service_account_json }}
+                                    </small>
+                                    <div v-if="detectedServiceAccountEmail" class="seo-gsc-guide-box">
+                                        <div>
+                                            <strong>Email Service Account cần cấp quyền trên Google Search Console:</strong>
+                                            <code>{{ detectedServiceAccountEmail }}</code>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            class="btn"
+                                            @click="copyToClipboard(detectedServiceAccountEmail)"
+                                        >
+                                            <FontAwesomeIcon icon="fa-solid fa-copy" />
+                                            {{ copiedUrl === detectedServiceAccountEmail ? 'Đã chép Email' : 'Sao chép Email' }}
+                                        </button>
+                                    </div>
+                                    <small class="seo-field-hint">
+                                        Khi có Service Account JSON và đã thêm email trên vào <strong>Google Search Console → Cài đặt → Người dùng và quyền (Quyền: Đầy đủ / Chủ sở hữu)</strong>, mỗi lần bấm <strong>Đẩy tín hiệu lên Google ngay</strong> hệ thống sẽ gọi thẳng API <code>sitemaps.submit</code> để ép Google đọc lại <code>sitemap.xml</code> và <code>feed.xml</code> ngay lập tức.
+                                    </small>
+                                </div>
                             </div>
                         </section>
                     </template>
@@ -796,6 +853,7 @@ type SeoSettingsMap = {
     seo_canonical_domain: string;
     seo_google_verification: string;
     seo_google_analytics_id: string;
+    seo_google_service_account_json?: string;
     seo_schema_type: string;
     seo_geo_region: string;
     seo_geo_placename: string;
@@ -900,8 +958,14 @@ type SeoAuditPayload = {
     cataloguesCount: number;
     totalIndexedUrls: number;
     sitemapUrl: string;
+    feedUrl?: string;
     robotsUrl: string;
     baseUrl: string;
+    googleServiceAccount?: {
+        configured: boolean;
+        client_email: string | null;
+        project_id: string | null;
+    };
 };
 
 type AdminStat = {
@@ -1149,6 +1213,7 @@ const form = useForm<SeoSettingsMap>({
     seo_canonical_domain: props.settings.seo_canonical_domain || props.defaults.seo_canonical_domain || 'https://hvacmart.io.vn',
     seo_google_verification: props.settings.seo_google_verification ?? '',
     seo_google_analytics_id: props.settings.seo_google_analytics_id ?? '',
+    seo_google_service_account_json: props.settings.seo_google_service_account_json ?? '',
     seo_schema_type: props.settings.seo_schema_type ?? props.defaults.seo_schema_type,
     seo_geo_region: props.settings.seo_geo_region ?? props.defaults.seo_geo_region,
     seo_geo_placename: props.settings.seo_geo_placename ?? props.defaults.seo_geo_placename,
@@ -1401,6 +1466,39 @@ const seoScoreLabel = computed<string>(() => {
     return 'CẦN CẢI THIỆN';
 });
 
+const detectedServiceAccountEmail = computed<string | null>(() => {
+    const raw = (form.seo_google_service_account_json || '').trim();
+    if (raw) {
+        try {
+            const parsed = JSON.parse(raw) as { client_email?: string };
+            if (parsed && typeof parsed.client_email === 'string' && parsed.client_email.trim() !== '') {
+                return parsed.client_email.trim();
+            }
+        } catch {
+            // Ignore partial JSON while typing
+        }
+    }
+
+    return props.seoAudit.googleServiceAccount?.client_email ?? null;
+});
+
+function handleServiceAccountFileUpload(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    if (!file) {
+        return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+        if (typeof reader.result === 'string') {
+            form.seo_google_service_account_json = reader.result.trim();
+        }
+    };
+    reader.readAsText(file);
+    input.value = '';
+}
+
 function copyToClipboard(url: string): void {
     if (navigator.clipboard) {
         void navigator.clipboard.writeText(url);
@@ -1442,5 +1540,24 @@ function submitSeoSettings(): void {
     min-width: 280px;
     flex: 1;
     max-width: 380px;
+}
+
+.seo-gsc-guide-box {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-top: 8px;
+    padding: 10px 14px;
+    border-radius: 10px;
+    background: rgba(16, 185, 129, 0.08);
+    border: 1px solid rgba(16, 185, 129, 0.28);
+    font-size: 13px;
+}
+
+.seo-gsc-guide-box code {
+    margin-left: 6px;
+    font-weight: 600;
 }
 </style>

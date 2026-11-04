@@ -39,6 +39,7 @@ class SiteSetting extends Model
             'seo_canonical_domain' => 'https://hvacmart.io.vn',
             'seo_google_verification' => '',
             'seo_google_analytics_id' => '',
+            'seo_google_service_account_json' => '',
             'seo_schema_type' => 'HardwareStore',
             'seo_geo_region' => 'VN-HN',
             'seo_geo_placename' => 'Hà Nội, Việt Nam',
@@ -72,6 +73,7 @@ class SiteSetting extends Model
         $optionalEmptyKeys = [
             'seo_google_verification',
             'seo_google_analytics_id',
+            'seo_google_service_account_json',
             'seo_last_ping_at',
             'seo_last_ping_url',
         ];

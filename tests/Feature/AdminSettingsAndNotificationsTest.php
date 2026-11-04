@@ -177,4 +177,19 @@ test('products categories and articles automatically generate seo metadata and c
 
     $this->post(route('admin.seo.generate-all'))
         ->assertRedirect(route('admin.seo.index'));
+
+    $this->get('/sitemap.xml')
+        ->assertOk()
+        ->assertHeader('Cache-Control', 'max-age=0, must-revalidate, no-cache, no-store, private')
+        ->assertSee('/products/'.$product->slug, false)
+        ->assertSee('/news/'.$article->slug, false);
+
+    $this->get('/feed.xml')
+        ->assertOk()
+        ->assertSee('/products/'.$product->slug, false)
+        ->assertSee('/news/'.$article->slug, false)
+        ->assertSee('/categories/'.$parentCategory->slug, false);
+
+    $this->post(route('admin.seo.ping'))
+        ->assertRedirect(route('admin.seo.index'));
 });

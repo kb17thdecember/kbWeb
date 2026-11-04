@@ -502,8 +502,36 @@ class SeoAutoIndexService
     }
 
     /**
+     * @return array{configured: bool, client_email: string|null, project_id: string|null}
+     */
+    public static function googleServiceAccountSummary(): array
+    {
+        $credentials = self::resolveGoogleServiceAccount();
+
+        if ($credentials === null) {
+            return [
+                'configured' => false,
+                'client_email' => null,
+                'project_id' => null,
+            ];
+        }
+
+        return [
+            'configured' => true,
+            'client_email' => $credentials['client_email'],
+            'project_id' => $credentials['project_id'] ?? null,
+        ];
+    }
+
+    /**
      * @param  list<string>  $urls
-     * @return array{success: bool, urls_count: int, message: string}
+     * @return array{
+     *     success: bool,
+     *     urls_count: int,
+     *     message: string,
+     *     gsc_sitemap_submitted?: bool,
+     *     gsc_message?: string|null
+     * }
      */
     public static function pingUrls(array $urls): array
     {
@@ -518,6 +546,13 @@ class SeoAutoIndexService
         $baseUrl = SiteSetting::canonicalBaseUrl();
         $host = (string) (parse_url($baseUrl, PHP_URL_HOST) ?: 'hvacmart.io.vn');
         $indexNowKey = self::indexNowKey();
+
+        $gscResult = self::submitGoogleSearchConsoleSitemaps(
+            $baseUrl,
+            $host,
+            [$sitemapUrl, $feedUrl],
+            array_slice($cleanUrls, 0, 5),
+        );
 
         $googleHubSuccess = false;
         $indexNowSuccess = false;
@@ -553,9 +588,15 @@ class SeoAutoIndexService
             $indexNowSuccess = false;
         }
 
-        $statusText = ($googleHubSuccess || $indexNowSuccess)
-            ? 'Đã gửi tín hiệu tự động tới Google WebSub Hub & IndexNow'
-            : 'Đã ghi nhận vào Sitemap XML & RSS Feed (chờ mạng máy chủ kết nối)';
+        if ($gscResult['submitted']) {
+            $statusText = 'Đã nộp trực tiếp Sitemap.xml & Feed.xml lên Google Search Console API + WebSub & IndexNow';
+        } elseif ($gscResult['error'] !== null) {
+            $statusText = 'Đã gửi WebSub & IndexNow (Search Console API: '.$gscResult['error'].')';
+        } elseif ($googleHubSuccess || $indexNowSuccess) {
+            $statusText = 'Đã gửi tín hiệu tự động tới Google WebSub Hub & IndexNow';
+        } else {
+            $statusText = 'Đã ghi nhận vào Sitemap XML & RSS Feed (chờ mạng máy chủ kết nối)';
+        }
 
         SiteSetting::updateSettings([
             'seo_last_ping_at' => now()->format('d/m/Y H:i:s'),
@@ -564,10 +605,212 @@ class SeoAutoIndexService
         ]);
 
         return [
-            'success' => $googleHubSuccess || $indexNowSuccess,
+            'success' => $gscResult['submitted'] || $googleHubSuccess || $indexNowSuccess,
             'urls_count' => count($cleanUrls),
             'message' => $statusText,
+            'gsc_sitemap_submitted' => $gscResult['submitted'],
+            'gsc_message' => $gscResult['error'],
         ];
+    }
+
+    /**
+     * @param  list<string>  $sitemapUrls
+     * @param  list<string>  $priorityUrls
+     * @return array{submitted: bool, error: string|null}
+     */
+    private static function submitGoogleSearchConsoleSitemaps(
+        string $baseUrl,
+        string $host,
+        array $sitemapUrls,
+        array $priorityUrls = [],
+    ): array {
+        $credentials = self::resolveGoogleServiceAccount();
+
+        if ($credentials === null) {
+            return [
+                'submitted' => false,
+                'error' => null,
+            ];
+        }
+
+        $accessToken = self::fetchGoogleAccessToken($credentials, [
+            'https://www.googleapis.com/auth/webmasters',
+            'https://www.googleapis.com/auth/indexing',
+        ]);
+
+        if ($accessToken === null) {
+            return [
+                'submitted' => false,
+                'error' => 'Không thể lấy OAuth2 Access Token từ Google Service Account JSON',
+            ];
+        }
+
+        $candidateProperties = array_values(array_unique([
+            'sc-domain:'.$host,
+            rtrim($baseUrl, '/').'/',
+        ]));
+
+        $submittedAny = false;
+        $lastError = null;
+
+        foreach ($candidateProperties as $siteProperty) {
+            $propertySucceeded = false;
+
+            foreach ($sitemapUrls as $feedUrl) {
+                $endpoint = 'https://www.googleapis.com/webmasters/v3/sites/'
+                    .rawurlencode($siteProperty)
+                    .'/sitemaps/'
+                    .rawurlencode($feedUrl);
+
+                try {
+                    $response = Http::withToken($accessToken)
+                        ->timeout(6)
+                        ->send('PUT', $endpoint);
+
+                    if ($response->successful() || $response->status() === 204) {
+                        $submittedAny = true;
+                        $propertySucceeded = true;
+                    } else {
+                        $errBody = $response->json('error.message');
+                        $lastError = is_string($errBody) && $errBody !== ''
+                            ? $errBody
+                            : 'HTTP '.$response->status();
+                    }
+                } catch (Throwable $e) {
+                    $lastError = $e->getMessage();
+                }
+            }
+
+            if ($propertySucceeded) {
+                break;
+            }
+        }
+
+        foreach (array_slice($priorityUrls, 0, 2) as $priorityUrl) {
+            try {
+                Http::withToken($accessToken)
+                    ->timeout(4)
+                    ->acceptJson()
+                    ->post('https://indexing.googleapis.com/v3/urlNotifications:publish', [
+                        'url' => $priorityUrl,
+                        'type' => 'URL_UPDATED',
+                    ]);
+            } catch (Throwable) {
+                // Ignore optional Indexing API errors
+            }
+        }
+
+        return [
+            'submitted' => $submittedAny,
+            'error' => $submittedAny ? null : ($lastError ?? 'Chưa cấp quyền cho email '.$credentials['client_email'].' trong Search Console'),
+        ];
+    }
+
+    /**
+     * @return array{client_email: string, private_key: string, token_uri: string, project_id?: string}|null
+     */
+    private static function resolveGoogleServiceAccount(): ?array
+    {
+        $rawJson = '';
+
+        try {
+            $settings = SiteSetting::allSettings();
+            $rawJson = trim((string) ($settings['seo_google_service_account_json'] ?? ''));
+        } catch (Throwable) {
+            $rawJson = '';
+        }
+
+        if ($rawJson === '') {
+            $fallbackPath = storage_path('app/google-service-account.json');
+            if (is_file($fallbackPath) && is_readable($fallbackPath)) {
+                $rawJson = trim((string) @file_get_contents($fallbackPath));
+            }
+        }
+
+        if ($rawJson === '') {
+            return null;
+        }
+
+        $decoded = json_decode($rawJson, true);
+        if (! is_array($decoded)) {
+            return null;
+        }
+
+        $clientEmail = trim((string) ($decoded['client_email'] ?? ''));
+        $privateKey = (string) ($decoded['private_key'] ?? '');
+        $tokenUri = trim((string) ($decoded['token_uri'] ?? 'https://oauth2.googleapis.com/token'));
+
+        if ($clientEmail === '' || $privateKey === '' || ! str_contains($privateKey, 'PRIVATE KEY')) {
+            return null;
+        }
+
+        return [
+            'client_email' => $clientEmail,
+            'private_key' => $privateKey,
+            'token_uri' => $tokenUri !== '' ? $tokenUri : 'https://oauth2.googleapis.com/token',
+            'project_id' => isset($decoded['project_id']) ? (string) $decoded['project_id'] : '',
+        ];
+    }
+
+    /**
+     * @param  array{client_email: string, private_key: string, token_uri: string}  $credentials
+     * @param  list<string>  $scopes
+     */
+    private static function fetchGoogleAccessToken(array $credentials, array $scopes): ?string
+    {
+        try {
+            $now = time();
+            $header = self::base64UrlEncode((string) json_encode([
+                'alg' => 'RS256',
+                'typ' => 'JWT',
+            ]));
+
+            $claimSet = self::base64UrlEncode((string) json_encode([
+                'iss' => $credentials['client_email'],
+                'scope' => implode(' ', $scopes),
+                'aud' => $credentials['token_uri'],
+                'iat' => $now,
+                'exp' => $now + 3600,
+            ]));
+
+            $signingInput = $header.'.'.$claimSet;
+            $signature = '';
+
+            $signed = openssl_sign(
+                $signingInput,
+                $signature,
+                $credentials['private_key'],
+                OPENSSL_ALGO_SHA256,
+            );
+
+            if (! $signed) {
+                return null;
+            }
+
+            $jwt = $signingInput.'.'.self::base64UrlEncode($signature);
+
+            $response = Http::timeout(6)
+                ->asForm()
+                ->post($credentials['token_uri'], [
+                    'grant_type' => 'urn:ietf:params:oauth:grant-type:jwt-bearer',
+                    'assertion' => $jwt,
+                ]);
+
+            if (! $response->successful()) {
+                return null;
+            }
+
+            $token = $response->json('access_token');
+
+            return is_string($token) && $token !== '' ? $token : null;
+        } catch (Throwable) {
+            return null;
+        }
+    }
+
+    private static function base64UrlEncode(string $data): string
+    {
+        return rtrim(strtr(base64_encode($data), '+/', '-_'), '=');
     }
 
     private static function companyName(): string

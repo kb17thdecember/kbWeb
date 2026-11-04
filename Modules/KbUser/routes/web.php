@@ -1,7 +1,6 @@
 <?php
 
 use App\Models\Article;
-use App\Models\Catalogue;
 use App\Models\Category;
 use App\Models\FeaturedProject;
 use App\Models\Product;
@@ -98,7 +97,11 @@ Route::get('/sitemap.xml', function () {
     return response(
         '<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'.$urls.'</urlset>',
         200,
-        ['Content-Type' => 'application/xml; charset=UTF-8'],
+        [
+            'Content-Type' => 'application/xml; charset=UTF-8',
+            'Cache-Control' => 'no-store, no-cache, must-revalidate, max-age=0',
+            'Pragma' => 'no-cache',
+        ],
     );
 })->name('kbuser.sitemap');
 
@@ -107,9 +110,22 @@ Route::get('/feed.xml', function () {
     $companyName = $settings['company_name'] ?? 'HVAC Mart';
     $siteDesc = $settings['seo_meta_description'] ?? 'HVAC Mart - Vật tư HVAC, bình nước nóng Ariston và bảo ôn K-Flex.';
     $baseUrl = SiteSetting::canonicalBaseUrl();
+    $nowRss = now()->toRssString();
+    $nowTs = now()->getTimestamp();
+
+    $staticFeedPages = [
+        ['path' => '/products', 'title' => $settings['seo_products_title'] ?? 'Sản phẩm & Thiết bị | '.$companyName, 'desc' => $settings['seo_products_description'] ?? $siteDesc],
+        ['path' => '/categories', 'title' => $settings['seo_categories_title'] ?? 'Danh mục sản phẩm | '.$companyName, 'desc' => $settings['seo_categories_description'] ?? $siteDesc],
+        ['path' => '/featured-projects', 'title' => $settings['seo_projects_title'] ?? 'Dự án tiêu biểu | '.$companyName, 'desc' => $settings['seo_projects_description'] ?? $siteDesc],
+        ['path' => '/catalogues', 'title' => $settings['seo_catalogues_title'] ?? 'Catalogue & Tài liệu kỹ thuật | '.$companyName, 'desc' => $settings['seo_catalogues_description'] ?? $siteDesc],
+        ['path' => '/news', 'title' => $settings['seo_news_title'] ?? 'Tin tức & Cẩm nang kỹ thuật | '.$companyName, 'desc' => $settings['seo_news_description'] ?? $siteDesc],
+        ['path' => '/about-us', 'title' => 'Về chúng tôi | '.$companyName, 'desc' => $siteDesc],
+        ['path' => '/contacts', 'title' => $settings['seo_contacts_title'] ?? 'Liên hệ & Báo giá | '.$companyName, 'desc' => $settings['seo_contacts_description'] ?? $siteDesc],
+        ['path' => '/quotations', 'title' => 'Bảng giá & Báo giá dự án | '.$companyName, 'desc' => $siteDesc],
+    ];
 
     $items = collect()
-        ->concat(Product::query()->latest('updated_at')->limit(15)->get(['id', 'name', 'description', 'updated_at'])->map(
+        ->concat(Product::query()->latest('updated_at')->get(['id', 'name', 'description', 'updated_at'])->map(
             fn (Product $product): array => [
                 'title' => '[Sản phẩm] '.$product->name,
                 'link' => SiteSetting::canonicalUrl('/products/'.$product->slug),
@@ -118,7 +134,7 @@ Route::get('/feed.xml', function () {
                 'timestamp' => ($product->updated_at ?? now())->getTimestamp(),
             ],
         ))
-        ->concat(FeaturedProject::query()->latest('updated_at')->limit(15)->get(['id', 'name', 'description', 'updated_at'])->map(
+        ->concat(FeaturedProject::query()->latest('updated_at')->get(['id', 'name', 'description', 'updated_at'])->map(
             fn (FeaturedProject $project): array => [
                 'title' => '[Dự án tiêu biểu] '.$project->name,
                 'link' => SiteSetting::canonicalUrl('/featured-projects/'.$project->slug),
@@ -127,7 +143,7 @@ Route::get('/feed.xml', function () {
                 'timestamp' => ($project->updated_at ?? now())->getTimestamp(),
             ],
         ))
-        ->concat(Article::query()->published()->latest('updated_at')->limit(15)->get(['title', 'slug', 'excerpt', 'updated_at'])->map(
+        ->concat(Article::query()->published()->latest('updated_at')->get(['title', 'slug', 'excerpt', 'updated_at'])->map(
             fn (Article $article): array => [
                 'title' => $article->title,
                 'link' => SiteSetting::canonicalUrl('/news/'.$article->slug),
@@ -136,7 +152,7 @@ Route::get('/feed.xml', function () {
                 'timestamp' => ($article->updated_at ?? now())->getTimestamp(),
             ],
         ))
-        ->concat(Category::query()->with('parent:id,name')->latest('updated_at')->limit(15)->get(['id', 'parent_id', 'name', 'description', 'updated_at'])->map(
+        ->concat(Category::query()->with('parent:id,name')->latest('updated_at')->get(['id', 'parent_id', 'name', 'description', 'updated_at'])->map(
             fn (Category $category): array => [
                 'title' => '[Danh mục] '.$category->name,
                 'link' => $category->parent_id !== null
@@ -147,17 +163,17 @@ Route::get('/feed.xml', function () {
                 'timestamp' => ($category->updated_at ?? now())->getTimestamp(),
             ],
         ))
-        ->concat(Catalogue::query()->published()->latest('updated_at')->limit(10)->get(['id', 'title', 'description', 'updated_at'])->map(
-            fn (Catalogue $catalogue): array => [
-                'title' => '[Catalogue] '.$catalogue->title,
-                'link' => SiteSetting::canonicalUrl('/catalogues'),
-                'description' => strip_tags((string) ($catalogue->description ?: $catalogue->title)),
-                'pubDate' => ($catalogue->updated_at ?? now())->toRssString(),
-                'timestamp' => ($catalogue->updated_at ?? now())->getTimestamp(),
+        ->concat(collect($staticFeedPages)->map(
+            fn (array $page): array => [
+                'title' => $page['title'],
+                'link' => SiteSetting::canonicalUrl($page['path']),
+                'description' => $page['desc'],
+                'pubDate' => $nowRss,
+                'timestamp' => $nowTs - 86400,
             ],
         ))
+        ->unique('link')
         ->sortByDesc('timestamp')
-        ->take(30)
         ->map(fn (array $item): string => '<item>'
             .'<title>'.e($item['title']).'</title>'
             .'<link>'.e($item['link']).'</link>'
@@ -174,13 +190,18 @@ Route::get('/feed.xml', function () {
         .'<link>'.e($baseUrl).'/</link>'
         .'<description>'.e($siteDesc).'</description>'
         .'<language>vi-VN</language>'
+        .'<lastBuildDate>'.e($nowRss).'</lastBuildDate>'
         .'<atom:link href="'.e(SiteSetting::canonicalUrl('/feed.xml')).'" rel="self" type="application/rss+xml" />'
         .'<atom:link href="https://pubsubhubbub.appspot.com/" rel="hub" />'
         .$items
         .'</channel>'
         .'</rss>';
 
-    return response($feedXml, 200, ['Content-Type' => 'application/rss+xml; charset=UTF-8']);
+    return response($feedXml, 200, [
+        'Content-Type' => 'application/rss+xml; charset=UTF-8',
+        'Cache-Control' => 'no-store, no-cache, must-revalidate, max-age=0',
+        'Pragma' => 'no-cache',
+    ]);
 })->name('kbuser.feed');
 
 Route::get('/indexnow-{key}.txt', function (string $key) {
