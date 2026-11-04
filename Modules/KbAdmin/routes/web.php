@@ -53,6 +53,8 @@ Route::middleware([UseKbAdminRootView::class, EnsureAdminAuthenticated::class])
 
         Route::get('/notifications', [NotificationController::class, 'index'])
             ->name('admin.notifications.index');
+        Route::get('/search', [NotificationController::class, 'search'])
+            ->name('admin.search');
         Route::post('/notifications/read-chats', [NotificationController::class, 'markAllChatsRead'])
             ->name('admin.notifications.read-chats');
 
@@ -146,6 +148,9 @@ Route::middleware([UseKbAdminRootView::class, EnsureAdminAuthenticated::class])
 
         Route::patch('/consultations/{contact}/status', [ConsultationController::class, 'updateStatus'])
             ->name('admin.consultations.update-status');
+
+        Route::post('/consultations/{contact}/quotation', [ConsultationController::class, 'respondWithQuotation'])
+            ->name('admin.consultations.quotation');
 
         Route::delete('/consultations/{contact}', [ConsultationController::class, 'destroy'])
             ->name('admin.consultations.destroy');

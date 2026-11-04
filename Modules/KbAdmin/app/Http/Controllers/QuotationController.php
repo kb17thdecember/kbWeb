@@ -4,8 +4,10 @@ namespace Modules\KbAdmin\Http\Controllers;
 
 use App\Http\Controllers\Controller;
 use App\Models\Category;
+use App\Models\Contact;
 use App\Models\KflexPrice;
 use App\Models\Product;
+use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
 use Modules\KbAdmin\Support\AdminDashboardStats;
@@ -15,8 +17,14 @@ class QuotationController extends Controller
     /**
      * Display the quotation builder page.
      */
-    public function index(AdminDashboardStats $dashboardStats): Response
+    public function index(Request $request, AdminDashboardStats $dashboardStats): Response
     {
+        Contact::ensureQuotationColumns();
+
+        $contactId = $request->integer('contact_id');
+        $initialContact = $contactId > 0
+            ? Contact::query()->find($contactId)
+            : null;
         $aristonCategory = Category::query()
             ->whereNull('parent_id')
             ->where('name', 'like', '%Ariston%')
@@ -66,6 +74,7 @@ class QuotationController extends Controller
             'kflexProductLineMeta' => KflexPrice::PRODUCT_LINE_META,
             'kflexTubeVariants' => KflexPrice::TUBE_VARIANTS,
             'kflexSheetVariants' => KflexPrice::SHEET_VARIANTS,
+            'initialContact' => $initialContact,
             ...$dashboardStats->summary(),
         ]);
     }

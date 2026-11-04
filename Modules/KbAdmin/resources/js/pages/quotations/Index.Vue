@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { router } from '@inertiajs/vue3';
 import { computed, ref, watch } from 'vue';
 import aristonLogoAsset from '../../../assets/images/ariston_quote_logo.png';
 import kflexLogoAsset from '../../../assets/images/kflex_quote_logo.png';
@@ -10,6 +11,21 @@ type AdminStat = {
     label: string;
     count: number;
     description: string;
+};
+
+type ConsultationContact = {
+    id: number;
+    name: string;
+    email: string;
+    phone: string;
+    message: string | null;
+    status: string;
+    category_id: string | null;
+    project_name: string | null;
+    product: string | null;
+    quotation_name?: string | null;
+    quotation_url?: string | null;
+    admin_note?: string | null;
 };
 
 type AristonProduct = {
@@ -89,8 +105,10 @@ const props = withDefaults(
         openRequestsCount: number;
         chatUnreadCount?: number;
         supportProjectsCount?: number;
+        initialContact?: ConsultationContact | null;
     }>(),
     {
+        initialContact: null,
         kflexPrices: () => [],
         kflexProductLines: () => ({
             st: 'ST',
@@ -2014,6 +2032,109 @@ const printQuotationPdf = (): void => {
         }
     }, 200);
 };
+
+const linkedQuotationFile = ref<File | null>(null);
+const linkedAdminNote = ref(props.initialContact?.admin_note ?? '');
+const isSendingLinkedQuotation = ref(false);
+
+const applyInitialContact = (contact: ConsultationContact | null | undefined): void => {
+    if (!contact) {
+        return;
+    }
+
+    const personName = (contact.name || '').trim();
+    const phone = (contact.phone || '').trim();
+    const project = (contact.project_name || '').trim();
+    const companyOrProject = project ? `QUÝ ĐỐI TÁC DỰ ÁN ${project.toUpperCase()}` : `QUÝ KHÁCH HÀNG ${personName.toUpperCase()}`;
+
+    if (personName) {
+        quoteForm.value.recipientPerson = personName;
+        kflexQuoteForm.value.recipientPerson = personName;
+    }
+    if (phone) {
+        quoteForm.value.contactPhone = phone;
+    }
+    if (project) {
+        quoteForm.value.projectName = project;
+        kflexQuoteForm.value.projectName = project;
+    }
+    quoteForm.value.recipientCompany = companyOrProject;
+    kflexQuoteForm.value.recipientCompany = project || personName || kflexQuoteForm.value.recipientCompany;
+
+    const categoryAndProducts = `${contact.category_id ?? ''} ${contact.product ?? ''} ${contact.message ?? ''}`.toLowerCase();
+    if (categoryAndProducts.includes('k-flex') || categoryAndProducts.includes('kflex') || categoryAndProducts.includes('bảo ôn')) {
+        activeQuotationType.value = 'second';
+    } else {
+        activeQuotationType.value = 'ariston';
+    }
+
+    if (contact.product) {
+        const lines = contact.product
+            .split(/\r?\n|,|;/)
+            .map((line) => line.trim())
+            .filter(Boolean);
+
+        const matchedItems: QuotationItem[] = [];
+        for (const line of lines) {
+            const qtyMatch = line.match(/^(.*?)\s*[×xX*]\s*(\d+)\s*$/);
+            const rawName = (qtyMatch ? qtyMatch[1] : line).trim();
+            const qty = qtyMatch ? Math.max(1, Number(qtyMatch[2]) || 1) : 1;
+            const needle = rawName.toLowerCase();
+
+            const matchedProduct = props.aristonProducts.find(
+                (prod) =>
+                    prod.name.toLowerCase() === needle ||
+                    prod.name.toLowerCase().includes(needle) ||
+                    needle.includes(prod.name.toLowerCase()),
+            );
+
+            if (matchedProduct) {
+                matchedItems.push(createItemFromProduct(matchedProduct, qty));
+            }
+        }
+
+        if (matchedItems.length > 0) {
+            items.value = matchedItems;
+        }
+    }
+};
+
+applyInitialContact(props.initialContact);
+
+const onLinkedQuotationFileChange = (event: Event): void => {
+    const input = event.target as HTMLInputElement | null;
+    linkedQuotationFile.value = input?.files?.[0] ?? null;
+};
+
+const submitLinkedQuotationResponse = (): void => {
+    if (!props.initialContact || isSendingLinkedQuotation.value) {
+        return;
+    }
+
+    isSendingLinkedQuotation.value = true;
+    router.post(
+        `/admin/consultations/${props.initialContact.id}/quotation`,
+        {
+            quotation_file: linkedQuotationFile.value,
+            admin_note: linkedAdminNote.value,
+            status: 'resolved',
+        },
+        {
+            forceFormData: true,
+            preserveScroll: true,
+            onSuccess: () => {
+                linkedQuotationFile.value = null;
+                notifyToast('Đã đính kèm báo giá PDF và phản hồi cho khách hàng.');
+            },
+            onError: (errors) => {
+                notifyToast(Object.values(errors)[0] || 'Không thể gửi phản hồi báo giá.');
+            },
+            onFinish: () => {
+                isSendingLinkedQuotation.value = false;
+            },
+        },
+    );
+};
 </script>
 
 <template>
@@ -2046,6 +2167,75 @@ const printQuotationPdf = (): void => {
                     🖨️ In / Xuất PDF Báo Giá K-Flex
                 </button>
             </div>
+        </div>
+
+        <div
+            v-if="props.initialContact"
+            class="linked-consultation-banner"
+            style="margin-bottom: 18px; padding: 14px 16px; border-radius: 14px; background: #f6f2eb; border: 1px solid rgba(154, 123, 79, 0.35); display: flex; flex-direction: column; gap: 12px;"
+        >
+            <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; flex-wrap: wrap;">
+                <div>
+                    <span style="font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #8b6b3e;">
+                        Đang lập báo giá cho Yêu cầu tư vấn #{{ props.initialContact.id }}
+                    </span>
+                    <h3 style="margin: 4px 0; font-size: 16px; color: #171a1f;">
+                        {{ props.initialContact.name }} · {{ props.initialContact.phone }}
+                        <small v-if="props.initialContact.project_name" style="font-weight: 500; color: #5b616e;">
+                            — Dự án: {{ props.initialContact.project_name }}
+                        </small>
+                    </h3>
+                    <p v-if="props.initialContact.product" style="margin: 2px 0 0; font-size: 12.5px; color: #4b5563; white-space: pre-line;">
+                        <b>Sản phẩm khách yêu cầu:</b> {{ props.initialContact.product }}
+                    </p>
+                </div>
+                <button
+                    type="button"
+                    class="btn"
+                    @click="router.visit(`/admin/consultations?contact_id=${props.initialContact.id}`)"
+                >
+                    ← Quay lại Yêu cầu tư vấn
+                </button>
+            </div>
+
+            <form
+                style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; align-items: end; padding-top: 10px; border-top: 1px dashed rgba(154, 123, 79, 0.3);"
+                @submit.prevent="submitLinkedQuotationResponse"
+            >
+                <div>
+                    <label style="display: block; font-size: 11.5px; font-weight: 600; margin-bottom: 4px; color: #4b5563;">
+                        1. Đính kèm file PDF báo giá vừa xuất cho khách
+                    </label>
+                    <input
+                        type="file"
+                        accept=".pdf,.xlsx,.xls,.doc,.docx,.zip"
+                        class="search"
+                        style="width: 100%; padding: 6px 8px; background: #fff;"
+                        @change="onLinkedQuotationFileChange"
+                    >
+                </div>
+                <div>
+                    <label style="display: block; font-size: 11.5px; font-weight: 600; margin-bottom: 4px; color: #4b5563;">
+                        2. Ghi chú phản hồi báo giá (hiển thị trong tài khoản khách)
+                    </label>
+                    <input
+                        v-model="linkedAdminNote"
+                        type="text"
+                        class="search"
+                        style="width: 100%; background: #fff;"
+                        placeholder="VD: Gửi anh/chị bảng báo giá chiết khấu dự án..."
+                    >
+                </div>
+                <div style="display: flex; gap: 8px; justify-content: flex-end;">
+                    <button
+                        type="submit"
+                        class="btn primary"
+                        :disabled="isSendingLinkedQuotation"
+                    >
+                        {{ isSendingLinkedQuotation ? 'Đang gửi...' : '📤 Gửi phản hồi Báo giá cho khách' }}
+                    </button>
+                </div>
+            </form>
         </div>
 
         <div class="kb-quote-type-tabs">

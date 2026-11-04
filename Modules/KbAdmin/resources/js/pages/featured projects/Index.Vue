@@ -189,7 +189,7 @@
     import AdminDatePicker from '../../components/AdminDatePicker.Vue';
     import AdminPagination from '../../components/AdminPagination.Vue';
     import FeaturedProjectModal from '../../components/FeaturedProjectModal.Vue';
-    import { useClientPagination } from '../../composables/useClientPagination';
+    import { useAdminSearchParam, useClientPagination } from '../../composables/useClientPagination';
 
     type FeaturedProject = {
         id: number;
@@ -240,7 +240,7 @@
         openRequestsCount: number;
     }>();
 
-    const search = ref('');
+    const search = useAdminSearchParam();
     const dateFrom = ref('');
     const dateTo = ref('');
     const isProjectModalOpen = ref(false);

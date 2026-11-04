@@ -34,7 +34,7 @@
             <em>{{ filteredContacts.length }} / {{ contacts.length }} yêu cầu</em>
         </div>
 
-        <div v-if="filteredContacts.length" class="tablewrap">
+        <div v-if="filteredContacts.length" class="tablewrap consultation-tablewrap">
             <table class="table consultation-table">
                 <thead>
                     <tr>
@@ -90,13 +90,21 @@
                                     class="request-eye"
                                     type="button"
                                     :aria-label="`Xem chi tiết yêu cầu của ${contact.name}`"
-                                    title="Xem chi tiết"
+                                    title="Xem chi tiết & Phản hồi báo giá"
                                     @click="openDetail(contact)"
                                 >
                                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                                         <path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z" />
                                         <circle cx="12" cy="12" r="3" />
                                     </svg>
+                                </button>
+                                <button
+                                    class="mini primary"
+                                    type="button"
+                                    :title="`Tạo báo giá PDF cho ${contact.name}`"
+                                    @click="goToQuotationBuilder(contact)"
+                                >
+                                    {{ contact.quotation_url ? 'Đã BG' : 'Báo giá' }}
                                 </button>
                                 <button
                                     class="mini danger"
@@ -213,8 +221,81 @@
                         </div>
                         <div v-else>Khách hàng không đính kèm tệp.</div>
                     </div>
+                    <div class="request-detail-item full">
+                        <small>Phản hồi Báo giá chính thức cho khách hàng (Hiển thị trong Tài khoản khách hàng)</small>
+                        <div v-if="selectedContact.quotation_url" class="request-detail-attachment" style="margin-bottom: 10px;">
+                            <span class="request-detail-attachment-name">
+                                📄 {{ selectedContact.quotation_name || 'Bảng báo giá đã gửi' }}
+                                <em v-if="selectedContact.quoted_at" style="font-size: 12px; color: #68707d; margin-left: 6px;">
+                                    ({{ formatDate(selectedContact.quoted_at) }})
+                                </em>
+                            </span>
+                            <div class="request-detail-attachment-actions">
+                                <a
+                                    class="btn"
+                                    :href="selectedContact.quotation_url"
+                                    target="_blank"
+                                    rel="noopener"
+                                >
+                                    Mở xem báo giá
+                                </a>
+                                <a
+                                    class="btn primary"
+                                    :href="selectedContact.quotation_url"
+                                    :download="selectedContact.quotation_name || true"
+                                >
+                                    Tải xuống
+                                </a>
+                            </div>
+                        </div>
+                        <form class="quotation-response-form" @submit.prevent="submitQuotationResponse">
+                            <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 6px;">
+                                <div>
+                                    <label style="display: block; font-size: 12px; font-weight: 600; margin-bottom: 4px; color: #4b5563;">
+                                        Đính kèm file Báo giá PDF / Excel (.pdf, .xlsx, .docx)
+                                    </label>
+                                    <input
+                                        ref="quotationFileInputRef"
+                                        type="file"
+                                        accept=".pdf,.xlsx,.xls,.doc,.docx,.zip"
+                                        class="search"
+                                        style="width: 100%; padding: 8px;"
+                                        @change="onQuotationFileChange"
+                                    >
+                                </div>
+                                <div>
+                                    <label style="display: block; font-size: 12px; font-weight: 600; margin-bottom: 4px; color: #4b5563;">
+                                        Ghi chú phản hồi cho khách hàng
+                                    </label>
+                                    <textarea
+                                        v-model="adminNoteInput"
+                                        rows="2"
+                                        class="search"
+                                        style="width: 100%; resize: vertical; padding: 8px 10px;"
+                                        placeholder="Nhập ghi chú chiết khấu, thời gian giao hàng hoặc hướng dẫn cho khách..."
+                                    ></textarea>
+                                </div>
+                                <div style="display: flex; justify-content: flex-end; gap: 8px;">
+                                    <button
+                                        class="btn primary"
+                                        type="submit"
+                                        :disabled="isSubmittingQuotation"
+                                    >
+                                        {{ isSubmittingQuotation ? 'Đang gửi phản hồi...' : 'Lưu & Gửi báo giá cho khách' }}
+                                    </button>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
                 </div>
                 <div class="request-detail-actions">
+                    <button
+                        class="btn primary"
+                        type="button"
+                        @click="goToQuotationBuilder(selectedContact)"
+                    >
+                        Chuyển sang Tạo Báo Giá PDF
+                    </button>
                     <button class="btn" type="button" @click="closeDetail">Đóng</button>
                 </div>
             </section>
@@ -232,7 +313,7 @@
     import AdminLayout from '../../layout/AdminLayout.Vue';
     import AdminDatePicker from '../../components/AdminDatePicker.Vue';
     import AdminPagination from '../../components/AdminPagination.Vue';
-    import { useClientPagination } from '../../composables/useClientPagination';
+    import { useAdminSearchParam, useClientPagination } from '../../composables/useClientPagination';
 
     type Contact = {
         id: number;
@@ -246,6 +327,10 @@
         product: string | null;
         attachment_name: string | null;
         attachment_url: string | null;
+        quotation_name?: string | null;
+        quotation_url?: string | null;
+        admin_note?: string | null;
+        quoted_at?: string | null;
         created_at: string;
     };
 
@@ -263,10 +348,14 @@
         openRequestsCount: number;
     }>();
 
-    const search = ref('');
+    const search = useAdminSearchParam();
     const dateFrom = ref('');
     const dateTo = ref('');
     const selectedContact = ref<Contact | null>(null);
+    const quotationFile = ref<File | null>(null);
+    const quotationFileInputRef = ref<HTMLInputElement | null>(null);
+    const adminNoteInput = ref('');
+    const isSubmittingQuotation = ref(false);
     const updatingStatusId = ref<number | null>(null);
     const deletingContactId = ref<number | null>(null);
     const isToastVisible = ref(false);
@@ -386,11 +475,78 @@
 
     function openDetail(contact: Contact): void {
         selectedContact.value = contact;
+        adminNoteInput.value = contact.admin_note ?? '';
+        quotationFile.value = null;
+        if (quotationFileInputRef.value) {
+            quotationFileInputRef.value.value = '';
+        }
     }
 
     function closeDetail(): void {
         selectedContact.value = null;
+        quotationFile.value = null;
     }
+
+    function goToQuotationBuilder(contact: Contact): void {
+        closeDetail();
+        router.visit(`/admin/quotations?contact_id=${contact.id}`);
+    }
+
+    function onQuotationFileChange(event: Event): void {
+        const input = event.target as HTMLInputElement | null;
+        quotationFile.value = input?.files?.[0] ?? null;
+    }
+
+    function submitQuotationResponse(): void {
+        if (!selectedContact.value || isSubmittingQuotation.value) {
+            return;
+        }
+
+        const contactId = selectedContact.value.id;
+        isSubmittingQuotation.value = true;
+
+        router.post(
+            `/admin/consultations/${contactId}/quotation`,
+            {
+                quotation_file: quotationFile.value,
+                admin_note: adminNoteInput.value,
+                status: 'resolved',
+            },
+            {
+                forceFormData: true,
+                preserveScroll: true,
+                onSuccess: () => {
+                    const updated = props.contacts.find((item) => item.id === contactId);
+                    if (updated) {
+                        selectedContact.value = updated;
+                    }
+                    quotationFile.value = null;
+                    if (quotationFileInputRef.value) {
+                        quotationFileInputRef.value.value = '';
+                    }
+                    showToast('Đã lưu và gửi phản hồi báo giá cho khách hàng.');
+                },
+                onError: (errors) => {
+                    showToast(Object.values(errors)[0] || 'Không thể lưu phản hồi báo giá.');
+                },
+                onFinish: () => {
+                    isSubmittingQuotation.value = false;
+                },
+            },
+        );
+    }
+
+    watch(
+        () => props.contacts,
+        (list) => {
+            if (selectedContact.value) {
+                const fresh = list.find((item) => item.id === selectedContact.value?.id);
+                if (fresh) {
+                    selectedContact.value = fresh;
+                }
+            }
+        },
+    );
 
     function updateContactStatus(contact: Contact, event: Event): void {
         const target = event.target;
@@ -451,6 +607,13 @@
 
     onMounted(() => {
         window.addEventListener('keydown', onEscape);
+        const contactIdParam = Number(new URLSearchParams(window.location.search).get('contact_id'));
+        if (contactIdParam > 0) {
+            const matched = props.contacts.find((item) => item.id === contactIdParam);
+            if (matched) {
+                openDetail(matched);
+            }
+        }
     });
 
     onBeforeUnmount(() => {

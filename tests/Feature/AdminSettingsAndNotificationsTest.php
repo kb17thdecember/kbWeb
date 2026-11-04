@@ -193,3 +193,43 @@ test('products categories and articles automatically generate seo metadata and c
     $this->post(route('admin.seo.ping'))
         ->assertRedirect(route('admin.seo.index'));
 });
+
+test('admin global search endpoint returns matching products projects consultations and customers', function () {
+    $category = Category::query()->create([
+        'name' => 'Ariston Heat Pump',
+        'description' => 'Máy bơm nhiệt Ariston',
+    ]);
+
+    Product::query()->create([
+        'name' => 'Bơm nhiệt Ariston NIMBUS 80',
+        'product_title' => 'Máy bơm nhiệt nước nóng trung tâm',
+        'category_id' => $category->id,
+        'subcategory_id' => null,
+        'description' => 'Công suất lớn cho khách sạn',
+        'price' => 45000000,
+        'quantity' => 5,
+    ]);
+
+    ProjectReport::query()->create([
+        'project_name' => 'Khu đô thị NIMBUS Riverside',
+        'project_code' => 'NTK-NIMBUS',
+        'project_area' => 'Hà Nội',
+        'project_status' => '2',
+        'project_update' => 'Đang đàm phán hợp đồng',
+    ]);
+
+    Contact::query()->create([
+        'name' => 'Ban Quản Lý NIMBUS',
+        'email' => 'nimbus@example.com',
+        'phone' => '0933445566',
+        'project_name' => 'NIMBUS Tower',
+        'message' => 'Báo giá hệ thống nước nóng trung tâm.',
+        'status' => 'pending',
+    ]);
+
+    $this->getJson(route('admin.search', ['q' => 'NIMBUS']))
+        ->assertOk()
+        ->assertJsonPath('query', 'NIMBUS')
+        ->assertJsonPath('total', 3)
+        ->assertJsonCount(3, 'items');
+});

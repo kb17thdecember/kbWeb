@@ -1,6 +1,40 @@
-import { computed, ref, watch, type ComputedRef } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref, watch, type ComputedRef, type Ref } from 'vue';
 
 export const ADMIN_PAGE_SIZE = 5;
+
+export function useAdminSearchParam(): Ref<string> {
+    const readFromLocation = (): string => {
+        if (typeof window === 'undefined') {
+            return '';
+        }
+        const params = new URLSearchParams(window.location.search);
+
+        return params.get('search') ?? params.get('q') ?? '';
+    };
+
+    const search = ref(readFromLocation());
+
+    const handleSearchEvent = (event: Event): void => {
+        const keyword = (event as CustomEvent<{ search?: string }>).detail?.search;
+        if (typeof keyword === 'string') {
+            search.value = keyword;
+        }
+    };
+
+    onMounted(() => {
+        const initial = readFromLocation();
+        if (initial && search.value !== initial) {
+            search.value = initial;
+        }
+        window.addEventListener('kbadmin-search', handleSearchEvent);
+    });
+
+    onBeforeUnmount(() => {
+        window.removeEventListener('kbadmin-search', handleSearchEvent);
+    });
+
+    return search;
+}
 
 export function useClientPagination<T>(items: ComputedRef<T[]>) {
     const currentPage = ref(1);

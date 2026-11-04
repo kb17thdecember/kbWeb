@@ -97,7 +97,7 @@
     import AdminLayout from '../../layout/AdminLayout.Vue';
     import AdminPagination from '../../components/AdminPagination.Vue';
     import CategoryModal from '../../components/CategoryModal.Vue';
-    import { ADMIN_PAGE_SIZE, useClientPagination } from '../../composables/useClientPagination';
+    import { ADMIN_PAGE_SIZE, useAdminSearchParam, useClientPagination } from '../../composables/useClientPagination';
 
     type Category = {
         id: number;
@@ -134,7 +134,7 @@
         openRequestsCount: number;
     }>();
 
-    const search = ref('');
+    const search = useAdminSearchParam();
     const childPages = reactive<Record<number, number>>({});
     const isCategoryModalOpen = ref(false);
     const selectedCategory = ref<CategoryRecord | null>(null);

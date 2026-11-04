@@ -25,15 +25,19 @@ class ProjectReportExcelImporter
         'Giá trị ước tính' => 'estimate_value',
         'Contact person' => 'contact_person',
         'Sản phẩm tham gia' => 'participating_products',
+        'Tiến độ làm việc' => 'project_status',
         'Cập nhật dự án' => 'project_update',
     ];
 
     /**
-     * Columns that older exports do not contain.
+     * Columns that older or standard exports do not contain as text headers.
      *
      * @var array<int, string>
      */
-    private const OPTIONAL_COLUMNS = ['Sản phẩm tham gia'];
+    private const OPTIONAL_COLUMNS = [
+        'Sản phẩm tham gia',
+        'Tiến độ làm việc',
+    ];
 
     /**
      * @return array<int, array<string, string|null>> Rows keyed by spreadsheet row number.
@@ -52,6 +56,7 @@ class ProjectReportExcelImporter
         try {
             $sheetXml = $archive->getFromName($this->firstSheetPath($archive));
             $sharedStrings = $this->sharedStrings($archive->getFromName('xl/sharedStrings.xml') ?: null);
+            $statusByStyle = $this->statusByStyleIndex($archive->getFromName('xl/styles.xml') ?: null);
         } finally {
             $archive->close();
         }
@@ -62,12 +67,30 @@ class ProjectReportExcelImporter
 
         $sheet = $this->parseXml($sheetXml);
         $grid = [];
+        $rowStatuses = [];
 
         foreach ($sheet->sheetData->row ?? [] as $row) {
             $rowNumber = (int) $row['r'];
+            if (isset($row['s'])) {
+                $rowStatuses[$rowNumber] = $statusByStyle[(int) $row['s']] ?? null;
+            }
+
             foreach ($row->c as $cell) {
                 $column = $this->columnIndex((string) $cell['r']);
                 $grid[$rowNumber][$column] = $this->cellValue($cell, $sharedStrings);
+
+                if (isset($cell['s'])) {
+                    $cellStatus = $statusByStyle[(int) $cell['s']] ?? null;
+                    $currentStatus = $rowStatuses[$rowNumber] ?? null;
+
+                    if ($cellStatus === '2') {
+                        $rowStatuses[$rowNumber] = '2';
+                    } elseif ($cellStatus === '3' && $currentStatus !== '2') {
+                        $rowStatuses[$rowNumber] = '3';
+                    } elseif ($cellStatus === '1' && $currentStatus === null) {
+                        $rowStatuses[$rowNumber] = '1';
+                    }
+                }
             }
         }
 
@@ -109,9 +132,25 @@ class ProjectReportExcelImporter
                 $record[$field] = $value === '' ? null : $value;
             }
 
-            if (array_filter($record, fn (?string $value): bool => $value !== null) !== []) {
-                $records[$rowNumber] = $record;
+            if (array_filter($record, fn (?string $value): bool => $value !== null) === []) {
+                continue;
             }
+
+            $explicitStatus = $this->normalizeProjectStatus($record['project_status'] ?? null);
+            $progressStatus = $this->normalizeProjectStatus($record['progress'] ?? null);
+            if ($explicitStatus !== null) {
+                $record['project_status'] = $explicitStatus;
+            } elseif (isset($rowStatuses[$rowNumber]) && in_array($rowStatuses[$rowNumber], ['2', '3'], true)) {
+                $record['project_status'] = $rowStatuses[$rowNumber];
+            } elseif (in_array($progressStatus, ['2', '3'], true)) {
+                $record['project_status'] = $progressStatus;
+            } elseif (isset($rowStatuses[$rowNumber])) {
+                $record['project_status'] = $rowStatuses[$rowNumber];
+            } else {
+                unset($record['project_status']);
+            }
+
+            $records[$rowNumber] = $record;
         }
 
         return $records;
@@ -192,6 +231,112 @@ class ProjectReportExcelImporter
         }
 
         return $index;
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function statusByStyleIndex(?string $xml): array
+    {
+        $defaultStyles = [
+            1 => '1',
+            3 => '1',
+            4 => '1',
+            5 => '3',
+            6 => '3',
+            7 => '3',
+            8 => '2',
+            9 => '2',
+            10 => '2',
+        ];
+
+        if ($xml === null) {
+            return $defaultStyles;
+        }
+
+        $styles = $this->parseXml($xml);
+        $redFontIds = [];
+        $fontIndex = 0;
+        foreach ($styles->fonts->font ?? [] as $font) {
+            $colorRgb = (string) ($font->color['rgb'] ?? '');
+            if ($this->isRedColor($colorRgb)) {
+                $redFontIds[$fontIndex] = true;
+            }
+            $fontIndex++;
+        }
+
+        $redFillIds = [];
+        $fillIndex = 0;
+        foreach ($styles->fills->fill ?? [] as $fill) {
+            $fgRgb = (string) ($fill->patternFill->fgColor['rgb'] ?? '');
+            $bgRgb = (string) ($fill->patternFill->bgColor['rgb'] ?? '');
+            if ($this->isRedColor($fgRgb) || $this->isRedColor($bgRgb)) {
+                $redFillIds[$fillIndex] = true;
+            }
+            $fillIndex++;
+        }
+
+        $statusByStyle = [];
+        $xfIndex = 0;
+        foreach ($styles->cellXfs->xf ?? [] as $xf) {
+            $fillId = isset($xf['fillId']) ? (int) $xf['fillId'] : -1;
+            $fontId = isset($xf['fontId']) ? (int) $xf['fontId'] : -1;
+
+            if (isset($redFillIds[$fillId])) {
+                $statusByStyle[$xfIndex] = '2';
+            } elseif (isset($redFontIds[$fontId])) {
+                $statusByStyle[$xfIndex] = '3';
+            } else {
+                $statusByStyle[$xfIndex] = '1';
+            }
+            $xfIndex++;
+        }
+
+        return $statusByStyle !== [] ? $statusByStyle : $defaultStyles;
+    }
+
+    private function isRedColor(string $rgb): bool
+    {
+        $hex = preg_replace('/[^0-9A-F]/', '', strtoupper($rgb)) ?? '';
+        if (strlen($hex) === 8) {
+            $hex = substr($hex, 2);
+        }
+
+        if (strlen($hex) !== 6) {
+            return false;
+        }
+
+        $red = hexdec(substr($hex, 0, 2));
+        $green = hexdec(substr($hex, 2, 2));
+        $blue = hexdec(substr($hex, 4, 2));
+
+        return $red >= 160 && $green <= 90 && $blue <= 90;
+    }
+
+    private function normalizeProjectStatus(?string $value): ?string
+    {
+        if ($value === null) {
+            return null;
+        }
+
+        $normalized = mb_strtolower(trim($value), 'UTF-8');
+        if ($normalized === '') {
+            return null;
+        }
+
+        if (in_array($normalized, ['1', 'đang triển khai', 'dang trien khai', 'bình thường', 'binh thuong'], true)) {
+            return '1';
+        }
+
+        if (in_array($normalized, ['2', 'dự án đang nóng', 'du an dang nong', 'đang nóng', 'dang nong', 'nóng', 'nong', 'hot'], true)) {
+            return '2';
+        }
+
+        if (in_array($normalized, ['3', 'dự án cần hỗ trợ', 'du an can ho tro', 'cần hỗ trợ', 'can ho tro', 'dự án cần hỗ trợ thông tin'], true)) {
+            return '3';
+        }
+
+        return $value;
     }
 
     private function parseXml(string $xml): SimpleXMLElement

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { Link, router, usePage } from '@inertiajs/vue3';
 
 type AdminNotificationItem = {
@@ -19,6 +19,25 @@ type AdminNotificationsPayload = {
     supportProjectsCount: number;
     totalCount: number;
     items: AdminNotificationItem[];
+};
+
+type AdminGlobalSearchItem = {
+    id: string;
+    type: string;
+    groupLabel: string;
+    title: string;
+    subtitle: string;
+    badge: string;
+    image?: string | null;
+    shortCode?: string;
+    href: string;
+    keyword: string;
+};
+
+type AdminGlobalSearchResponse = {
+    query: string;
+    total: number;
+    items: AdminGlobalSearchItem[];
 };
 
 const page = usePage<{
@@ -207,24 +226,166 @@ async function markAllChatsRead(): Promise<void> {
 function toggleNotificationDropdown(): void {
     isNotificationOpen.value = !isNotificationOpen.value;
     if (isNotificationOpen.value) {
+        isGlobalSearchOpen.value = false;
         void refreshNotifications();
     }
 }
 
-function handleDocumentPointerDown(event: MouseEvent): void {
-    if (!isNotificationOpen.value) {
+const globalSearchWrapRef = ref<HTMLElement | null>(null);
+const globalSearchInputRef = ref<HTMLInputElement | null>(null);
+const globalSearchQuery = ref('');
+const globalSearchResults = ref<AdminGlobalSearchItem[]>([]);
+const globalSearchError = ref('');
+const isGlobalSearchOpen = ref(false);
+const isGlobalSearchLoading = ref(false);
+let globalSearchController: AbortController | undefined;
+
+const searchResultsUrl = computed(() => {
+    const trimmed = globalSearchQuery.value.trim();
+    if (globalSearchResults.value.length > 0) {
+        const firstBase = globalSearchResults.value[0].href.split('?')[0];
+
+        return `${firstBase}?search=${encodeURIComponent(trimmed)}#workspace`;
+    }
+
+    const searchablePaths = [
+        '/admin/products',
+        '/admin/categories',
+        '/admin/project-reports',
+        '/admin/case-studies',
+        '/admin/consultations',
+        '/admin/customers',
+        '/admin/articles',
+        '/admin/catalogues',
+    ];
+    const targetPath = searchablePaths.includes(currentUrl.value) ? currentUrl.value : '/admin/products';
+
+    return `${targetPath}?search=${encodeURIComponent(trimmed)}#workspace`;
+});
+
+async function searchAdminItems(query: string): Promise<void> {
+    globalSearchController?.abort();
+    globalSearchResults.value = [];
+    globalSearchError.value = '';
+    isGlobalSearchLoading.value = false;
+
+    if (query.trim().length < 2) {
         return;
     }
 
+    const controller = new AbortController();
+    globalSearchController = controller;
+    isGlobalSearchLoading.value = true;
+
+    try {
+        const response = await fetch(`/admin/search?q=${encodeURIComponent(query.trim())}`, {
+            headers: {
+                Accept: 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+            },
+            signal: controller.signal,
+        });
+
+        if (!response.ok) {
+            throw new Error(`Tìm kiếm thất bại (${response.status}).`);
+        }
+
+        const payload = (await response.json()) as AdminGlobalSearchResponse;
+
+        if (!controller.signal.aborted) {
+            globalSearchResults.value = payload.items ?? [];
+        }
+    } catch (error) {
+        if (error instanceof DOMException && error.name === 'AbortError') {
+            return;
+        }
+        globalSearchError.value = 'Không thể tìm kiếm lúc này. Vui lòng thử lại.';
+    } finally {
+        if (!controller.signal.aborted) {
+            isGlobalSearchLoading.value = false;
+        }
+    }
+}
+
+function onGlobalSearchInput(event: Event): void {
+    const input = event.target;
+    if (input instanceof HTMLInputElement) {
+        globalSearchQuery.value = input.value;
+        isGlobalSearchOpen.value = true;
+        void searchAdminItems(input.value);
+    }
+}
+
+function handleGlobalSearchFocus(): void {
+    isGlobalSearchOpen.value = true;
+    if (globalSearchQuery.value.trim().length >= 2 && globalSearchResults.value.length === 0 && !isGlobalSearchLoading.value) {
+        void searchAdminItems(globalSearchQuery.value);
+    }
+}
+
+function syncWorkspaceSearchInput(keyword: string): void {
+    window.dispatchEvent(new CustomEvent('kbadmin-search', { detail: { search: keyword } }));
+    void nextTick(() => {
+        window.setTimeout(() => {
+            const workspace = document.getElementById('workspace');
+            if (!workspace) {
+                return;
+            }
+            const input = workspace.querySelector<HTMLInputElement>(
+                'input[type="search"], input[placeholder*="Tìm"], input[placeholder*="tìm"]',
+            );
+            if (input && input.value !== keyword) {
+                input.value = keyword;
+                input.dispatchEvent(new Event('input', { bubbles: true }));
+            }
+            workspace.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 50);
+    });
+}
+
+function onClickSearchResult(item: AdminGlobalSearchItem): void {
+    isGlobalSearchOpen.value = false;
+    syncWorkspaceSearchInput(item.keyword || globalSearchQuery.value.trim());
+}
+
+function submitGlobalSearch(): void {
+    const query = globalSearchQuery.value.trim();
+    if (query.length > 0) {
+        isGlobalSearchOpen.value = false;
+        router.visit(searchResultsUrl.value, {
+            onFinish: () => {
+                syncWorkspaceSearchInput(query);
+            },
+        });
+    }
+}
+
+function handleDocumentPointerDown(event: MouseEvent): void {
     const target = event.target as Node | null;
-    if (target && notificationWrapRef.value && !notificationWrapRef.value.contains(target)) {
+    if (isNotificationOpen.value && target && notificationWrapRef.value && !notificationWrapRef.value.contains(target)) {
         isNotificationOpen.value = false;
+    }
+    if (isGlobalSearchOpen.value && target && globalSearchWrapRef.value && !globalSearchWrapRef.value.contains(target)) {
+        isGlobalSearchOpen.value = false;
     }
 }
 
 function handleEscapeKey(event: KeyboardEvent): void {
-    if (event.key === 'Escape' && isNotificationOpen.value) {
-        isNotificationOpen.value = false;
+    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') {
+        event.preventDefault();
+        isGlobalSearchOpen.value = true;
+        globalSearchInputRef.value?.focus();
+
+        return;
+    }
+
+    if (event.key === 'Escape') {
+        if (isNotificationOpen.value) {
+            isNotificationOpen.value = false;
+        }
+        if (isGlobalSearchOpen.value) {
+            isGlobalSearchOpen.value = false;
+        }
     }
 }
 
@@ -287,6 +448,12 @@ onMounted(() => {
         showToast(page.props.toast);
     }
 
+    const params = new URLSearchParams(window.location.search);
+    const initialSearch = params.get('search') ?? params.get('q');
+    if (initialSearch) {
+        syncWorkspaceSearchInput(initialSearch);
+    }
+
     window.addEventListener('kbadmin-toast', handleCustomAdminToast);
 
     removeSuccessListener = router.on('success', (event) => {
@@ -312,6 +479,8 @@ onBeforeUnmount(() => {
     if (toastTimeout) {
         clearTimeout(toastTimeout);
     }
+
+    globalSearchController?.abort();
 
     if (inactivityTimer) {
         clearTimeout(inactivityTimer);
@@ -378,7 +547,74 @@ function logout(): void {
             <span class="top-title" id="topTitle">
               {{ menuItems.find(item => currentUrl === item.href)?.label || '' }}
             </span>
-            <label class="global-search"><FontAwesomeIcon icon="fa-solid fa-magnifying-glass" /> <input id="globalSearch" type="search" placeholder="Tìm sản phẩm, dự án, khách hàng..."></label>
+            <form
+              ref="globalSearchWrapRef"
+              class="global-search-wrap"
+              role="search"
+              @submit.prevent="submitGlobalSearch"
+            >
+              <label class="global-search" for="globalSearch">
+                <FontAwesomeIcon icon="fa-solid fa-magnifying-glass" />
+                <input
+                  id="globalSearch"
+                  ref="globalSearchInputRef"
+                  :value="globalSearchQuery"
+                  type="search"
+                  autocomplete="off"
+                  placeholder="Tìm sản phẩm, dự án, khách hàng..."
+                  @input="onGlobalSearchInput"
+                  @focus="handleGlobalSearchFocus"
+                >
+                <button type="submit" class="global-search-submit" aria-label="Xem tất cả kết quả">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                    <circle cx="10.8" cy="10.8" r="6.8"></circle>
+                    <path d="m16 16 5 5"></path>
+                  </svg>
+                </button>
+              </label>
+
+              <div
+                v-if="isGlobalSearchOpen && globalSearchQuery.trim().length > 0"
+                class="navbar-search-results"
+                role="listbox"
+                aria-label="Kết quả tìm kiếm"
+              >
+                <p v-if="globalSearchQuery.trim().length < 2" class="navbar-search-message">
+                  Nhập ít nhất 2 ký tự để tìm kiếm.
+                </p>
+                <p v-else-if="isGlobalSearchLoading" class="navbar-search-message">
+                  Đang tìm kiếm...
+                </p>
+                <p v-else-if="globalSearchError" class="navbar-search-message" role="alert">
+                  {{ globalSearchError }}
+                </p>
+                <p v-else-if="globalSearchResults.length === 0" class="navbar-search-message">
+                  Không tìm thấy kết quả phù hợp.
+                </p>
+                <template v-else>
+                  <Link
+                    v-for="item in globalSearchResults"
+                    :key="item.id"
+                    class="navbar-search-result"
+                    :href="item.href"
+                    role="option"
+                    @click="onClickSearchResult(item)"
+                  >
+                    <span class="navbar-search-result-image">
+                      <img v-if="item.image" :src="item.image" :alt="item.title">
+                      <span v-else>{{ item.shortCode || item.groupLabel }}</span>
+                    </span>
+                    <span class="navbar-search-result-copy">
+                      <strong>{{ item.title }}</strong>
+                      <small>{{ item.groupLabel }} · {{ item.subtitle }} · {{ item.badge }}</small>
+                    </span>
+                  </Link>
+                  <button class="navbar-search-all" type="submit">
+                    Xem tất cả kết quả cho “{{ globalSearchQuery.trim() }}”
+                  </button>
+                </template>
+              </div>
+            </form>
           </div>
           <div class="profile">
             <div ref="notificationWrapRef" class="admin-notif">
@@ -507,3 +743,127 @@ function logout(): void {
       <div class="toast" :class="{ show: isToastVisible }" role="status" aria-live="polite">{{ toastMessage }}</div>
     </div>
 </template>
+
+<style scoped>
+.global-search-wrap {
+    position: relative;
+}
+
+.global-search-submit {
+    display: grid;
+    width: 28px;
+    height: 28px;
+    padding: 6px;
+    color: #2f2b21;
+    background: #d8c398;
+    border: 0;
+    border-radius: 6px;
+    place-items: center;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: background 0.15s ease;
+}
+
+.global-search-submit:hover {
+    background: #c7ab73;
+}
+
+.global-search-submit svg {
+    width: 14px;
+    height: 14px;
+}
+
+.navbar-search-results {
+    position: absolute;
+    z-index: 120;
+    top: calc(100% + 8px);
+    left: 0;
+    width: min(410px, calc(100vw - 30px));
+    max-height: min(410px, 65vh);
+    overflow-y: auto;
+    background: var(--surface, #fffdf8);
+    border: 1px solid var(--line, #e6dfd1);
+    box-shadow: 0 18px 40px rgba(28, 25, 19, 0.14);
+}
+
+.navbar-search-message {
+    margin: 0;
+    padding: 14px 12px;
+    color: var(--muted, #776f5f);
+    font-size: 12px;
+}
+
+.navbar-search-result {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px;
+    border-bottom: 1px solid var(--line, #eee8dc);
+    text-decoration: none;
+    color: inherit;
+    transition: background 0.15s ease;
+}
+
+.navbar-search-result:hover {
+    background: #f6f1e7;
+}
+
+.navbar-search-result-image {
+    display: grid;
+    flex: none;
+    width: 48px;
+    height: 48px;
+    overflow: hidden;
+    color: #9e824c;
+    background: #f1e8d6;
+    font-size: 10px;
+    font-weight: 800;
+    text-align: center;
+    padding: 2px;
+    place-items: center;
+}
+
+.navbar-search-result-image img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.navbar-search-result-copy {
+    display: grid;
+    min-width: 0;
+    gap: 4px;
+}
+
+.navbar-search-result-copy strong {
+    overflow: hidden;
+    font-size: 12.5px;
+    color: #2f2b21;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.navbar-search-result-copy small {
+    color: #776f5f;
+    font-size: 11px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.navbar-search-all {
+    width: 100%;
+    padding: 12px 10px;
+    color: #987a42;
+    background: transparent;
+    border: 0;
+    font-size: 11.5px;
+    font-weight: 700;
+    text-align: left;
+    cursor: pointer;
+}
+
+.navbar-search-all:hover {
+    background: #f6f1e7;
+}
+</style>

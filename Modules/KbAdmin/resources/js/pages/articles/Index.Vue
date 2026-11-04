@@ -144,7 +144,7 @@
     import AdminDatePicker from '../../components/AdminDatePicker.Vue';
     import AdminPagination from '../../components/AdminPagination.Vue';
     import ArticleModal from '../../components/ArticleModal.Vue';
-    import { useClientPagination } from '../../composables/useClientPagination';
+    import { useAdminSearchParam, useClientPagination } from '../../composables/useClientPagination';
 
     type Article = {
         id: number;
@@ -169,7 +169,7 @@
         openRequestsCount: number;
     }>();
 
-    const search = ref('');
+    const search = useAdminSearchParam();
     const dateFrom = ref('');
     const dateTo = ref('');
     const isModalOpen = ref(false);

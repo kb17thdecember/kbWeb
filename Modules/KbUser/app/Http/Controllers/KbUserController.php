@@ -844,6 +844,8 @@ class KbUserController extends Controller
 
     public function accountOverview(Request $request): JsonResponse
     {
+        Contact::ensureQuotationColumns();
+
         $user = $request->user();
 
         $quotes = Contact::query()
@@ -862,6 +864,10 @@ class KbUserController extends Controller
                 'status',
                 'attachment_path',
                 'attachment_name',
+                'quotation_path',
+                'quotation_name',
+                'admin_note',
+                'quoted_at',
                 'created_at',
             ]);
 

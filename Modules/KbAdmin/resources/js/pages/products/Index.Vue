@@ -201,7 +201,7 @@
     import AdminDatePicker from '../../components/AdminDatePicker.Vue';
     import AdminPagination from '../../components/AdminPagination.Vue';
     import ProductModal from '../../components/ProductModal.Vue';
-    import { useClientPagination } from '../../composables/useClientPagination';
+    import { useAdminSearchParam, useClientPagination } from '../../composables/useClientPagination';
 
     type Product = {
         id: number;
@@ -239,7 +239,7 @@
     }>();
 
     const isProductModalOpen = ref(false);
-    const search = ref('');
+    const search = useAdminSearchParam();
     const tagFilter = ref<'all' | '0' | '1'>('all');
     const dateFrom = ref('');
     const dateTo = ref('');

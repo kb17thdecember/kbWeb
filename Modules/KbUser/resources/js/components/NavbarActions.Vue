@@ -39,6 +39,10 @@ type QuoteRecord = {
     status: string;
     attachment_name: string | null;
     attachment_url: string | null;
+    quotation_name?: string | null;
+    quotation_url?: string | null;
+    admin_note?: string | null;
+    quoted_at?: string | null;
     created_at: string;
 };
 
@@ -1230,6 +1234,28 @@ onUnmounted(() => {
                                     >
                                         📎 File đính kèm: {{ quote.attachment_name || 'Tài liệu BOQ' }}
                                     </a>
+                                    <div
+                                        v-if="quote.quotation_url || quote.admin_note"
+                                        class="kb-quote-response"
+                                        style="margin-top:10px;padding:10px 12px;border-radius:10px;background:rgba(30,51,40,0.06);border:1px solid rgba(30,51,40,0.16);"
+                                    >
+                                        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:4px;">
+                                            <strong style="font-size:13px;color:#1e3328;">📄 Phản hồi báo giá từ HVAC Mart</strong>
+                                            <small v-if="quote.quoted_at" style="color:#666;">{{ formatDate(quote.quoted_at) }}</small>
+                                        </div>
+                                        <p v-if="quote.admin_note" style="margin:4px 0 8px;font-size:13px;white-space:pre-line;">{{ quote.admin_note }}</p>
+                                        <a
+                                            v-if="quote.quotation_url"
+                                            :href="quote.quotation_url"
+                                            :download="quote.quotation_name || true"
+                                            target="_blank"
+                                            rel="noopener"
+                                            class="btn btn-primary"
+                                            style="display:inline-flex;align-items:center;gap:6px;padding:6px 12px;font-size:12.5px;"
+                                        >
+                                            ⬇ Tải bảng báo giá chính thức ({{ quote.quotation_name || 'Bao-gia.pdf' }})
+                                        </a>
+                                    </div>
                                 </article>
                             </div>
                         </div>

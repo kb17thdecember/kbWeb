@@ -299,7 +299,7 @@
     import AdminLayout from '../../layout/AdminLayout.Vue';
     import AdminDatePicker from '../../components/AdminDatePicker.Vue';
     import AdminPagination from '../../components/AdminPagination.Vue';
-    import { useClientPagination } from '../../composables/useClientPagination';
+    import { useAdminSearchParam, useClientPagination } from '../../composables/useClientPagination';
 
     type CustomerContactSummary = {
         id: number;
@@ -338,7 +338,7 @@
         openRequestsCount: number;
     }>();
 
-    const search = ref('');
+    const search = useAdminSearchParam();
     const loginTypeFilter = ref<'all' | 'account' | 'google'>('all');
     const dateFrom = ref('');
     const dateTo = ref('');

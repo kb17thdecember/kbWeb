@@ -272,3 +272,45 @@ test('project reports can still be imported from a file without the participatin
 
     expect($report->fresh()->participating_products)->toBe('Giữ nguyên');
 });
+
+test('project report import preserves work status from exported Excel row styles', function () {
+    $normal = ProjectReport::query()->create(projectReportAttributes([
+        'project_code' => 'NTK-S1',
+        'project_name' => 'Dự án triển khai',
+        'project_status' => '1',
+    ]));
+    $hot = ProjectReport::query()->create(projectReportAttributes([
+        'project_code' => 'NTK-S2',
+        'project_name' => 'Dự án nóng',
+        'project_status' => '2',
+    ]));
+    $support = ProjectReport::query()->create(projectReportAttributes([
+        'project_code' => 'NTK-S3',
+        'project_name' => 'Dự án cần hỗ trợ',
+        'project_status' => '3',
+    ]));
+
+    $response = $this->get(route('admin.project-reports.export'));
+    $filePath = $response->baseResponse->getFile()->getPathname();
+    $contents = file_get_contents($filePath);
+    unlink($filePath);
+
+    // Flip statuses in DB to verify import restores them from the Excel file
+    $normal->update(['project_status' => '3']);
+    $hot->update(['project_status' => '1']);
+    $support->delete();
+
+    $workbook = tempnam(sys_get_temp_dir(), 'import-status-').'.xlsx';
+    file_put_contents($workbook, $contents);
+    $upload = new UploadedFile($workbook, 'reports-status.xlsx', null, null, true);
+
+    $this->post(route('admin.project-reports.import'), ['file' => $upload])
+        ->assertSessionHasNoErrors()
+        ->assertRedirect(route('admin.project-reports.index'));
+
+    expect($normal->fresh()->project_status)->toBe('1');
+    expect($hot->fresh()->project_status)->toBe('2');
+
+    $recreatedSupport = ProjectReport::query()->where('project_name', 'Dự án cần hỗ trợ')->sole();
+    expect($recreatedSupport->project_status)->toBe('3');
+});

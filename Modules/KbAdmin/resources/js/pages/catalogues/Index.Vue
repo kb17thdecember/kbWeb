@@ -184,7 +184,7 @@
     import AdminDatePicker from '../../components/AdminDatePicker.Vue';
     import AdminPagination from '../../components/AdminPagination.Vue';
     import CatalogueModal from '../../components/CatalogueModal.Vue';
-    import { useClientPagination } from '../../composables/useClientPagination';
+    import { useAdminSearchParam, useClientPagination } from '../../composables/useClientPagination';
 
     type ParentCategoryOption = {
         id: number;
@@ -218,7 +218,7 @@
         openRequestsCount: number;
     }>();
 
-    const search = ref('');
+    const search = useAdminSearchParam();
     const categoryFilter = ref('all');
     const dateFrom = ref('');
     const dateTo = ref('');
