@@ -101,7 +101,7 @@ export function exportProductComparisonPdf(
         .join('');
 
     const codeCols = products
-        .map((item) => `<td><strong>#SP-${item.id}</strong> · ${escapeHtml(item.name)}</td>`)
+        .map((item) => `<td><strong>${escapeHtml(item.name)}</strong></td>`)
         .join('');
 
     const categoryCols = products
@@ -406,7 +406,7 @@ export function exportProductComparisonPdf(
             </thead>
             <tbody>
                 <tr>
-                    <td>Mã &amp; Model</td>
+                    <td>Tên sản phẩm</td>
                     ${codeCols}
                 </tr>
                 <tr>

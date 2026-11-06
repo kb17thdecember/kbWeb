@@ -43,6 +43,18 @@ const authUser = computed<AuthUser | null>(() => page.props.auth?.user ?? null);
 const siteSettings = computed<Record<string, string>>(() => page.props.siteSettings ?? {});
 const navCategories = computed<NavCategory[]>(() => page.props.navCategories ?? []);
 
+const siteLogoUrl = computed<string>(() => {
+    const raw = (siteSettings.value.site_logo || '').trim();
+    if (!raw) {
+        return '';
+    }
+    if (raw.startsWith('data:') || raw.startsWith('http://') || raw.startsWith('https://') || raw.startsWith('/')) {
+        return raw;
+    }
+
+    return `/storage/${raw}`;
+});
+
 const productCategoryLinks = computed(() => {
     const aristonCat = navCategories.value.find((cat) => cat.name.toLowerCase().includes('ariston'));
     const kflexCat = navCategories.value.find((cat) => cat.name.toLowerCase().includes('flex'));
@@ -302,7 +314,13 @@ onUnmounted(() => {
         <header class="nav-shell">
             <div class="wrap nav">
                 <Link href="/" class="brand" aria-label="HVAC Mart trang chủ">
-                    <span class="brandmark">HM</span>
+                    <img
+                        v-if="siteLogoUrl"
+                        :src="siteLogoUrl"
+                        :alt="siteSettings.company_name || 'HVAC Mart'"
+                        class="brandmark brandmark-logo"
+                    >
+                    <span v-else class="brandmark">HM</span>
                     <span class="brandname">
                         {{ siteSettings.company_name || 'HVAC Mart' }}
                         <small>{{ siteSettings.company_tagline || 'HVAC & ENGINEERING SUPPLY' }}</small>
@@ -589,7 +607,13 @@ onUnmounted(() => {
                 <div class="footer-grid">
                     <div class="footer-brand-col">
                         <Link href="/" class="brand footer-brand">
-                            <span class="brandmark">HM</span>
+                            <img
+                                v-if="siteLogoUrl"
+                                :src="siteLogoUrl"
+                                :alt="siteSettings.company_name || 'HVAC Mart'"
+                                class="brandmark brandmark-logo"
+                            >
+                            <span v-else class="brandmark">HM</span>
                             <span class="brandname">
                                 {{ siteSettings.company_name || 'HVAC Mart' }}
                                 <small>{{ siteSettings.company_tagline || 'HVAC & ENGINEERING SUPPLY' }}</small>

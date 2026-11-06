@@ -79,6 +79,12 @@ button {
   font-family: var(--serif);
   font-weight: 400;
   font-size: 23px;
+  flex-shrink: 0;
+}
+.mark-logo {
+  object-fit: contain;
+  background: #ffffff;
+  padding: 3px;
 }
 .brand b {
   display: block;
@@ -2338,6 +2344,64 @@ body::-webkit-scrollbar-thumb:hover {
 .site-settings-card-head p {
   margin: 3px 0 0;
   font-size: 12px;
+  color: var(--muted);
+}
+
+.site-settings-logo-picker {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 14px;
+  border-radius: 12px;
+  border: 1px dashed #d5c8b0;
+  background: #faf7f0;
+}
+
+.site-settings-logo-preview {
+  width: 68px;
+  height: 68px;
+  border-radius: 10px;
+  background: #18352e;
+  border: 1px solid rgba(181, 154, 101, .45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.site-settings-logo-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  background: #ffffff;
+  padding: 4px;
+}
+
+.site-settings-logo-controls {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.site-settings-logo-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.site-settings-upload-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  cursor: pointer;
+}
+
+.site-settings-logo-hint {
+  font-size: 11.5px;
   color: var(--muted);
 }
 

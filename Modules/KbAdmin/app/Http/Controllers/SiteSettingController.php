@@ -24,6 +24,8 @@ class SiteSettingController extends Controller
     public function update(Request $request): RedirectResponse
     {
         $validated = $request->validate([
+            'site_logo' => ['nullable', 'string', 'max:500'],
+            'site_logo_file' => ['nullable', 'image', 'max:5120'],
             'company_name' => ['required', 'string', 'max:120'],
             'company_tagline' => ['required', 'string', 'max:160'],
             'announcement_text' => ['required', 'string', 'max:255'],
@@ -38,6 +40,14 @@ class SiteSettingController extends Controller
             'linkedin_url' => ['required', 'string', 'max:255'],
             'zalo_url' => ['required', 'string', 'max:255'],
         ]);
+
+        unset($validated['site_logo_file']);
+        $validated['site_logo'] = trim((string) ($validated['site_logo'] ?? ''));
+
+        if ($request->hasFile('site_logo_file')) {
+            $storedPath = $request->file('site_logo_file')->store('settings', 'public');
+            $validated['site_logo'] = '/storage/'.ltrim($storedPath, '/');
+        }
 
         SiteSetting::updateSettings($validated);
 

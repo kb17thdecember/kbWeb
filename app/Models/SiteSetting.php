@@ -18,6 +18,7 @@ class SiteSetting extends Model
     public static function defaults(): array
     {
         return [
+            'site_logo' => '',
             'company_name' => 'HVAC Mart',
             'company_tagline' => 'HVAC & ENGINEERING SUPPLY',
             'announcement_text' => 'Giải pháp vật tư & thiết bị · Tư vấn đúng nhu cầu, đồng hành đến hoàn thiện',
@@ -71,6 +72,7 @@ class SiteSetting extends Model
     {
         $defaults = self::defaults();
         $optionalEmptyKeys = [
+            'site_logo',
             'seo_google_verification',
             'seo_google_analytics_id',
             'seo_google_service_account_json',

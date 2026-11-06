@@ -34,6 +34,59 @@
                 </div>
 
                 <div class="formgrid">
+                    <div class="field full">
+                        <label for="settingSiteLogoUrl">LOGO TRANG WEB (ẢNH TẢI LÊN HOẶC ĐƯỜNG DẪN URL)</label>
+                        <div class="site-settings-logo-picker">
+                            <div class="site-settings-logo-preview">
+                                <img
+                                    v-if="previewLogoUrl"
+                                    :src="previewLogoUrl"
+                                    :alt="form.company_name || 'Logo'"
+                                    class="site-settings-logo-img"
+                                >
+                                <span v-else class="mark">HM</span>
+                            </div>
+                            <div class="site-settings-logo-controls">
+                                <div class="site-settings-logo-actions">
+                                    <label class="btn site-settings-upload-btn">
+                                        <FontAwesomeIcon icon="fa-solid fa-upload" />
+                                        Chọn ảnh Logo từ máy tính
+                                        <input
+                                            ref="logoFileInputRef"
+                                            type="file"
+                                            accept="image/*"
+                                            hidden
+                                            @change="onSelectLogoFile"
+                                        >
+                                    </label>
+                                    <button
+                                        v-if="previewLogoUrl"
+                                        type="button"
+                                        class="btn"
+                                        @click="clearSiteLogo"
+                                    >
+                                        <FontAwesomeIcon icon="fa-solid fa-trash-can" />
+                                        Xóa logo (Dùng mặc định HM)
+                                    </button>
+                                </div>
+                                <input
+                                    id="settingSiteLogoUrl"
+                                    v-model="form.site_logo"
+                                    type="text"
+                                    maxlength="500"
+                                    placeholder="Hoặc dán đường dẫn ảnh logo (VD: /storage/settings/logo.png hoặc https://...)"
+                                    @input="onManualLogoUrlInput"
+                                >
+                                <small class="site-settings-logo-hint">
+                                    Hỗ trợ PNG, SVG, WEBP, JPG (tối đa 5MB). Để trống sẽ hiển thị biểu tượng chữ "HM" mặc định.
+                                </small>
+                                <small v-if="form.errors.site_logo || form.errors.site_logo_file" class="field-error">
+                                    {{ form.errors.site_logo_file || form.errors.site_logo }}
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="field">
                         <label for="settingCompanyName">TÊN THƯƠNG HIỆU *</label>
                         <input
@@ -250,7 +303,13 @@
                     </div>
                     <div class="site-settings-preview-body">
                         <div class="site-settings-preview-brand">
-                            <span class="mark">HM</span>
+                            <img
+                                v-if="previewLogoUrl"
+                                :src="previewLogoUrl"
+                                :alt="form.company_name || 'Logo'"
+                                class="mark mark-logo"
+                            >
+                            <span v-else class="mark">HM</span>
                             <div>
                                 <strong>{{ form.company_name }}</strong>
                                 <small>{{ form.company_tagline }}</small>
@@ -275,9 +334,11 @@
 
 <script setup lang="ts">
 import { useForm } from '@inertiajs/vue3';
+import { computed, onBeforeUnmount, ref } from 'vue';
 import AdminLayout from '../../layout/AdminLayout.Vue';
 
 type SiteSettingsMap = {
+    site_logo?: string;
     company_name: string;
     company_tagline: string;
     announcement_text: string;
@@ -291,6 +352,11 @@ type SiteSettingsMap = {
     facebook_url: string;
     linkedin_url: string;
     zalo_url: string;
+};
+
+type SiteSettingsForm = SiteSettingsMap & {
+    site_logo: string;
+    site_logo_file: File | null;
 };
 
 type AdminStat = {
@@ -308,7 +374,12 @@ const props = defineProps<{
     supportProjectsCount?: number;
 }>();
 
-const form = useForm<SiteSettingsMap>({
+const logoFileInputRef = ref<HTMLInputElement | null>(null);
+const localLogoPreview = ref<string | null>(null);
+
+const form = useForm<SiteSettingsForm>({
+    site_logo: props.settings.site_logo ?? '',
+    site_logo_file: null,
     company_name: props.settings.company_name,
     company_tagline: props.settings.company_tagline,
     announcement_text: props.settings.announcement_text,
@@ -324,7 +395,70 @@ const form = useForm<SiteSettingsMap>({
     zalo_url: props.settings.zalo_url,
 });
 
+const previewLogoUrl = computed<string>(() => {
+    if (localLogoPreview.value) {
+        return localLogoPreview.value;
+    }
+
+    const raw = (form.site_logo || '').trim();
+    if (!raw) {
+        return '';
+    }
+
+    if (raw.startsWith('data:') || raw.startsWith('http://') || raw.startsWith('https://') || raw.startsWith('/')) {
+        return raw;
+    }
+
+    return `/storage/${raw}`;
+});
+
+function revokeLocalPreview(): void {
+    if (localLogoPreview.value) {
+        URL.revokeObjectURL(localLogoPreview.value);
+        localLogoPreview.value = null;
+    }
+}
+
+function onSelectLogoFile(event: Event): void {
+    const input = event.target as HTMLInputElement | null;
+    const file = input?.files?.[0] ?? null;
+    revokeLocalPreview();
+
+    if (!file) {
+        form.site_logo_file = null;
+        return;
+    }
+
+    form.site_logo_file = file;
+    localLogoPreview.value = URL.createObjectURL(file);
+}
+
+function onManualLogoUrlInput(): void {
+    if (form.site_logo_file) {
+        form.site_logo_file = null;
+        revokeLocalPreview();
+        if (logoFileInputRef.value) {
+            logoFileInputRef.value.value = '';
+        }
+    }
+}
+
+function clearSiteLogo(): void {
+    form.site_logo = '';
+    form.site_logo_file = null;
+    revokeLocalPreview();
+    if (logoFileInputRef.value) {
+        logoFileInputRef.value.value = '';
+    }
+}
+
+onBeforeUnmount(() => {
+    revokeLocalPreview();
+});
+
 function restoreDefaults(): void {
+    clearSiteLogo();
+    form.site_logo = props.defaults.site_logo ?? '';
     form.company_name = props.defaults.company_name;
     form.company_tagline = props.defaults.company_tagline;
     form.announcement_text = props.defaults.announcement_text;
@@ -341,6 +475,22 @@ function restoreDefaults(): void {
 }
 
 function submitSettings(): void {
+    if (form.site_logo_file) {
+        form.post('/admin/settings', {
+            forceFormData: true,
+            preserveScroll: true,
+            onSuccess: () => {
+                form.site_logo_file = null;
+                revokeLocalPreview();
+                if (logoFileInputRef.value) {
+                    logoFileInputRef.value.value = '';
+                }
+            },
+        });
+
+        return;
+    }
+
     form.put('/admin/settings', {
         preserveScroll: true,
     });

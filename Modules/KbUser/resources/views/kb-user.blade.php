@@ -17,7 +17,13 @@
     }
     $canonicalUrl = $currentPath === '/' ? $canonicalBase . '/' : $canonicalBase . $currentPath;
 
-    $rawOgImage = $siteSettings['seo_og_image'] ?? '/favicon.svg';
+    $rawSiteLogo = trim((string) ($siteSettings['site_logo'] ?? ''));
+    $customLogoHref = $rawSiteLogo !== ''
+        ? (str_starts_with($rawSiteLogo, 'http') || str_starts_with($rawSiteLogo, '/') ? $rawSiteLogo : '/storage/' . ltrim($rawSiteLogo, '/'))
+        : null;
+    $rawOgImage = ($siteSettings['seo_og_image'] ?? '') !== '' && ($siteSettings['seo_og_image'] ?? '') !== '/favicon.svg'
+        ? $siteSettings['seo_og_image']
+        : ($customLogoHref ?: '/favicon.svg');
     $seoImage = str_starts_with($rawOgImage, 'http')
         ? $rawOgImage
         : $canonicalBase . '/' . ltrim($rawOgImage, '/');
@@ -485,10 +491,15 @@
         </script>
     @endif
 
-    <link rel="icon" href="{{ asset('favicon.ico') }}" sizes="any">
-    <link rel="icon" type="image/png" sizes="48x48" href="{{ asset('favicon-48x48.png') }}">
-    <link rel="icon" type="image/svg+xml" href="{{ asset('favicon.svg') }}">
-    <link rel="apple-touch-icon" href="{{ asset('apple-touch-icon.png') }}">
+    @if($customLogoHref)
+        <link rel="icon" href="{{ $customLogoHref }}">
+        <link rel="apple-touch-icon" href="{{ $customLogoHref }}">
+    @else
+        <link rel="icon" href="{{ asset('favicon.ico') }}" sizes="any">
+        <link rel="icon" type="image/png" sizes="48x48" href="{{ asset('favicon-48x48.png') }}">
+        <link rel="icon" type="image/svg+xml" href="{{ asset('favicon.svg') }}">
+        <link rel="apple-touch-icon" href="{{ asset('apple-touch-icon.png') }}">
+    @endif
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,300;1,400;1,500;1,600&family=Playfair+Display:ital,wght@0,400;0,500;0,600;1,400;1,500&display=swap" rel="stylesheet">

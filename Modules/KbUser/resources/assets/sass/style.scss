@@ -96,6 +96,14 @@ img,svg {
   font-size: 19px;
   font-weight: 950;
   transform: rotate(-4deg);
+  flex-shrink: 0;
+}
+.brandmark-logo {
+  object-fit: contain;
+  background: #ffffff;
+  padding: 3px;
+  transform: none;
+  border: 1px solid rgba(23, 39, 30, .12);
 }
 .brandname {
   font-size: 17px;
@@ -13030,4 +13038,28 @@ input.is-invalid:focus,
 select.is-invalid:focus,
 textarea.is-invalid:focus {
   box-shadow: 0 0 0 3px rgba(217, 45, 32, 0.14) !important;
+}
+
+.brandmark.brandmark-logo,
+.footer .brandmark.brandmark-logo {
+  width: 43px;
+  height: 43px;
+  border: 1px solid var(--brass);
+  border-radius: 4px;
+  background: #ffffff;
+  padding: 3px;
+  object-fit: contain;
+  transform: none;
+  box-shadow: none;
+  flex-shrink: 0;
+}
+
+.kb-compare-spec-bullets {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.kb-compare-spec-bullets li {
+  margin-bottom: 4px;
+  line-height: 1.5;
 }

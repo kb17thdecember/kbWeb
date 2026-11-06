@@ -215,7 +215,13 @@ const productImageUrl = (image: string): string =>
         : `/storage/${image}`;
 
 const formatPrice = (price: number): string =>
-    price > 0 ? `${new Intl.NumberFormat('vi-VN').format(price)}₫` : 'Liên hệ';
+    price > 0 ? `${new Intl.NumberFormat('vi-VN').format(price)}₫` : 'Liên hệ báo giá';
+
+const splitSpecLines = (description: string): string[] =>
+    (description || '')
+        .split(/\r?\n/)
+        .map((line) => line.trim().replace(/^[-•*]\s*/, ''))
+        .filter(Boolean);
 
 const notify = (message: string): void => {
     toastMessage.value = message;
@@ -820,7 +826,7 @@ onUnmounted(() => {
                                             <th v-for="(item, idx) in compareProducts" :key="item.id">
                                                 <div class="kb-compare-col-head">
                                                     <div class="kb-compare-col-top">
-                                                        <span class="kb-compare-index-badge">0{{ idx + 1 }}</span>
+                                                        <span class="kb-compare-index-badge">THIẾT BỊ 0{{ idx + 1 }}</span>
                                                         <button
                                                             type="button"
                                                             class="kb-compare-remove-btn"
@@ -834,7 +840,7 @@ onUnmounted(() => {
                                                         <img v-if="imageUrl(item)" :src="imageUrl(item) ?? undefined" :alt="item.name">
                                                         <span v-else class="kb-compare-col-placeholder">{{ item.category?.name ?? 'HVAC' }}</span>
                                                     </div>
-                                                    <span class="kb-compare-col-cat">{{ item.category?.name ?? 'Sản phẩm kỹ thuật' }}</span>
+                                                    <span class="kb-compare-col-cat">{{ item.category?.name ?? 'Thiết bị kỹ thuật' }}</span>
                                                     <strong class="kb-compare-col-name">{{ item.name }}</strong>
                                                 </div>
                                             </th>
@@ -842,13 +848,13 @@ onUnmounted(() => {
                                     </thead>
                                     <tbody>
                                         <tr>
-                                            <td>Tên thương mại</td>
+                                            <td>Tên sản phẩm</td>
                                             <td v-for="item in compareProducts" :key="item.id">
-                                                <span class="kb-compare-title-text">{{ item.product_title || item.name }}</span>
+                                                <strong class="kb-compare-title-text">{{ item.name }}</strong>
                                             </td>
                                         </tr>
                                         <tr>
-                                            <td>Danh mục</td>
+                                            <td>Thương hiệu / Danh mục</td>
                                             <td v-for="item in compareProducts" :key="item.id">{{ item.category?.name ?? '—' }}</td>
                                         </tr>
                                         <tr>
@@ -856,15 +862,20 @@ onUnmounted(() => {
                                             <td v-for="item in compareProducts" :key="item.id">{{ item.subcategory?.name ?? '—' }}</td>
                                         </tr>
                                         <tr>
-                                            <td>Giá tham khảo</td>
+                                            <td>Đơn giá tham khảo</td>
                                             <td v-for="item in compareProducts" :key="item.id">
                                                 <strong class="kb-compare-price">{{ formatPrice(item.price) }}</strong>
                                             </td>
                                         </tr>
                                         <tr>
-                                            <td>Mô tả &amp; thông số</td>
+                                            <td>Thông số kỹ thuật chi tiết</td>
                                             <td v-for="item in compareProducts" :key="item.id">
-                                                <div class="kb-compare-desc-cell">{{ item.description || 'Đang cập nhật thông số kỹ thuật.' }}</div>
+                                                <ul v-if="splitSpecLines(item.description).length" class="kb-compare-spec-bullets">
+                                                    <li v-for="(line, lineIdx) in splitSpecLines(item.description)" :key="lineIdx">
+                                                        {{ line }}
+                                                    </li>
+                                                </ul>
+                                                <div v-else class="kb-compare-desc-cell">Đang cập nhật thông số kỹ thuật.</div>
                                             </td>
                                         </tr>
                                         <tr>
@@ -895,8 +906,8 @@ onUnmounted(() => {
                                             </div>
                                             <div class="kb-compare-mobile-meta">
                                                 <div class="kb-compare-mobile-badges">
-                                                    <span class="kb-compare-index-badge">0{{ idx + 1 }}</span>
-                                                    <span class="kb-compare-mobile-cat">{{ item.category?.name ?? 'Thiết bị' }}</span>
+                                                    <span class="kb-compare-index-badge">THIẾT BỊ 0{{ idx + 1 }}</span>
+                                                    <span class="kb-compare-mobile-cat">{{ item.category?.name ?? 'Thiết bị kỹ thuật' }}</span>
                                                 </div>
                                                 <h4 class="kb-compare-mobile-name">{{ item.name }}</h4>
                                                 <strong class="kb-compare-price">{{ formatPrice(item.price) }}</strong>
@@ -919,7 +930,47 @@ onUnmounted(() => {
 
                                 <div class="kb-compare-mobile-specs">
                                     <div class="kb-compare-spec-block">
-                                        <div class="kb-compare-spec-head">Giá tham khảo</div>
+                                        <div class="kb-compare-spec-head">Tên sản phẩm</div>
+                                        <div class="kb-compare-spec-list">
+                                            <div v-for="(item, idx) in compareProducts" :key="`title-${item.id}`" class="kb-compare-spec-row is-inline">
+                                                <span class="kb-compare-spec-prod">
+                                                    <b>0{{ idx + 1 }}</b> Thiết bị 0{{ idx + 1 }}
+                                                </span>
+                                                <strong class="kb-compare-spec-val">{{ item.name }}</strong>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="kb-compare-spec-block">
+                                        <div class="kb-compare-spec-head">Thương hiệu / Danh mục</div>
+                                        <div class="kb-compare-spec-list">
+                                            <div v-for="(item, idx) in compareProducts" :key="`cat-${item.id}`" class="kb-compare-spec-row is-inline">
+                                                <span class="kb-compare-spec-prod">
+                                                    <b>0{{ idx + 1 }}</b> {{ item.name }}
+                                                </span>
+                                                <span class="kb-compare-spec-val">
+                                                    {{ item.category?.name ?? '—' }}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="kb-compare-spec-block">
+                                        <div class="kb-compare-spec-head">Dòng sản phẩm</div>
+                                        <div class="kb-compare-spec-list">
+                                            <div v-for="(item, idx) in compareProducts" :key="`subcat-${item.id}`" class="kb-compare-spec-row is-inline">
+                                                <span class="kb-compare-spec-prod">
+                                                    <b>0{{ idx + 1 }}</b> {{ item.name }}
+                                                </span>
+                                                <span class="kb-compare-spec-val">
+                                                    {{ item.subcategory?.name ?? '—' }}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="kb-compare-spec-block">
+                                        <div class="kb-compare-spec-head">Đơn giá tham khảo</div>
                                         <div class="kb-compare-spec-list">
                                             <div v-for="(item, idx) in compareProducts" :key="`price-${item.id}`" class="kb-compare-spec-row is-inline">
                                                 <span class="kb-compare-spec-prod">
@@ -931,39 +982,18 @@ onUnmounted(() => {
                                     </div>
 
                                     <div class="kb-compare-spec-block">
-                                        <div class="kb-compare-spec-head">Danh mục &amp; Dòng sản phẩm</div>
-                                        <div class="kb-compare-spec-list">
-                                            <div v-for="(item, idx) in compareProducts" :key="`cat-${item.id}`" class="kb-compare-spec-row is-inline">
-                                                <span class="kb-compare-spec-prod">
-                                                    <b>0{{ idx + 1 }}</b> {{ item.name }}
-                                                </span>
-                                                <span class="kb-compare-spec-val">
-                                                    {{ item.category?.name ?? '—' }} · {{ item.subcategory?.name ?? '—' }}
-                                                </span>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <div class="kb-compare-spec-block">
-                                        <div class="kb-compare-spec-head">Tên thương mại</div>
-                                        <div class="kb-compare-spec-list">
-                                            <div v-for="(item, idx) in compareProducts" :key="`title-${item.id}`" class="kb-compare-spec-row">
-                                                <span class="kb-compare-spec-prod">
-                                                    <b>0{{ idx + 1 }}</b> {{ item.name }}
-                                                </span>
-                                                <p class="kb-compare-spec-text">{{ item.product_title || item.name }}</p>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <div class="kb-compare-spec-block">
-                                        <div class="kb-compare-spec-head">Mô tả &amp; thông số kỹ thuật</div>
+                                        <div class="kb-compare-spec-head">Thông số kỹ thuật chi tiết</div>
                                         <div class="kb-compare-spec-list">
                                             <div v-for="(item, idx) in compareProducts" :key="`desc-${item.id}`" class="kb-compare-spec-row">
                                                 <span class="kb-compare-spec-prod">
                                                     <b>0{{ idx + 1 }}</b> {{ item.name }}
                                                 </span>
-                                                <p class="kb-compare-spec-text is-desc">{{ item.description || 'Đang cập nhật thông số kỹ thuật.' }}</p>
+                                                <ul v-if="splitSpecLines(item.description).length" class="kb-compare-spec-bullets">
+                                                    <li v-for="(line, lineIdx) in splitSpecLines(item.description)" :key="lineIdx">
+                                                        {{ line }}
+                                                    </li>
+                                                </ul>
+                                                <p v-else class="kb-compare-spec-text is-desc">Đang cập nhật thông số kỹ thuật.</p>
                                             </div>
                                         </div>
                                     </div>

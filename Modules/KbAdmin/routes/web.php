@@ -60,7 +60,7 @@ Route::middleware([UseKbAdminRootView::class, EnsureAdminAuthenticated::class])
 
         Route::get('/settings', [SiteSettingController::class, 'index'])
             ->name('admin.settings.index');
-        Route::put('/settings', [SiteSettingController::class, 'update'])
+        Route::match(['put', 'post'], '/settings', [SiteSettingController::class, 'update'])
             ->name('admin.settings.update');
 
         Route::get('/seo', [SeoController::class, 'index'])

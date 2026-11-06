@@ -69,6 +69,7 @@ test('admin can view and update site settings and changes are shared with user p
 
     $payload = [
         ...SiteSetting::defaults(),
+        'site_logo' => '/storage/settings/custom-logo.png',
         'company_name' => 'HVAC Mart Việt Nam',
         'hotline' => '0988.999.888',
         'contact_email' => 'contact@hvacmart.vn',
@@ -81,6 +82,7 @@ test('admin can view and update site settings and changes are shared with user p
 
     expect(SiteSetting::allSettings())
         ->toMatchArray([
+            'site_logo' => '/storage/settings/custom-logo.png',
             'company_name' => 'HVAC Mart Việt Nam',
             'hotline' => '0988.999.888',
             'contact_email' => 'contact@hvacmart.vn',
@@ -90,6 +92,7 @@ test('admin can view and update site settings and changes are shared with user p
     $this->get(route('kbuser.home'))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
+            ->where('siteSettings.site_logo', '/storage/settings/custom-logo.png')
             ->where('siteSettings.company_name', 'HVAC Mart Việt Nam')
             ->where('siteSettings.hotline', '0988.999.888')
             ->where('siteSettings.contact_email', 'contact@hvacmart.vn'),

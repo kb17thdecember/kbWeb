@@ -173,6 +173,9 @@ const quoteForm = ref({
     validUntilDate: addTwoMonths(todayIso),
     projectName: 'Chung cư cao cấp Vạn Xuân',
     vatPercent: 8,
+    signerName: 'Nguyễn Tuấn Kiệt',
+    signerPhone: '0979 807 234',
+    signerEmail: 'tuankiet@starlightgroup.vn',
 });
 
 watch(
@@ -1919,9 +1922,9 @@ const printQuotationPdf = (): void => {
 
         <div class="q-sign">
             <p>Many thanks &amp; Best regards</p>
-            <p>Nguyễn Tuấn Kiệt</p>
-            <p>HP: 0979 807 234</p>
-            <p>Email : tuankiet@starlightgroup.vn</p>
+            ${quoteForm.value.signerName.trim() ? `<p>${escapeHtml(quoteForm.value.signerName)}</p>` : ''}
+            ${quoteForm.value.signerPhone.trim() ? `<p>HP: ${escapeHtml(quoteForm.value.signerPhone)}</p>` : ''}
+            ${quoteForm.value.signerEmail.trim() ? `<p>Email : ${escapeHtml(quoteForm.value.signerEmail)}</p>` : ''}
         </div>
             </div>
         </div>
@@ -2305,6 +2308,30 @@ const submitLinkedQuotationResponse = (): void => {
                         <span>Thuế VAT (%)</span>
                         <input v-model.number="quoteForm.vatPercent" type="number" min="0" max="100" step="1" />
                     </label>
+                    <label class="kb-quote-field">
+                        <span>Người báo giá (Ký tên)</span>
+                        <input
+                            v-model="quoteForm.signerName"
+                            type="text"
+                            placeholder="VD: Nguyễn Tuấn Kiệt"
+                        />
+                    </label>
+                    <label class="kb-quote-field">
+                        <span>Số điện thoại người báo giá (HP)</span>
+                        <input
+                            v-model="quoteForm.signerPhone"
+                            type="text"
+                            placeholder="VD: 0979 807 234"
+                        />
+                    </label>
+                    <label class="kb-quote-field">
+                        <span>Email người báo giá</span>
+                        <input
+                            v-model="quoteForm.signerEmail"
+                            type="text"
+                            placeholder="VD: tuankiet@starlightgroup.vn"
+                        />
+                    </label>
                 </div>
             </div>
 
@@ -2608,9 +2635,9 @@ const submitLinkedQuotationResponse = (): void => {
 
                     <div class="qp-sign">
                         <p>Many thanks &amp; Best regards</p>
-                        <p>Nguyễn Tuấn Kiệt</p>
-                        <p>HP: 0979 807 234</p>
-                        <p>Email : tuankiet@starlightgroup.vn</p>
+                        <p v-if="quoteForm.signerName.trim()">{{ quoteForm.signerName }}</p>
+                        <p v-if="quoteForm.signerPhone.trim()">HP: {{ quoteForm.signerPhone }}</p>
+                        <p v-if="quoteForm.signerEmail.trim()">Email : {{ quoteForm.signerEmail }}</p>
                     </div>
                 </div>
             </div>

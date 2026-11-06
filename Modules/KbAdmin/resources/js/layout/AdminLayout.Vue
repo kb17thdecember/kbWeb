@@ -82,6 +82,17 @@ const menuItems = [
 
 const visibleStats = computed(() => props.stats);
 const brandName = computed(() => page.props.siteSettings?.company_name || 'HVAC Mart');
+const siteLogoUrl = computed(() => {
+    const raw = (page.props.siteSettings?.site_logo || '').trim();
+    if (!raw) {
+        return '';
+    }
+    if (raw.startsWith('data:') || raw.startsWith('http://') || raw.startsWith('https://') || raw.startsWith('/')) {
+        return raw;
+    }
+
+    return `/storage/${raw}`;
+});
 
 const isToastVisible = ref(false);
 const toastMessage = ref('');
@@ -504,7 +515,13 @@ function logout(): void {
     <div class="app">
       <aside class="sidebar">
         <div class="brand">
-          <span class="mark">HM</span>
+          <img
+              v-if="siteLogoUrl"
+              :src="siteLogoUrl"
+              :alt="brandName"
+              class="mark mark-logo"
+          >
+          <span v-else class="mark">HM</span>
           <div>
             <b>{{ brandName }}</b><small>ADMINISTRATION</small>
           </div>
