@@ -40,6 +40,7 @@ type ProductDetail = {
     slug?: string;
     name: string;
     product_title: string | null;
+    origin?: string | null;
     description: string;
     seo_title?: string | null;
     seo_description?: string | null;
@@ -254,7 +255,7 @@ onUnmounted(() => {
                             </div>
                             <h1>{{ product.product_title || product.name }}</h1>
                             <p v-if="product.subcategory">
-                                Dòng sản phẩm: {{ product.subcategory.name }} · Mã tham chiếu #SP-{{ product.id }}
+                                Dòng sản phẩm: {{ product.subcategory.name }}<template v-if="product.origin"> · Xuất xứ: {{ product.origin }}</template> · Mã tham chiếu #SP-{{ product.id }}
                             </p>
                         </div>
                         <Link class="page-home-link" href="/products">
@@ -337,6 +338,10 @@ onUnmounted(() => {
                                     <div class="kb-spec-item">
                                         <span>Phân nhóm kỹ thuật</span>
                                         <strong>{{ product.subcategory?.name ?? 'Tiêu chuẩn dự án' }}</strong>
+                                    </div>
+                                    <div class="kb-spec-item">
+                                        <span>Xuất xứ</span>
+                                        <strong>{{ product.origin || 'Chính hãng' }}</strong>
                                     </div>
                                     <div class="kb-spec-item">
                                         <span>Tình trạng cung ứng</span>

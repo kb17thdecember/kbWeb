@@ -43,6 +43,7 @@
                     <tr>
                         <th>Sản phẩm</th>
                         <th>Danh mục</th>
+                        <th>Xuất xứ</th>
                         <th>Loại sản phẩm</th>
                         <th>Giá tham khảo</th>
                         <th>Ảnh</th>
@@ -66,6 +67,11 @@
                         <td>
                             <b>{{ product.category?.name ?? 'Không xác định' }}</b>
                             <small class="muted">{{ product.subcategory?.name ?? 'Chưa có dòng sản phẩm' }}</small>
+                        </td>
+                        <td>
+                            <span class="badge" style="background: #eef4fb; color: #1d4ed8; border: 1px solid #bfdbfe">
+                                {{ product.origin || '—' }}
+                            </span>
                         </td>
                         <td>
                             <span
@@ -161,6 +167,10 @@
                         <div>{{ detailProduct.subcategory?.name ?? 'Chưa có dòng sản phẩm' }}</div>
                     </div>
                     <div class="request-detail-item">
+                        <small>Xuất xứ</small>
+                        <div>{{ detailProduct.origin || '—' }}</div>
+                    </div>
+                    <div class="request-detail-item">
                         <small>Loại sản phẩm</small>
                         <div>{{ Number(detailProduct.tag) === 1 ? 'Nổi bật (Hiển thị trang chủ)' : 'Thông thường' }}</div>
                     </div>
@@ -207,6 +217,7 @@
         id: number;
         name: string;
         product_title: string | null;
+        origin?: string | null;
         category_id: number;
         subcategory_id: number | null;
         tag: number | null;
@@ -262,6 +273,7 @@
             const matchesQuery = !query || [
                 product.name,
                 product.product_title ?? '',
+                product.origin ?? '',
                 product.category?.name ?? '',
                 product.subcategory?.name ?? '',
                 productTagLabel,

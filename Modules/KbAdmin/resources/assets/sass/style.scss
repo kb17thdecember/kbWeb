@@ -3051,6 +3051,8 @@ body::-webkit-scrollbar-thumb:hover {
   font-weight: 700;
 }
 
+.qp-table td.qp-preline,
+.kflex-qp-table td.qp-preline,
 .qp-preline {
   white-space: pre-line;
 }
@@ -3058,9 +3060,15 @@ body::-webkit-scrollbar-thumb:hover {
 .qp-spec {
   text-align: left;
   vertical-align: middle;
+  white-space: pre-line;
   font-size: 13.5px;
   line-height: 1.3;
   padding: 6px 8px;
+}
+
+.qp-spec-line {
+  display: block;
+  margin: 0;
 }
 
 .qp-prod-img {

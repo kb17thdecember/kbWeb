@@ -31,6 +31,7 @@ class KbUserController extends Controller
      */
     public function index(): InertiaResponse
     {
+        Product::ensureOriginColumn();
         $this->deduplicateLegacyKflexProducts();
 
         $categories = Category::query()
@@ -48,6 +49,7 @@ class KbUserController extends Controller
                 'id',
                 'name',
                 'product_title',
+                'origin',
                 'category_id',
                 'subcategory_id',
                 'description',
@@ -112,6 +114,7 @@ class KbUserController extends Controller
 
     public function products(Request $request, ?string $categorySlug = null, ?string $subcategorySlug = null): InertiaResponse
     {
+        Product::ensureOriginColumn();
         $this->deduplicateLegacyKflexProducts();
 
         $hasCategorySeo = Schema::hasColumn('categories', 'seo_title');
@@ -158,6 +161,7 @@ class KbUserController extends Controller
             'id',
             'name',
             'product_title',
+            'origin',
             'category_id',
             'subcategory_id',
             'description',
@@ -187,6 +191,7 @@ class KbUserController extends Controller
 
     public function showProduct(string $productSlug): InertiaResponse
     {
+        Product::ensureOriginColumn();
         $normalizedSlug = Str::slug($productSlug);
 
         $product = Product::query()
@@ -216,6 +221,7 @@ class KbUserController extends Controller
                 'id',
                 'name',
                 'product_title',
+                'origin',
                 'category_id',
                 'subcategory_id',
                 'description',
@@ -373,6 +379,7 @@ class KbUserController extends Controller
                 'id',
                 'name',
                 'product_title',
+                'origin',
                 'category_id',
                 'subcategory_id',
                 'description',
@@ -426,6 +433,7 @@ class KbUserController extends Controller
                 'id',
                 'name',
                 'product_title',
+                'origin',
                 'category_id',
                 'subcategory_id',
                 'description',
@@ -649,6 +657,7 @@ class KbUserController extends Controller
                 'name' => 'K-Flex M-Flex',
                 'category' => 'K-FLEX',
                 'subcategory' => 'Cao su lưu hóa NBR',
+                'origin' => 'Việt Nam',
                 'product_title' => 'Dòng sản phẩm bảo ôn cao cấp phù hợp cho chung cư và khu công nghiệp .',
                 'image' => 'MFLEX.png',
                 'description' => implode("\n", [
@@ -666,6 +675,7 @@ class KbUserController extends Controller
                 'name' => 'K-Flex ST',
                 'category' => 'K-FLEX',
                 'subcategory' => 'Cao su lưu hóa NBR',
+                'origin' => 'Malaysia',
                 'product_title' => 'Dòng sản phẩm bảo ôn cao cấp phù hợp cho văn phòng khách sạn .',
                 'image' => 'ST.png',
                 'description' => implode("\n", [
@@ -685,6 +695,7 @@ class KbUserController extends Controller
                 'name' => 'K-Flex K-Protect',
                 'category' => 'K-FLEX',
                 'subcategory' => 'Polyolefin XLPE',
+                'origin' => 'Malaysia',
                 'product_title' => 'Dòng sản phẩm bảo ôn cao cấp phù hợp cho văn phòng khách sạn .',
                 'image' => 'KPROTECT.png',
                 'description' => implode("\n", [
@@ -706,6 +717,7 @@ class KbUserController extends Controller
         $firstSubcategory = trim(explode(',', (string) $project->subcategory)[0] ?? '');
         $categoryName = $preset['category'] ?? ($firstCategory !== '' ? $firstCategory : 'HVAC');
         $subcategoryName = $preset['subcategory'] ?? ($firstSubcategory !== '' ? $firstSubcategory : 'Vật tư dự án');
+        $productName = $preset['name'] ?? $trimmedRef;
 
         $parentCategory = Category::query()->firstOrCreate([
             'name' => $categoryName,
@@ -718,11 +730,12 @@ class KbUserController extends Controller
 
         $product = Product::query()->updateOrCreate(
             [
-                'name' => $preset['name'] ?? $trimmedRef,
+                'name' => $productName,
                 'category_id' => $parentCategory->id,
             ],
             [
                 'product_title' => $preset['product_title'] ?? "Vật tư thực tế sử dụng tại dự án {$project->name}",
+                'origin' => $preset['origin'] ?? Product::resolveDefaultOrigin($productName, $preset['product_title'] ?? null, null, $parentCategory->id, $childCategory->id),
                 'category_id' => $parentCategory->id,
                 'subcategory_id' => $childCategory->id,
                 'description' => $preset['description'] ?? "Sản phẩm {$trimmedRef} thuộc hạng mục {$categoryName} · {$subcategoryName}.",
@@ -878,6 +891,7 @@ class KbUserController extends Controller
                 'id',
                 'name',
                 'product_title',
+                'origin',
                 'category_id',
                 'subcategory_id',
                 'description',

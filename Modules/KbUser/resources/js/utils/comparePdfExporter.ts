@@ -2,6 +2,7 @@ export type CompareExportProduct = {
     id: number;
     name: string;
     product_title: string | null;
+    origin?: string | null;
     description: string;
     price: number;
     image: string[] | null;
@@ -110,6 +111,10 @@ export function exportProductComparisonPdf(
 
     const subcategoryCols = products
         .map((item) => `<td>${escapeHtml(item.subcategory?.name ?? '—')}</td>`)
+        .join('');
+
+    const originCols = products
+        .map((item) => `<td>${escapeHtml(item.origin || '—')}</td>`)
         .join('');
 
     const priceCols = products
@@ -416,6 +421,10 @@ export function exportProductComparisonPdf(
                 <tr>
                     <td>Dòng sản phẩm</td>
                     ${subcategoryCols}
+                </tr>
+                <tr>
+                    <td>Xuất xứ</td>
+                    ${originCols}
                 </tr>
                 <tr>
                     <td>Đơn giá tham khảo</td>

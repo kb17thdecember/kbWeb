@@ -50,6 +50,22 @@
                     </select>
                 </div>
                 <div class="field ">
+                    <label>Xuất xứ (Để trống tự động điền)</label>
+                    <input
+                        v-model="productOrigin"
+                        name="origin"
+                        type="text"
+                        maxlength="100"
+                        list="productOriginPresets"
+                        placeholder="VD: Việt Nam, Trung Quốc, Malaysia..."
+                    >
+                    <datalist id="productOriginPresets">
+                        <option value="Việt Nam" />
+                        <option value="Trung Quốc" />
+                        <option value="Malaysia" />
+                    </datalist>
+                </div>
+                <div class="field full">
                     <label>Giá tham khảo (VND)</label>
                     <input v-model="productPrice" name="price" type="number" min="0" max="2147483647" step="1" required>
                 </div>
@@ -154,6 +170,7 @@
         id: number;
         name: string;
         product_title: string | null;
+        origin?: string | null;
         category_id: number;
         subcategory_id: number | null;
         tag: number | null;
@@ -232,6 +249,7 @@
 
     const productName = ref('');
     const productTitle = ref('');
+    const productOrigin = ref('');
     const productTag = ref('0');
     const productPrice = ref('0');
     const productDescription = ref('');
@@ -265,6 +283,7 @@
     function resetForm(product: Product | null): void {
         productName.value = product?.name ?? '';
         productTitle.value = product?.product_title ?? '';
+        productOrigin.value = product?.origin ?? '';
         selectedCategoryId.value = product ? String(product.category_id) : '';
         selectedSubcategory.value = String(
             product?.subcategory_id ?? visibleSubcategories.value[0]?.id ?? '',
@@ -413,6 +432,7 @@
         const data = {
             name: productName.value,
             product_title: productTitle.value,
+            origin: productOrigin.value.trim() || null,
             category_id: Number(selectedCategoryId.value),
             subcategory_id: Number(selectedSubcategory.value),
             tag: Number(productTag.value) === 1 ? 1 : 0,

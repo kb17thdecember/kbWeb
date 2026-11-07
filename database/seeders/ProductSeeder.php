@@ -17,6 +17,8 @@ class ProductSeeder extends Seeder
      */
     public function run(): void
     {
+        Product::ensureOriginColumn();
+
         $ariston = Category::query()->firstOrCreate([
             'name' => 'Ariston',
             'parent_id' => null,
@@ -34,6 +36,7 @@ class ProductSeeder extends Seeder
             [
                 'name' => 'SLIM3 30B VN',
                 'product_title' => 'Dung tích 30L, vừa vặn cho gia đình.',
+                'origin' => 'Việt Nam',
                 'image' => 'SLIM3_30B_VN.png',
                 'description' => [
                     '- Dung tích: 30L',
@@ -57,6 +60,7 @@ class ProductSeeder extends Seeder
             [
                 'name' => 'SLIM3 20B VN',
                 'product_title' => 'Dung tích 20L · Thiết kế gọn cho gia đình.',
+                'origin' => 'Việt Nam',
                 'image' => 'SLIM3_20B_VN.png',
                 'description' => [
                     '- Dung tích: 20L',
@@ -82,6 +86,7 @@ class ProductSeeder extends Seeder
             [
                 'name' => 'AN3 15 B VN',
                 'product_title' => 'Model mới, sang trọng, lịch sự.',
+                'origin' => 'Việt Nam',
                 'image' => 'AN3_15B_VN.png',
                 'description' => [
                     '- Dung tích: 15L',
@@ -105,6 +110,7 @@ class ProductSeeder extends Seeder
             [
                 'name' => 'AN3 30B VN',
                 'product_title' => 'Sang trọng và lịch sự, dung tích 30L.',
+                'origin' => 'Việt Nam',
                 'image' => 'AN3_30B_VN.png',
                 'description' => [
                     '- Dung tích: 30L',
@@ -128,6 +134,7 @@ class ProductSeeder extends Seeder
             [
                 'name' => 'PRO R S 30 SH 2.5 FE',
                 'product_title' => 'Bình nước nóng 30L nhập khẩu.',
+                'origin' => 'Việt Nam',
                 'image' => 'TQN.png',
                 'description' => [
                     '- Dung tích: 30L',
@@ -152,6 +159,7 @@ class ProductSeeder extends Seeder
             [
                 'name' => 'PRO R S 40 SH 2.5 FE',
                 'product_title' => 'Dành cho hộ gia đình.',
+                'origin' => 'Trung Quốc',
                 'image' => 'TQN.png',
                 'description' => [
                     '- Dung tích: 40L',
@@ -176,6 +184,7 @@ class ProductSeeder extends Seeder
             [
                 'name' => 'PRO R 50 V 2.5 FE',
                 'product_title' => 'Đầy đủ nước nóng cho cả gia đình.',
+                'origin' => 'Trung Quốc',
                 'image' => 'TQD.png',
                 'description' => [
                     '- Dung tích: 50L',
@@ -200,6 +209,7 @@ class ProductSeeder extends Seeder
             [
                 'name' => 'PRO R 50 SH 2.5 FE',
                 'product_title' => 'Đầy đủ nước nóng cho cả gia đình.',
+                'origin' => 'Trung Quốc',
                 'image' => 'TQN.png',
                 'description' => [
                     '- Dung tích: 50L',
@@ -224,6 +234,7 @@ class ProductSeeder extends Seeder
             [
                 'name' => 'PRO R 80 V 2.5 FE',
                 'product_title' => 'Phù hợp cho bồn tắm.',
+                'origin' => 'Trung Quốc',
                 'image' => 'TQD.png',
                 'description' => [
                     '- Dung tích: 80L',
@@ -248,6 +259,7 @@ class ProductSeeder extends Seeder
             [
                 'name' => 'PRO R 80 H 2.5 FE',
                 'product_title' => 'Phù hợp cho bồn tắm.',
+                'origin' => 'Trung Quốc',
                 'image' => 'TQN.png',
                 'description' => [
                     '- Dung tích: 80L',
@@ -272,6 +284,7 @@ class ProductSeeder extends Seeder
             [
                 'name' => 'PRO R 100 V 2.5 FE',
                 'product_title' => 'Phù hợp cho bồn tắm cỡ lớn.',
+                'origin' => 'Trung Quốc',
                 'image' => 'TQD.png',
                 'description' => [
                     '- Dung tích: 100L',
@@ -296,6 +309,7 @@ class ProductSeeder extends Seeder
             [
                 'name' => 'PRO R 100 H 2.5 FE',
                 'product_title' => 'Phù hợp cho bồn tắm cỡ lớn.',
+                'origin' => 'Trung Quốc',
                 'image' => 'TQN.png',
                 'description' => [
                     '- Dung tích: 100L',
@@ -320,6 +334,7 @@ class ProductSeeder extends Seeder
             [
                 'name' => 'ARI 150 HORB 560 THER MO EU',
                 'product_title' => 'Bình nước nóng gián tiếp dung tích cực lớn.',
+                'origin' => 'Trung Quốc',
                 'image' => 'TQN.png',
                 'description' => [
                     '- Dung tích: 150L',
@@ -344,6 +359,7 @@ class ProductSeeder extends Seeder
                 'name' => 'AR-20STP HX',
                 'subcategory' => 'Bơm nhiệt nước nóng',
                 'product_title' => 'Bơm nhiệt cho bể bơi vừa và nhỏ.',
+                'origin' => 'Trung Quốc',
                 'image' => 'AR20STPHX.png',
                 'description' => [
                     '- Công suất làm nóng: 24 kW',
@@ -370,6 +386,7 @@ class ProductSeeder extends Seeder
                 'name' => 'AR-50STP HX',
                 'subcategory' => 'Bơm nhiệt nước nóng',
                 'product_title' => 'Bơm nhiệt cho bể bơi cỡ lớn.',
+                'origin' => 'Trung Quốc',
                 'image' => 'AR50STPHX.png',
                 'description' => [
                     '- Công suất làm nóng: 47 kW',
@@ -396,6 +413,7 @@ class ProductSeeder extends Seeder
                 'name' => 'AR-40 PTP HX',
                 'subcategory' => 'Bơm nhiệt nước nóng',
                 'product_title' => 'Bơm nhiệt chất lượng cao.',
+                'origin' => 'Trung Quốc',
                 'image' => 'AR40PTPHX.png',
                 'description' => [
                     '- Công suất làm nóng: 48 kW',
@@ -422,6 +440,7 @@ class ProductSeeder extends Seeder
                 'name' => 'AR-80PTP HX',
                 'subcategory' => 'Bơm nhiệt nước nóng',
                 'product_title' => 'Bơm nhiệt công suất lớn.',
+                'origin' => 'Trung Quốc',
                 'image' => 'AR80PTPHX.png',
                 'description' => [
                     '- Công suất làm nóng: 80 kW',
@@ -449,6 +468,7 @@ class ProductSeeder extends Seeder
                 'category' => 'K-FLEX',
                 'subcategory' => 'Cao su lưu hóa NBR',
                 'product_title' => 'Dòng sản phẩm bảo ôn cao cấp phù hợp cho văn phòng khách sạn .',
+                'origin' => 'Malaysia',
                 'image' => 'ST.png',
                 'description' => [
                     '-Vật liệu: Cao su lưu hóa NBR',
@@ -469,6 +489,7 @@ class ProductSeeder extends Seeder
                 'category' => 'K-FLEX',
                 'subcategory' => 'Polyolefin XLPE',
                 'product_title' => 'Dòng sản phẩm bảo ôn cao cấp phù hợp cho văn phòng khách sạn .',
+                'origin' => 'Malaysia',
                 'image' => 'KPROTECT.png',
                 'description' => [
                     '-Vật liệu: Polyolefin XLPE',
@@ -488,6 +509,7 @@ class ProductSeeder extends Seeder
                 'category' => 'K-FLEX',
                 'subcategory' => 'Cao su lưu hóa NBR',
                 'product_title' => 'Dòng sản phẩm bảo ôn cao cấp phù hợp cho chung cư và khu công nghiệp .',
+                'origin' => 'Việt Nam',
                 'image' => 'MFLEX.png',
                 'description' => [
                     '-Vật liệu: Cao su lưu hóa NBR',
@@ -542,6 +564,7 @@ class ProductSeeder extends Seeder
                 ],
                 [
                     'product_title' => $productData['product_title'],
+                    'origin' => $productData['origin'],
                     'category_id' => $productCategory->id,
                     'subcategory_id' => $productSubcategory->id,
                     'description' => implode("\n", $productData['description']),

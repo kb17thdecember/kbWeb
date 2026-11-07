@@ -32,6 +32,7 @@ type AristonProduct = {
     id: number;
     name: string;
     product_title: string | null;
+    origin?: string | null;
     description: string;
     price: number;
     image: string[];
@@ -217,6 +218,70 @@ const resolveImageUrl = (raw?: string | null): string => {
     return typeof window !== 'undefined' ? `${window.location.origin}${path}` : path;
 };
 
+const deriveAristonShortOrigin = (product?: AristonProduct): string => {
+    if (!product) {
+        return 'Việt Nam';
+    }
+    const rawOrigin = (product.origin ?? '').trim();
+    if (rawOrigin) {
+        const upper = rawOrigin.toUpperCase();
+        if (upper === 'VN' || upper === 'VIỆT NAM' || upper === 'VIET NAM' || upper === 'VIETNAM') {
+            return 'Việt Nam';
+        }
+        if (upper === 'TQ' || upper === 'TRUNG QUỐC' || upper === 'TRUNG QUOC' || upper === 'CHINA') {
+            return 'Trung Quốc';
+        }
+        return rawOrigin;
+    }
+
+    const subcatName = (product.subcategory?.name || '').toLowerCase();
+    const text = `${product.name} ${product.product_title ?? ''} ${product.description ?? ''}`;
+    if (subcatName.includes('bơm nhiệt') || /\b(bơm\s*nhiệt|heat\s*pump|stp|ptp|ar-\d+)\b/i.test(text)) {
+        return 'Trung Quốc';
+    }
+
+    const capMatch =
+        text.match(/dung\s*tích\s*:?\s*(\d+)\s*l\b/i) ??
+        product.name.match(/\b(10|15|20|30|40|50|56|80|100|150|200|300)\s*(?:l\b|b\b|sh\b|v\b|h\b|horb\b|hord\b|vert\b)/i);
+    if (capMatch) {
+        const liters = Number(capMatch[1]);
+        return liters > 0 && liters <= 30 ? 'Việt Nam' : 'Trung Quốc';
+    }
+
+    return 'Trung Quốc';
+};
+
+const deriveAristonOrigin = (product?: AristonProduct): string => {
+    const rawOrigin = (product?.origin ?? '').trim();
+    if (rawOrigin && /^ý\s*-/i.test(rawOrigin)) {
+        return rawOrigin;
+    }
+    const shortOrigin = deriveAristonShortOrigin(product);
+    return `Ý-${shortOrigin}`;
+};
+
+const formatSpecLines = (raw?: string | null): string[] => {
+    const text = (raw ?? '').trim();
+    if (!text) {
+        return [];
+    }
+
+    return text
+        .replace(/\r\n/g, '\n')
+        .split('\n')
+        .map((line) => line.trim())
+        .filter(Boolean)
+        .map((line) => {
+            if (/^[-•+]/.test(line)) {
+                return line.replace(/^[-•+]\s*/, '- ');
+            }
+            return `- ${line}`;
+        });
+};
+
+const normalizeSpecificationsText = (raw?: string | null): string =>
+    formatSpecLines(raw).join('\n');
+
 let uidCounter = 1;
 const nextUid = (): string => `row-${Date.now()}-${uidCounter++}`;
 
@@ -227,7 +292,7 @@ const createItemFromProduct = (product?: AristonProduct, quantity = 1): Quotatio
             productId: null,
             productLabel: 'Máy nước nóng gián tiếp dung tích 30L',
             modelCode: '',
-            origin: 'Ariston-Ý\n(Sản xuất VN)',
+            origin: 'Ý-Việt Nam',
             imageUrl: '',
             unit: 'Máy',
             specifications: '',
@@ -241,10 +306,10 @@ const createItemFromProduct = (product?: AristonProduct, quantity = 1): Quotatio
         productId: product.id,
         productLabel: deriveProductLabel(product),
         modelCode: product.name,
-        origin: 'Ariston-Ý\n(Sản xuất VN)',
+        origin: deriveAristonOrigin(product),
         imageUrl: resolveImageUrl(product.image?.[0]),
         unit: 'Máy',
-        specifications: product.description || '',
+        specifications: normalizeSpecificationsText(product.description),
         unitPrice: product.price > 0 ? product.price : 2386000,
         quantity,
     };
@@ -320,10 +385,10 @@ const onSelectProduct = (item: QuotationItem, productIdValue: string): void => {
     item.productId = found.id;
     item.productLabel = deriveProductLabel(found);
     item.modelCode = found.name;
-    item.origin = 'Ariston-Ý\n(Sản xuất VN)';
+    item.origin = deriveAristonOrigin(found);
     item.imageUrl = resolveImageUrl(found.image?.[0]);
     item.unit = 'Máy';
-    item.specifications = found.description || '';
+    item.specifications = normalizeSpecificationsText(found.description);
     if (found.price > 0) {
         item.unitPrice = found.price;
     }
@@ -1567,6 +1632,10 @@ const printQuotationPdf = (): void => {
                 ? `<img src="${escapeHtml(item.imageUrl)}" alt="${escapeHtml(item.modelCode || item.productLabel)}" class="q-prod-img" />`
                 : '';
 
+            const specHtml = formatSpecLines(item.specifications)
+                .map((line) => `<div class="c-spec-line">${escapeHtml(line)}</div>`)
+                .join('');
+
             return `
                 <tr>
                     <td class="c-center c-bold">${nl2br(item.productLabel)}</td>
@@ -1574,7 +1643,7 @@ const printQuotationPdf = (): void => {
                     <td class="c-center c-bold">${nl2br(item.origin)}</td>
                     <td class="c-center c-img">${imgCell}</td>
                     <td class="c-center c-bold">${escapeHtml(item.unit)}</td>
-                    <td class="c-spec">${nl2br(item.specifications)}</td>
+                    <td class="c-spec">${specHtml}</td>
                     <td class="c-center c-bold">${formatVnd(item.unitPrice)}</td>
                     <td class="c-center c-bold">${formatVnd(item.quantity)}</td>
                     <td class="c-center c-bold">${formatVnd(rowAmount(item))}</td>
@@ -2388,7 +2457,7 @@ const submitLinkedQuotationResponse = (): void => {
                         />
                         <div class="kb-quote-catalog-meta">
                             <strong>{{ prod.name }}</strong>
-                            <small>{{ prod.subcategory?.name || 'Ariston' }}</small>
+                            <small>{{ prod.subcategory?.name || 'Ariston' }} · Xuất xứ: {{ deriveAristonShortOrigin(prod) }}</small>
                         </div>
                     </button>
                 </div>
@@ -2418,7 +2487,7 @@ const submitLinkedQuotationResponse = (): void => {
                                         :key="prod.id"
                                         :value="prod.id"
                                     >
-                                        {{ prod.name }} — {{ prod.subcategory?.name || 'Ariston' }}
+                                        {{ prod.name }} — {{ prod.subcategory?.name || 'Ariston' }} (Xuất xứ: {{ deriveAristonShortOrigin(prod) }})
                                     </option>
                                 </select>
                             </label>
@@ -2470,7 +2539,7 @@ const submitLinkedQuotationResponse = (): void => {
 
                             <label class="kb-quote-field">
                                 <span>Xuất xứ (Cột 3 - Origin)</span>
-                                <input v-model="item.origin" type="text" placeholder="Ariston-Ý (Sản xuất VN)" />
+                                <input v-model="item.origin" type="text" placeholder="Ý-Việt Nam" />
                             </label>
 
                             <label class="kb-quote-field">
@@ -2593,7 +2662,15 @@ const submitLinkedQuotationResponse = (): void => {
                                     />
                                 </td>
                                 <td class="qp-center qp-bold">{{ item.unit }}</td>
-                                <td class="qp-spec qp-preline">{{ item.specifications }}</td>
+                                <td class="qp-spec qp-preline">
+                                    <div
+                                        v-for="(specLine, sIdx) in formatSpecLines(item.specifications)"
+                                        :key="sIdx"
+                                        class="qp-spec-line"
+                                    >
+                                        {{ specLine }}
+                                    </div>
+                                </td>
                                 <td class="qp-center qp-bold">{{ formatVnd(item.unitPrice) }}</td>
                                 <td class="qp-center qp-bold">{{ formatVnd(item.quantity) }}</td>
                                 <td class="qp-center qp-bold">{{ formatVnd(rowAmount(item)) }}</td>

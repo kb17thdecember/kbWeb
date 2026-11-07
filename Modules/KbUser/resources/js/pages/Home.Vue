@@ -10,6 +10,7 @@ type HomeProduct = {
     slug?: string;
     name: string;
     product_title: string | null;
+    origin?: string | null;
     description: string;
     price: number;
     tag: number | null;
@@ -34,6 +35,7 @@ type RelatedProjectProduct = {
     slug?: string;
     name: string;
     product_title: string | null;
+    origin?: string | null;
     price: number;
     image: string[];
     category: { id: number; name: string } | null;
@@ -164,7 +166,7 @@ const visibleProducts = computed(() => {
                 product.subcategory_id === activeSubcategoryId.value;
             const matchesSearch =
                 query === '' ||
-                normalize(`${product.product_title ?? ''} ${product.name} ${product.description} ${category} ${subcategory}`)
+                normalize(`${product.product_title ?? ''} ${product.origin ?? ''} ${product.name} ${product.description} ${category} ${subcategory}`)
                     .includes(query);
 
             return matchesFilter && matchesSubcategory && matchesSearch;
@@ -910,7 +912,10 @@ onUnmounted(() => {
                   </svg>
                 </div>
                 <div class="product-body">
-                  <div class="product-meta">{{ product.subcategory?.name ?? 'Danh mục sản phẩm' }}</div>
+                  <div class="product-meta">
+                    {{ product.subcategory?.name ?? 'Danh mục sản phẩm' }}
+                    <template v-if="product.origin"> · Xuất xứ: {{ product.origin }}</template>
+                  </div>
                   <h3 class="product-name">
                     <Link :href="buildProductDetailUrl(product)">{{ product.name }}</Link>
                   </h3>
@@ -1364,7 +1369,10 @@ onUnmounted(() => {
             </div>
           </div>
           <div class="modal-copy">
-            <div class="product-meta">{{ selectedProduct.category?.name }} · {{ selectedProduct.subcategory?.name }}</div>
+            <div class="product-meta">
+              {{ selectedProduct.category?.name }} · {{ selectedProduct.subcategory?.name }}
+              <template v-if="selectedProduct.origin"> · Xuất xứ: {{ selectedProduct.origin }}</template>
+            </div>
             <h2>{{ selectedProduct.product_title || selectedProduct.name }}</h2>
             <p class="product-description">{{ selectedProduct.description }}</p>
             <div class="modal-price">{{ formatPrice(selectedProduct.price) }} <span>/ sản phẩm · giá tham khảo</span></div>

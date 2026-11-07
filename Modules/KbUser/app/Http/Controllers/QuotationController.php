@@ -95,6 +95,8 @@ class QuotationController extends Controller
             return to_route('kbuser.quotations.login');
         }
 
+        Product::ensureOriginColumn();
+
         $aristonCategory = Category::query()
             ->whereNull('parent_id')
             ->where('name', 'like', '%Ariston%')

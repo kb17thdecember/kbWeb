@@ -13,7 +13,7 @@ class PublicQuoteUserSeeder extends Seeder
 
         $user->forceFill([
             'name' => 'Tài khoản Báo Giá',
-            'password' => 'stlqoute',
+            'password' => 'stlquote',
             'email_verified_at' => now(),
             'is_admin' => false,
         ])->save();

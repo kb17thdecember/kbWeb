@@ -22,6 +22,8 @@ class ProductController extends Controller
      */
     public function index(AdminDashboardStats $dashboardStats): Response
     {
+        Product::ensureOriginColumn();
+
         Product::query()
             ->whereIn('name', ['KFlex ST', 'KFlex M-Flex', 'KFlex K-Protect'])
             ->get()
@@ -140,6 +142,7 @@ class ProductController extends Controller
         return [
             'name' => ['required', 'string', 'max:255'],
             'product_title' => ['required', 'string', 'max:255'],
+            'origin' => ['nullable', 'string', 'max:100'],
             'category_id' => ['required', 'integer', Rule::exists('categories', 'id')->whereNull('parent_id')],
             'subcategory_id' => ['required', 'integer', Rule::exists('categories', 'id')->where('parent_id', $request->input('category_id'))],
             'tag' => ['nullable', 'integer', Rule::in([Product::TAG_REGULAR, Product::TAG_FEATURED])],

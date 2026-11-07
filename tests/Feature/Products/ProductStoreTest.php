@@ -57,6 +57,7 @@ test('the product seeder assigns Ariston products to the correct subcategories i
         $product = Product::query()->where('name', $name)->sole();
 
         expect($product->product_title)->toBe($expected['title'])
+            ->and($product->origin)->toBe('Việt Nam')
             ->and($product->category->name)->toBe('Ariston')
             ->and($product->subcategory->name)->toBe($expected['subcategory'])
             ->and($product->description)->toContain($expected['capacity'])
@@ -76,6 +77,33 @@ test('the product seeder assigns Ariston products to the correct subcategories i
     expect(Product::query()->where('name', 'SLIM3 20B VN')->value('description'))
         ->toContain('- Thời gian gia nhiệt 25 phút')
         ->toContain('- Tổn thất nhiệt: 0.65 KWh/24hr');
+
+    $expectedOrigins = [
+        'SLIM3 30B VN' => 'Việt Nam',
+        'SLIM3 20B VN' => 'Việt Nam',
+        'AN3 15 B VN' => 'Việt Nam',
+        'AN3 30B VN' => 'Việt Nam',
+        'PRO R S 30 SH 2.5 FE' => 'Việt Nam',
+        'PRO R S 40 SH 2.5 FE' => 'Trung Quốc',
+        'PRO R 50 V 2.5 FE' => 'Trung Quốc',
+        'PRO R 50 SH 2.5 FE' => 'Trung Quốc',
+        'PRO R 80 V 2.5 FE' => 'Trung Quốc',
+        'PRO R 80 H 2.5 FE' => 'Trung Quốc',
+        'PRO R 100 V 2.5 FE' => 'Trung Quốc',
+        'PRO R 100 H 2.5 FE' => 'Trung Quốc',
+        'ARI 150 HORB 560 THER MO EU' => 'Trung Quốc',
+        'AR-20STP HX' => 'Trung Quốc',
+        'AR-50STP HX' => 'Trung Quốc',
+        'AR-40 PTP HX' => 'Trung Quốc',
+        'AR-80PTP HX' => 'Trung Quốc',
+        'K-Flex ST' => 'Malaysia',
+        'K-Flex K-Protect' => 'Malaysia',
+        'K-Flex M-Flex' => 'Việt Nam',
+    ];
+
+    foreach ($expectedOrigins as $productName => $expectedOrigin) {
+        expect(Product::query()->where('name', $productName)->value('origin'))->toBe($expectedOrigin);
+    }
 });
 
 test('products can be created with their images', function () {
@@ -93,6 +121,7 @@ test('products can be created with their images', function () {
     $response = $this->post(route('admin.products.store'), [
         'name' => 'Bình nước nóng',
         'product_title' => 'Bình Ariston cao cấp',
+        'origin' => 'Việt Nam',
         'category_id' => $parent->id,
         'subcategory_id' => $child->id,
         'tag' => 1,
@@ -107,6 +136,7 @@ test('products can be created with their images', function () {
 
     expect($product->name)->toBe('Bình nước nóng')
         ->and($product->product_title)->toBe('Bình Ariston cao cấp')
+        ->and($product->origin)->toBe('Việt Nam')
         ->and($product->description)->toBe($description)
         ->and($product->category_id)->toBe($parent->id)
         ->and($product->subcategory_id)->toBe($child->id)

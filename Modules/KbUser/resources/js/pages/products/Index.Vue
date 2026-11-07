@@ -13,6 +13,7 @@ type Product = {
     slug?: string;
     name: string;
     product_title: string | null;
+    origin?: string | null;
     description: string;
     price: number;
     image: string[] | null;
@@ -144,7 +145,7 @@ const visibleProducts = computed(() => {
             product.subcategory_id === activeSubcategoryId.value;
         const matchesSearch =
             query === '' ||
-            normalize(`${product.product_title ?? ''} ${product.name} ${product.description} ${category} ${subcategory}`)
+            normalize(`${product.product_title ?? ''} ${product.name} ${product.origin ?? ''} ${product.description} ${category} ${subcategory}`)
                 .includes(query);
 
         let matchesPrice = true;
@@ -666,6 +667,7 @@ onUnmounted(() => {
                                 <div class="product-body">
                                     <div class="product-meta">
                                         {{ product.subcategory?.name ?? 'Danh mục sản phẩm' }}
+                                        <span v-if="product.origin"> · Xuất xứ: {{ product.origin }}</span>
                                         <span v-if="product.reviews_count && product.reviews_count > 0" class="kb-card-rating">
                                             · ★ {{ Number(product.reviews_avg_rating ?? 5).toFixed(1) }} ({{ product.reviews_count }})
                                         </span>
@@ -862,6 +864,10 @@ onUnmounted(() => {
                                             <td v-for="item in compareProducts" :key="item.id">{{ item.subcategory?.name ?? '—' }}</td>
                                         </tr>
                                         <tr>
+                                            <td>Xuất xứ</td>
+                                            <td v-for="item in compareProducts" :key="item.id">{{ item.origin || '—' }}</td>
+                                        </tr>
+                                        <tr>
                                             <td>Đơn giá tham khảo</td>
                                             <td v-for="item in compareProducts" :key="item.id">
                                                 <strong class="kb-compare-price">{{ formatPrice(item.price) }}</strong>
@@ -970,6 +976,20 @@ onUnmounted(() => {
                                     </div>
 
                                     <div class="kb-compare-spec-block">
+                                        <div class="kb-compare-spec-head">Xuất xứ</div>
+                                        <div class="kb-compare-spec-list">
+                                            <div v-for="(item, idx) in compareProducts" :key="`origin-${item.id}`" class="kb-compare-spec-row is-inline">
+                                                <span class="kb-compare-spec-prod">
+                                                    <b>0{{ idx + 1 }}</b> {{ item.name }}
+                                                </span>
+                                                <span class="kb-compare-spec-val">
+                                                    {{ item.origin || '—' }}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="kb-compare-spec-block">
                                         <div class="kb-compare-spec-head">Đơn giá tham khảo</div>
                                         <div class="kb-compare-spec-list">
                                             <div v-for="(item, idx) in compareProducts" :key="`price-${item.id}`" class="kb-compare-spec-row is-inline">
@@ -1031,7 +1051,9 @@ onUnmounted(() => {
                                 </div>
                             </div>
                             <div class="modal-copy">
-                                <div class="product-meta">{{ selectedProduct.category?.name }} · {{ selectedProduct.subcategory?.name }}</div>
+                                <div class="product-meta">
+                                    {{ selectedProduct.category?.name }} · {{ selectedProduct.subcategory?.name }}<template v-if="selectedProduct.origin"> · Xuất xứ: {{ selectedProduct.origin }}</template>
+                                </div>
                                 <h2>{{ selectedProduct.product_title || selectedProduct.name }}</h2>
                                 <p class="product-description">{{ selectedProduct.description }}</p>
                                 <div class="modal-price">{{ formatPrice(selectedProduct.price) }} <span>/ sản phẩm · giá tham khảo</span></div>

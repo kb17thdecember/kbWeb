@@ -19,6 +19,7 @@ class QuotationController extends Controller
      */
     public function index(Request $request, AdminDashboardStats $dashboardStats): Response
     {
+        Product::ensureOriginColumn();
         Contact::ensureQuotationColumns();
 
         $contactId = $request->integer('contact_id');
