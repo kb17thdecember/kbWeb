@@ -1,19 +1,94 @@
 <script setup lang="ts">
 import { Head, Link, useForm } from '@inertiajs/vue3';
-import { onMounted, ref } from 'vue';
+import { onBeforeUnmount, onMounted, ref } from 'vue';
 import UserLayout from '../../layout/UserLayout.Vue';
+
+declare global {
+    interface Window {
+        grecaptcha?: {
+            render: (
+                container: HTMLElement,
+                parameters: {
+                    sitekey: string;
+                    theme?: 'light' | 'dark';
+                    callback?: (token: string) => void;
+                    'expired-callback'?: () => void;
+                    'error-callback'?: () => void;
+                },
+            ) => number;
+            reset: (widgetId?: number) => void;
+        };
+        __kbOnRecaptchaLoad?: () => void;
+    }
+}
 
 const props = defineProps<{
     status?: string | null;
+    recaptchaSiteKey?: string;
 }>();
 
 const cartCount = ref(0);
 const showPassword = ref(false);
+const recaptchaContainer = ref<HTMLElement | null>(null);
+const recaptchaWidgetId = ref<number | null>(null);
+const recaptchaLocalError = ref('');
 
 const form = useForm({
     email: '',
     password: '',
+    recaptcha_token: '',
 });
+
+const renderRecaptchaWidget = (): void => {
+    if (!recaptchaContainer.value || !window.grecaptcha?.render || recaptchaWidgetId.value !== null) {
+        return;
+    }
+
+    const siteKey = props.recaptchaSiteKey || '6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI';
+
+    try {
+        recaptchaWidgetId.value = window.grecaptcha.render(recaptchaContainer.value, {
+            sitekey: siteKey,
+            theme: 'light',
+            callback: (token: string) => {
+                form.recaptcha_token = token;
+                recaptchaLocalError.value = '';
+                form.clearErrors('recaptcha_token');
+            },
+            'expired-callback': () => {
+                form.recaptcha_token = '';
+            },
+            'error-callback': () => {
+                form.recaptcha_token = '';
+            },
+        });
+    } catch {
+        // Ignore duplicate render attempts
+    }
+};
+
+const loadGoogleRecaptchaScript = (): void => {
+    if (window.grecaptcha?.render) {
+        renderRecaptchaWidget();
+        return;
+    }
+
+    window.__kbOnRecaptchaLoad = () => {
+        renderRecaptchaWidget();
+    };
+
+    const existingScript = document.getElementById('google-recaptcha-v2-script');
+    if (existingScript) {
+        return;
+    }
+
+    const script = document.createElement('script');
+    script.id = 'google-recaptcha-v2-script';
+    script.src = 'https://www.google.com/recaptcha/api.js?onload=__kbOnRecaptchaLoad&render=explicit&hl=vi';
+    script.async = true;
+    script.defer = true;
+    document.head.appendChild(script);
+};
 
 const refreshCartCount = (): void => {
     try {
@@ -30,13 +105,33 @@ const refreshCartCount = (): void => {
 };
 
 const submit = (): void => {
+    recaptchaLocalError.value = '';
+
+    if (!form.recaptcha_token) {
+        recaptchaLocalError.value = 'Vui lòng tích xác nhận "Tôi không phải là người máy".';
+        return;
+    }
+
     form.post('/quotations/login', {
-        onFinish: () => form.reset('password'),
+        onFinish: () => {
+            form.reset('password');
+            if (Object.keys(form.errors).length > 0 && window.grecaptcha && recaptchaWidgetId.value !== null) {
+                window.grecaptcha.reset(recaptchaWidgetId.value);
+                form.recaptcha_token = '';
+            }
+        },
     });
 };
 
 onMounted(() => {
     refreshCartCount();
+    loadGoogleRecaptchaScript();
+});
+
+onBeforeUnmount(() => {
+    if (window.__kbOnRecaptchaLoad) {
+        delete window.__kbOnRecaptchaLoad;
+    }
 });
 </script>
 
@@ -108,6 +203,15 @@ onMounted(() => {
                             </button>
                         </div>
                         <span v-if="form.errors.password" class="kb-quote-login-error">{{ form.errors.password }}</span>
+                    </div>
+
+                    <div class="kb-quote-recaptcha-field">
+                        <div class="kb-quote-recaptcha-wrap">
+                            <div ref="recaptchaContainer" class="kb-quote-recaptcha-widget"></div>
+                        </div>
+                        <span v-if="recaptchaLocalError || form.errors.recaptcha_token" class="kb-quote-login-error">
+                            {{ recaptchaLocalError || form.errors.recaptcha_token }}
+                        </span>
                     </div>
 
                     <button type="submit" class="kb-quote-login-submit" :disabled="form.processing">
@@ -273,6 +377,23 @@ onMounted(() => {
     font-size: 12.5px;
     font-weight: 600;
     margin: 2px 0 0;
+}
+
+.kb-quote-recaptcha-field {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 16px;
+}
+
+.kb-quote-recaptcha-wrap {
+    width: 100%;
+    min-height: 78px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow-x: auto;
 }
 
 .kb-quote-login-submit {

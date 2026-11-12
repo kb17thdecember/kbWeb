@@ -789,6 +789,7 @@ onUnmounted(() => {
             class="icon-btn"
             id="quotationBuilderToggle"
             href="/quotations"
+            rel="nofollow"
             aria-label="Tạo báo giá PDF"
             title="Tạo báo giá PDF"
         >

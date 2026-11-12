@@ -25,7 +25,6 @@ Route::get('/robots.txt', function () {
         'Disallow: /admin',
         'Disallow: /chat/',
         'Disallow: /my-account',
-        'Disallow: /quotations/login',
         '',
         'Sitemap: '.SiteSetting::canonicalUrl('/sitemap.xml'),
     ];
@@ -43,7 +42,6 @@ Route::get('/sitemap.xml', function () {
         ['path' => '/news', 'priority' => '0.8', 'changefreq' => 'daily'],
         ['path' => '/about-us', 'priority' => '0.7', 'changefreq' => 'monthly'],
         ['path' => '/contacts', 'priority' => '0.8', 'changefreq' => 'monthly'],
-        ['path' => '/quotations', 'priority' => '0.7', 'changefreq' => 'weekly'],
     ];
 
     $today = now()->toAtomString();
@@ -122,7 +120,6 @@ Route::get('/feed.xml', function () {
         ['path' => '/news', 'title' => $settings['seo_news_title'] ?? 'Tin tức & Cẩm nang kỹ thuật | '.$companyName, 'desc' => $settings['seo_news_description'] ?? $siteDesc],
         ['path' => '/about-us', 'title' => 'Về chúng tôi | '.$companyName, 'desc' => $siteDesc],
         ['path' => '/contacts', 'title' => $settings['seo_contacts_title'] ?? 'Liên hệ & Báo giá | '.$companyName, 'desc' => $settings['seo_contacts_description'] ?? $siteDesc],
-        ['path' => '/quotations', 'title' => 'Bảng giá & Báo giá dự án | '.$companyName, 'desc' => $siteDesc],
     ];
 
     $items = collect()

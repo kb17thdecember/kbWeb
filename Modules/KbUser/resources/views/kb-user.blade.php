@@ -396,6 +396,15 @@
         $seoDescription = $siteSettings['seo_contacts_description'] ?: $seoDescription;
     }
 
+    if (
+        str_starts_with($currentPath, '/quotations')
+        || str_starts_with($currentPath, '/my-account')
+        || str_starts_with($componentName, 'quotations/')
+        || str_starts_with($componentName, 'account/')
+    ) {
+        $seoRobots = 'noindex, nofollow';
+    }
+
     $organizationSchema = [
         '@context' => 'https://schema.org',
         '@type' => $siteSettings['seo_schema_type'] ?: 'HardwareStore',

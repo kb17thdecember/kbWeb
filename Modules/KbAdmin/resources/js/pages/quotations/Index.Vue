@@ -708,6 +708,10 @@ const getStandardKflexProductName = (
     return `Ống bảo ôn K-Flex ${lineLabel} kích thước ${cleanThickness}x${cleanDiameter}`;
 };
 
+const getDefaultTubeLength = (productLine: 'st' | 'k_protect' | 'm_flex'): string => {
+    return productLine === 'm_flex' ? '1.83' : '2';
+};
+
 const createDefaultKflexRow = (
     productLine: 'st' | 'k_protect' | 'm_flex' = 'st',
     formType: 'tube' | 'sheet' = 'tube',
@@ -719,7 +723,7 @@ const createDefaultKflexRow = (
     const dims =
         formType === 'sheet'
             ? getDefaultSheetDimensions(productLine, variantType, thickness)
-            : { widthM: '', lengthM: '2' };
+            : { widthM: '', lengthM: getDefaultTubeLength(productLine) };
 
     return {
         uid: nextUid(),
@@ -945,7 +949,7 @@ const syncKflexRowFromDatabase = (item: KflexQuotationItem): void => {
         }
     } else {
         item.widthM = '';
-        item.lengthM = '2';
+        item.lengthM = getDefaultTubeLength(item.productLine);
         if (item.qtyM === null && item.qtyM2 !== null) {
             item.qtyM = item.qtyM2;
             item.qtyM2 = null;
@@ -1111,10 +1115,10 @@ const printKflexQuotationPdf = (): void => {
                     <td class="c-center">${escapeHtml(it.innerDiameter)}</td>
                     <td class="c-center">${escapeHtml(it.widthM)}</td>
                     <td class="c-center">${escapeHtml(it.lengthM)}</td>
-                    <td class="c-center">${formatKflexNum(it.qtyM)}</td>
-                    <td class="c-center">${formatKflexNum(it.qtyM2)}</td>
-                    <td class="c-center c-uprice">${formatKflexTotalNum(it.unitPrice)}</td>
-                    <td class="c-right c-bold">${formatKflexTotalNum(kflexRowAmount(it))}</td>
+                    <td class="c-center c-nowrap">${formatKflexNum(it.qtyM)}</td>
+                    <td class="c-center c-nowrap">${formatKflexNum(it.qtyM2)}</td>
+                    <td class="c-center c-uprice c-nowrap">${formatKflexTotalNum(it.unitPrice)}</td>
+                    <td class="c-right c-bold c-nowrap">${formatKflexTotalNum(kflexRowAmount(it))}</td>
                     ${noteCellHtml}
                 </tr>
             `;
@@ -1297,9 +1301,19 @@ const printKflexQuotationPdf = (): void => {
         .c-left { text-align: left; }
         .c-right { text-align: right; }
         .c-bold { font-weight: 700; }
+        .c-nowrap {
+            white-space: nowrap !important;
+            word-break: normal !important;
+            overflow-wrap: normal !important;
+        }
         .c-tt { font-size: calc(6.8pt * var(--s)); }
         .c-name { line-height: 1.18; }
-        .c-uprice { font-size: calc(7pt * var(--s)); }
+        .c-uprice {
+            font-size: calc(7pt * var(--s));
+            white-space: nowrap !important;
+            word-break: normal !important;
+            overflow-wrap: normal !important;
+        }
         .c-note {
             font-size: calc(6.8pt * var(--s));
             line-height: 1.16;
@@ -1316,6 +1330,9 @@ const printKflexQuotationPdf = (): void => {
             text-align: right;
             color: #c00000;
             font-weight: 700;
+            white-space: nowrap !important;
+            word-break: normal !important;
+            overflow-wrap: normal !important;
         }
         table.kf-table td.no-border {
             border: 0 !important;
@@ -1417,20 +1434,20 @@ const printKflexQuotationPdf = (): void => {
 
                 <table class="kf-table">
                     <colgroup>
-                        <col style="width: 6.0%" />
-                        <col style="width: 16.2%" />
-                        <col style="width: 7.2%" />
-                        <col style="width: 9.0%" />
-                        <col style="width: 7.2%" />
-                        <col style="width: 4.4%" />
-                        <col style="width: 4.4%" />
-                        <col style="width: 4.4%" />
-                        <col style="width: 4.4%" />
-                        <col style="width: 5.4%" />
-                        <col style="width: 5.4%" />
-                        <col style="width: 7.2%" />
-                        <col style="width: 7.8%" />
-                        <col style="width: 11.0%" />
+                        <col style="width: 3.8%" />
+                        <col style="width: 16.0%" />
+                        <col style="width: 6.8%" />
+                        <col style="width: 8.4%" />
+                        <col style="width: 7.0%" />
+                        <col style="width: 4.2%" />
+                        <col style="width: 4.0%" />
+                        <col style="width: 4.2%" />
+                        <col style="width: 4.2%" />
+                        <col style="width: 4.8%" />
+                        <col style="width: 4.8%" />
+                        <col style="width: 9.2%" />
+                        <col style="width: 11.2%" />
+                        <col style="width: 11.4%" />
                     </colgroup>
                     <thead>
                         <tr>
@@ -1644,9 +1661,9 @@ const printQuotationPdf = (): void => {
                     <td class="c-center c-img">${imgCell}</td>
                     <td class="c-center c-bold">${escapeHtml(item.unit)}</td>
                     <td class="c-spec">${specHtml}</td>
-                    <td class="c-center c-bold">${formatVnd(item.unitPrice)}</td>
-                    <td class="c-center c-bold">${formatVnd(item.quantity)}</td>
-                    <td class="c-center c-bold">${formatVnd(rowAmount(item))}</td>
+                    <td class="c-center c-bold c-nowrap">${formatVnd(item.unitPrice)}</td>
+                    <td class="c-center c-bold c-nowrap">${formatVnd(item.quantity)}</td>
+                    <td class="c-center c-bold c-nowrap">${formatVnd(rowAmount(item))}</td>
                 </tr>
             `;
         })
@@ -1819,20 +1836,25 @@ const printQuotationPdf = (): void => {
             font-style: italic;
             font-weight: 400;
         }
-        .col-prod { width: 9.5%; }
+        .col-prod { width: 9.0%; }
         .col-model { width: 8.5%; }
         .col-origin { width: 5.5%; }
-        .col-img { width: 18.5%; }
+        .col-img { width: 17.5%; }
         .col-unit { width: 4.5%; }
-        .col-spec { width: 29.0%; }
-        .col-price { width: 8.5%; }
-        .col-qty { width: 6.5%; }
-        .col-amount { width: 9.5%; }
+        .col-spec { width: 26.5%; }
+        .col-price { width: 10.5%; }
+        .col-qty { width: 6.0%; }
+        .col-amount { width: 12.0%; }
         .c-center {
             text-align: center;
         }
         .c-bold {
             font-weight: 700;
+        }
+        .c-nowrap {
+            white-space: nowrap !important;
+            word-break: normal !important;
+            overflow-wrap: normal !important;
         }
         .c-spec {
             text-align: left;
@@ -1959,21 +1981,21 @@ const printQuotationPdf = (): void => {
                         TỔNG CỘNG (chưa bao gồm thuế VAT) - <em>Sub Total (not included VAT)</em>
                     </td>
                     <td></td>
-                    <td class="c-center">${formatVnd(subTotal.value)}</td>
+                    <td class="c-center c-nowrap">${formatVnd(subTotal.value)}</td>
                 </tr>
                 <tr class="q-summary-row">
                     <td colspan="7" class="q-summary-label">
                         Thuế VAT (${formattedVatLabel.value})
                     </td>
                     <td></td>
-                    <td class="c-center">${formatVnd(vatAmount.value)}</td>
+                    <td class="c-center c-nowrap">${formatVnd(vatAmount.value)}</td>
                 </tr>
                 <tr class="q-summary-row">
                     <td colspan="7" class="q-summary-label">
                         TỔNG CỘNG (bao gồm thuế VAT) - <em>Sub Total (included VAT)</em>
                     </td>
                     <td></td>
-                    <td class="c-center">${formatVnd(grandTotal.value)}</td>
+                    <td class="c-center c-nowrap">${formatVnd(grandTotal.value)}</td>
                 </tr>
             </tbody>
         </table>
@@ -2105,6 +2127,967 @@ const printQuotationPdf = (): void => {
     }, 200);
 };
 
+const sanitizeExcelFilename = (raw: string, fallback: string): string => {
+    const cleaned = (raw || '')
+        .trim()
+        .replace(/[\\/:*?"<>|]+/g, '-')
+        .replace(/\s+/g, '_');
+    return cleaned || fallback;
+};
+
+const escapeXml = (val: unknown): string =>
+    String(val ?? '')
+        .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&apos;');
+
+const excelColName = (col1Based: number): string => {
+    let n = col1Based;
+    let name = '';
+    while (n > 0) {
+        const rem = (n - 1) % 26;
+        name = String.fromCharCode(65 + rem) + name;
+        n = Math.floor((n - 1) / 26);
+    }
+    return name;
+};
+
+const crc32Table = (() => {
+    const table = new Uint32Array(256);
+    for (let i = 0; i < 256; i++) {
+        let c = i;
+        for (let k = 0; k < 8; k++) {
+            c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+        }
+        table[i] = c >>> 0;
+    }
+    return table;
+})();
+
+const computeCrc32 = (bytes: Uint8Array): number => {
+    let crc = 0xffffffff;
+    for (let i = 0; i < bytes.length; i++) {
+        crc = crc32Table[(crc ^ bytes[i]) & 0xff] ^ (crc >>> 8);
+    }
+    return (crc ^ 0xffffffff) >>> 0;
+};
+
+type ZipFileEntryInput = {
+    path: string;
+    content?: string;
+    data?: Uint8Array;
+};
+
+const createZipBlob = (files: ZipFileEntryInput[]): Blob => {
+    const encoder = new TextEncoder();
+    const entries = files.map((f) => {
+        const nameBytes = encoder.encode(f.path);
+        const dataBytes = f.data ? f.data : encoder.encode(f.content ?? '');
+        const crc = computeCrc32(dataBytes);
+        return { nameBytes, dataBytes, crc, offset: 0 };
+    });
+
+    let totalLocalSize = 0;
+    let totalCentralSize = 0;
+    for (const entry of entries) {
+        entry.offset = totalLocalSize;
+        totalLocalSize += 30 + entry.nameBytes.length + entry.dataBytes.length;
+        totalCentralSize += 46 + entry.nameBytes.length;
+    }
+
+    const totalSize = totalLocalSize + totalCentralSize + 22;
+    const out = new Uint8Array(totalSize);
+    const view = new DataView(out.buffer);
+    let pos = 0;
+
+    for (const entry of entries) {
+        view.setUint32(pos, 0x04034b50, true);
+        view.setUint16(pos + 4, 20, true);
+        view.setUint16(pos + 6, 0x0800, true);
+        view.setUint16(pos + 8, 0, true);
+        view.setUint16(pos + 10, 0, true);
+        view.setUint16(pos + 12, 0x21, true);
+        view.setUint32(pos + 14, entry.crc, true);
+        view.setUint32(pos + 18, entry.dataBytes.length, true);
+        view.setUint32(pos + 22, entry.dataBytes.length, true);
+        view.setUint16(pos + 26, entry.nameBytes.length, true);
+        view.setUint16(pos + 28, 0, true);
+        pos += 30;
+        out.set(entry.nameBytes, pos);
+        pos += entry.nameBytes.length;
+        out.set(entry.dataBytes, pos);
+        pos += entry.dataBytes.length;
+    }
+
+    const centralDirOffset = pos;
+    for (const entry of entries) {
+        view.setUint32(pos, 0x02014b50, true);
+        view.setUint16(pos + 4, 20, true);
+        view.setUint16(pos + 6, 20, true);
+        view.setUint16(pos + 8, 0x0800, true);
+        view.setUint16(pos + 10, 0, true);
+        view.setUint16(pos + 12, 0, true);
+        view.setUint16(pos + 14, 0x21, true);
+        view.setUint32(pos + 16, entry.crc, true);
+        view.setUint32(pos + 20, entry.dataBytes.length, true);
+        view.setUint32(pos + 24, entry.dataBytes.length, true);
+        view.setUint16(pos + 28, entry.nameBytes.length, true);
+        view.setUint16(pos + 30, 0, true);
+        view.setUint16(pos + 32, 0, true);
+        view.setUint16(pos + 34, 0, true);
+        view.setUint16(pos + 36, 0, true);
+        view.setUint32(pos + 38, 0, true);
+        view.setUint32(pos + 42, entry.offset, true);
+        pos += 46;
+        out.set(entry.nameBytes, pos);
+        pos += entry.nameBytes.length;
+    }
+
+    view.setUint32(pos, 0x06054b50, true);
+    view.setUint16(pos + 4, 0, true);
+    view.setUint16(pos + 6, 0, true);
+    view.setUint16(pos + 8, entries.length, true);
+    view.setUint16(pos + 10, entries.length, true);
+    view.setUint32(pos + 12, totalCentralSize, true);
+    view.setUint32(pos + 16, centralDirOffset, true);
+    view.setUint16(pos + 20, 0, true);
+
+    return new Blob([out], {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    });
+};
+
+type LoadedPngAsset = {
+    bytes: Uint8Array;
+    width: number;
+    height: number;
+};
+
+const loadImageAsPngBytes = (url: string): Promise<LoadedPngAsset | null> =>
+    new Promise((resolve) => {
+        if (!url || !url.trim()) {
+            resolve(null);
+            return;
+        }
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = () => {
+            try {
+                const natW = img.naturalWidth || img.width || 200;
+                const natH = img.naturalHeight || img.height || 100;
+                const canvas = document.createElement('canvas');
+                canvas.width = natW;
+                canvas.height = natH;
+                const ctx = canvas.getContext('2d');
+                if (!ctx) {
+                    resolve(null);
+                    return;
+                }
+                ctx.drawImage(img, 0, 0, natW, natH);
+                canvas.toBlob((blob) => {
+                    if (!blob) {
+                        resolve(null);
+                        return;
+                    }
+                    blob.arrayBuffer()
+                        .then((buf) => {
+                            resolve({
+                                bytes: new Uint8Array(buf),
+                                width: natW,
+                                height: natH,
+                            });
+                        })
+                        .catch(() => resolve(null));
+                }, 'image/png');
+            } catch {
+                resolve(null);
+            }
+        };
+        img.onerror = () => resolve(null);
+        img.src = url;
+    });
+
+type XlsxDrawingImage = {
+    bytes: Uint8Array;
+    col0: number;
+    row0: number;
+    widthPx: number;
+    heightPx: number;
+    offsetXEmus?: number;
+    offsetYEmus?: number;
+};
+
+type XlsxCell = {
+    type: 'str' | 'empty';
+    value?: string;
+    style: number;
+};
+
+const estimateWrappedLineCount = (text: string, colWidthChars: number): number => {
+    const raw = String(text ?? '');
+    if (!raw.trim()) {
+        return 1;
+    }
+    const effectiveChars = Math.max(5, Math.floor(colWidthChars - 2));
+    return raw.split(/\r?\n/).reduce((sum, line) => {
+        const len = line.trim().length;
+        return sum + Math.max(1, Math.ceil(len / effectiveChars));
+    }, 0);
+};
+
+const createXlsxSheetBuilder = (colWidths: number[]) => {
+    const rows = new Map<number, Map<number, XlsxCell>>();
+    const rowHeights = new Map<number, number>();
+    const merges: string[] = [];
+    const images: XlsxDrawingImage[] = [];
+
+    const ensureRow = (r: number): Map<number, XlsxCell> => {
+        let row = rows.get(r);
+        if (!row) {
+            row = new Map<number, XlsxCell>();
+            rows.set(r, row);
+        }
+        return row;
+    };
+
+    const setRowHeight = (r: number, heightPt: number): void => {
+        const prev = rowHeights.get(r) ?? 0;
+        if (heightPt > prev) {
+            rowHeights.set(r, Math.round(heightPt));
+        }
+    };
+
+    const setText = (r: number, c: number, text: string, style = 0, heightPt?: number): void => {
+        ensureRow(r).set(c, { type: 'str', value: String(text ?? ''), style });
+        if (heightPt) {
+            setRowHeight(r, heightPt);
+        }
+    };
+
+    const setEmpty = (r: number, c: number, style = 0): void => {
+        const row = ensureRow(r);
+        if (!row.has(c)) {
+            row.set(c, { type: 'empty', style });
+        }
+    };
+
+    const merge = (r1: number, c1: number, r2: number, c2: number, fillStyle?: number): void => {
+        if (r1 === r2 && c1 === c2) {
+            return;
+        }
+        merges.push(`${excelColName(c1)}${r1}:${excelColName(c2)}${r2}`);
+        if (fillStyle !== undefined) {
+            for (let rr = r1; rr <= r2; rr++) {
+                for (let cc = c1; cc <= c2; cc++) {
+                    setEmpty(rr, cc, fillStyle);
+                }
+            }
+        }
+    };
+
+    const addFittedImage = (
+        asset: LoadedPngAsset | null,
+        col1Based: number,
+        row1Based: number,
+        maxWidthPx: number,
+        maxHeightPx: number,
+        offsetXPx = 6,
+        offsetYPx = 4,
+    ): void => {
+        if (!asset) {
+            return;
+        }
+        const scale = Math.min(maxWidthPx / Math.max(1, asset.width), maxHeightPx / Math.max(1, asset.height));
+        const widthPx = Math.max(16, Math.round(asset.width * scale));
+        const heightPx = Math.max(16, Math.round(asset.height * scale));
+        images.push({
+            bytes: asset.bytes,
+            col0: col1Based - 1,
+            row0: row1Based - 1,
+            widthPx,
+            heightPx,
+            offsetXEmus: Math.round(offsetXPx * 9525),
+            offsetYEmus: Math.round(offsetYPx * 9525),
+        });
+    };
+
+    const toSheetXml = (orientation: 'portrait' | 'landscape' = 'portrait'): string => {
+        const colsXml = colWidths
+            .map(
+                (w, idx) =>
+                    `<col min="${idx + 1}" max="${idx + 1}" width="${w}" customWidth="1"/>`,
+            )
+            .join('');
+
+        const sortedRowNums = Array.from(rows.keys()).sort((a, b) => a - b);
+        const rowsXml = sortedRowNums
+            .map((r) => {
+                const rowMap = rows.get(r)!;
+                const sortedCols = Array.from(rowMap.keys()).sort((a, b) => a - b);
+                const ht = rowHeights.get(r) ?? 20;
+                const htAttr = ` ht="${Math.round(ht)}" customHeight="1"`;
+                const cellsXml = sortedCols
+                    .map((c) => {
+                        const cell = rowMap.get(c)!;
+                        const ref = `${excelColName(c)}${r}`;
+                        if (cell.type === 'str') {
+                            return `<c r="${ref}" s="${cell.style}" t="inlineStr"><is><t xml:space="preserve">${escapeXml(cell.value)}</t></is></c>`;
+                        }
+                        return `<c r="${ref}" s="${cell.style}"/>`;
+                    })
+                    .join('');
+                return `<row r="${r}"${htAttr}>${cellsXml}</row>`;
+            })
+            .join('');
+
+        const mergeXml =
+            merges.length > 0
+                ? `<mergeCells count="${merges.length}">${merges.map((m) => `<mergeCell ref="${m}"/>`).join('')}</mergeCells>`
+                : '';
+
+        const drawingXmlTag = images.length > 0 ? `<drawing r:id="rId1"/>` : '';
+
+        return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+    <sheetViews><sheetView workbookViewId="0" showGridLines="1"/></sheetViews>
+    <sheetFormatPr defaultRowHeight="20"/>
+    <cols>${colsXml}</cols>
+    <sheetData>${rowsXml}</sheetData>
+    ${mergeXml}
+    <pageMargins left="0.4" right="0.4" top="0.5" bottom="0.5" header="0.3" footer="0.3"/>
+    <pageSetup paperSize="9" orientation="${orientation}" fitToWidth="1" fitToHeight="0"/>
+    ${drawingXmlTag}
+</worksheet>`;
+    };
+
+    return { setRowHeight, setText, setEmpty, merge, addFittedImage, images, toSheetXml };
+};
+
+const buildXlsxStylesXml = (): string => `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
+    <fonts count="14">
+        <font><sz val="11"/><color rgb="FF000000"/><name val="Times New Roman"/></font>
+        <font><b/><sz val="13"/><color rgb="FF000000"/><name val="Times New Roman"/></font>
+        <font><sz val="10.5"/><color rgb="FF000000"/><name val="Times New Roman"/></font>
+        <font><b/><u/><sz val="14"/><color rgb="FF000000"/><name val="Times New Roman"/></font>
+        <font><b/><i/><u/><sz val="11"/><color rgb="FF000000"/><name val="Times New Roman"/></font>
+        <font><b/><i/><sz val="11"/><color rgb="FF000000"/><name val="Times New Roman"/></font>
+        <font><i/><sz val="10.5"/><color rgb="FF000000"/><name val="Times New Roman"/></font>
+        <font><b/><i/><sz val="11"/><color rgb="FF0070C0"/><name val="Times New Roman"/></font>
+        <font><b/><sz val="10"/><color rgb="FF000000"/><name val="Times New Roman"/></font>
+        <font><sz val="10"/><color rgb="FF000000"/><name val="Times New Roman"/></font>
+        <font><b/><sz val="10.5"/><color rgb="FF000000"/><name val="Times New Roman"/></font>
+        <font><b/><sz val="10.5"/><color rgb="FFC00000"/><name val="Times New Roman"/></font>
+        <font><b/><i/><sz val="10.5"/><color rgb="FF800000"/><name val="Times New Roman"/></font>
+        <font><i/><sz val="10.5"/><color rgb="FF0070C0"/><name val="Times New Roman"/></font>
+    </fonts>
+    <fills count="5">
+        <fill><patternFill patternType="none"/></fill>
+        <fill><patternFill patternType="gray125"/></fill>
+        <fill><patternFill patternType="solid"><fgColor rgb="FFFFFF00"/><bgColor indexed="64"/></patternFill></fill>
+        <fill><patternFill patternType="solid"><fgColor rgb="FFC5D9F1"/><bgColor indexed="64"/></patternFill></fill>
+        <fill><patternFill patternType="solid"><fgColor rgb="FFF3F4F6"/><bgColor indexed="64"/></patternFill></fill>
+    </fills>
+    <borders count="2">
+        <border><left/><right/><top/><bottom/><diagonal/></border>
+        <border>
+            <left style="thin"><color rgb="FF000000"/></left>
+            <right style="thin"><color rgb="FF000000"/></right>
+            <top style="thin"><color rgb="FF000000"/></top>
+            <bottom style="thin"><color rgb="FF000000"/></bottom>
+            <diagonal/>
+        </border>
+    </borders>
+    <cellStyleXfs count="1">
+        <xf numFmtId="0" fontId="0" fillId="0" borderId="0"/>
+    </cellStyleXfs>
+    <cellXfs count="25">
+        <xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>
+        <xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>
+        <xf numFmtId="0" fontId="2" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>
+        <xf numFmtId="0" fontId="3" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>
+        <xf numFmtId="0" fontId="4" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment horizontal="left" vertical="center"/></xf>
+        <xf numFmtId="0" fontId="5" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment horizontal="left" vertical="center"/></xf>
+        <xf numFmtId="0" fontId="6" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment horizontal="left" vertical="center"/></xf>
+        <xf numFmtId="0" fontId="6" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment horizontal="left" vertical="center"/></xf>
+        <xf numFmtId="0" fontId="7" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>
+        <xf numFmtId="0" fontId="8" fillId="2" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>
+        <xf numFmtId="0" fontId="8" fillId="3" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="left" vertical="center"/></xf>
+        <xf numFmtId="0" fontId="9" fillId="0" borderId="1" xfId="0" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>
+        <xf numFmtId="0" fontId="9" fillId="0" borderId="1" xfId="0" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="left" vertical="center" wrapText="1"/></xf>
+        <xf numFmtId="49" fontId="9" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="right" vertical="center"/></xf>
+        <xf numFmtId="49" fontId="8" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="right" vertical="center"/></xf>
+        <xf numFmtId="0" fontId="10" fillId="0" borderId="1" xfId="0" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>
+        <xf numFmtId="49" fontId="11" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="right" vertical="center"/></xf>
+        <xf numFmtId="0" fontId="4" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment horizontal="left" vertical="center"/></xf>
+        <xf numFmtId="0" fontId="9" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment horizontal="left" vertical="center" wrapText="1"/></xf>
+        <xf numFmtId="0" fontId="6" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment horizontal="left" vertical="center"/></xf>
+        <xf numFmtId="0" fontId="12" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment horizontal="left" vertical="center"/></xf>
+        <xf numFmtId="0" fontId="13" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment horizontal="left" vertical="center"/></xf>
+        <xf numFmtId="49" fontId="9" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>
+        <xf numFmtId="0" fontId="8" fillId="4" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>
+        <xf numFmtId="0" fontId="8" fillId="0" borderId="1" xfId="0" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>
+    </cellXfs>
+</styleSheet>`;
+
+const buildXlsxDrawingXml = (images: XlsxDrawingImage[]): string => {
+    const anchorsXml = images
+        .map((img, idx) => {
+            const cx = Math.round(img.widthPx * 9525);
+            const cy = Math.round(img.heightPx * 9525);
+            const colOff = img.offsetXEmus ?? 57150;
+            const rowOff = img.offsetYEmus ?? 38100;
+            const picId = idx + 1;
+            return `<xdr:oneCellAnchor>
+        <xdr:from>
+            <xdr:col>${img.col0}</xdr:col>
+            <xdr:colOff>${colOff}</xdr:colOff>
+            <xdr:row>${img.row0}</xdr:row>
+            <xdr:rowOff>${rowOff}</xdr:rowOff>
+        </xdr:from>
+        <xdr:ext cx="${cx}" cy="${cy}"/>
+        <xdr:pic>
+            <xdr:nvPicPr>
+                <xdr:cNvPr id="${picId}" name="Picture ${picId}"/>
+                <xdr:cNvPicPr><a:picLocks noChangeAspect="1"/></xdr:cNvPicPr>
+            </xdr:nvPicPr>
+            <xdr:blipFill>
+                <a:blip r:embed="rId${picId}"/>
+                <a:stretch><a:fillRect/></a:stretch>
+            </xdr:blipFill>
+            <xdr:spPr>
+                <a:xfrm><a:off x="0" y="0"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm>
+                <a:prstGeom prst="rect"><a:avLst/></a:prstGeom>
+            </xdr:spPr>
+        </xdr:pic>
+        <xdr:clientData/>
+    </xdr:oneCellAnchor>`;
+        })
+        .join('\n    ');
+
+    return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<xdr:wsDr xmlns:xdr="http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+    ${anchorsXml}
+</xdr:wsDr>`;
+};
+
+const downloadXlsxWorkbook = (
+    sheetName: string,
+    sheetXml: string,
+    images: XlsxDrawingImage[],
+    filename: string,
+): void => {
+    const safeSheetName = escapeXml(sheetName.slice(0, 31) || 'Bao Gia');
+    const hasImages = images.length > 0;
+    const files: ZipFileEntryInput[] = [
+        {
+            path: '[Content_Types].xml',
+            content: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+    <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+    <Default Extension="xml" ContentType="application/xml"/>
+    <Default Extension="png" ContentType="image/png"/>
+    <Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>
+    <Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>
+    <Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>
+    ${hasImages ? '<Override PartName="/xl/drawings/drawing1.xml" ContentType="application/vnd.openxmlformats-officedocument.drawing+xml"/>' : ''}
+</Types>`,
+        },
+        {
+            path: '_rels/.rels',
+            content: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+    <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>
+</Relationships>`,
+        },
+        {
+            path: 'xl/workbook.xml',
+            content: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+    <sheets>
+        <sheet name="${safeSheetName}" sheetId="1" r:id="rId1"/>
+    </sheets>
+</workbook>`,
+        },
+        {
+            path: 'xl/_rels/workbook.xml.rels',
+            content: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+    <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>
+    <Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>
+</Relationships>`,
+        },
+        {
+            path: 'xl/styles.xml',
+            content: buildXlsxStylesXml(),
+        },
+        {
+            path: 'xl/worksheets/sheet1.xml',
+            content: sheetXml,
+        },
+    ];
+
+    if (hasImages) {
+        files.push({
+            path: 'xl/worksheets/_rels/sheet1.xml.rels',
+            content: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+    <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/drawing" Target="../drawings/drawing1.xml"/>
+</Relationships>`,
+        });
+
+        const drawingRelsXml = images
+            .map(
+                (_, idx) =>
+                    `<Relationship Id="rId${idx + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/image${idx + 1}.png"/>`,
+            )
+            .join('\n    ');
+
+        files.push({
+            path: 'xl/drawings/_rels/drawing1.xml.rels',
+            content: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+    ${drawingRelsXml}
+</Relationships>`,
+        });
+
+        files.push({
+            path: 'xl/drawings/drawing1.xml',
+            content: buildXlsxDrawingXml(images),
+        });
+
+        images.forEach((img, idx) => {
+            files.push({
+                path: `xl/media/image${idx + 1}.png`,
+                data: img.bytes,
+            });
+        });
+    }
+
+    const blob = createZipBlob(files);
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename.endsWith('.xlsx') ? filename : `${filename}.xlsx`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    setTimeout(() => URL.revokeObjectURL(url), 1500);
+};
+
+const exportQuotationExcel = async (): Promise<void> => {
+    const colWidths = [16, 15, 11, 24, 9, 44, 16, 12, 18];
+    const sb = createXlsxSheetBuilder(colWidths);
+
+    const [starLightAsset, aristonAsset, ...productAssets] = await Promise.all([
+        loadImageAsPngBytes(starLightLogoUrl.value),
+        loadImageAsPngBytes(aristonLogoUrl.value),
+        ...items.value.map((it) => loadImageAsPngBytes(it.imageUrl)),
+    ]);
+
+    sb.setRowHeight(1, 22);
+    sb.setRowHeight(2, 18);
+    sb.setRowHeight(3, 18);
+    sb.setRowHeight(4, 18);
+
+    sb.merge(1, 1, 4, 2);
+    sb.addFittedImage(starLightAsset, 1, 1, 108, 76, 8, 6);
+
+    sb.setText(1, 3, 'CÔNG TY CỔ PHẦN QUỐC TẾ STAR LIGHT', 1, 22);
+    sb.merge(1, 3, 1, 7);
+    sb.setText(2, 3, 'Địa chỉ VP: Số 15 Nguyễn Cảnh Dị, Định Công, TP Hà Nội', 2, 18);
+    sb.merge(2, 3, 2, 7);
+    sb.setText(3, 3, 'Điện thoại: 0243 201 8322 - Hotline: 0979 541 345', 2, 18);
+    sb.merge(3, 3, 3, 7);
+    sb.setText(4, 3, 'www: starlightgroup.vn', 2, 18);
+    sb.merge(4, 3, 4, 7);
+
+    sb.merge(1, 8, 4, 9);
+    sb.addFittedImage(aristonAsset, 8, 1, 155, 62, 10, 12);
+
+    let r = 5;
+    sb.setText(r, 1, quoteForm.value.documentTitle, 3, 30);
+    sb.merge(r, 1, r, 9);
+    r++;
+
+    sb.setText(r, 1, 'Kính gửi:', 4, 21);
+    sb.setText(r, 2, quoteForm.value.recipientCompany, 5, 21);
+    sb.merge(r, 2, r, 9);
+    r++;
+
+    sb.setText(r, 1, 'Người nhận :', 6, 20);
+    sb.setText(r, 2, quoteForm.value.recipientPerson, 7, 20);
+    sb.merge(r, 2, r, 9);
+    r++;
+
+    if (quoteForm.value.contactPhone.trim()) {
+        sb.setText(r, 1, 'Thông tin liên lạc:', 6, 20);
+        sb.setText(r, 2, quoteForm.value.contactPhone, 7, 20);
+        sb.merge(r, 2, r, 9);
+        r++;
+    }
+
+    sb.setText(r, 1, 'Thời gian :', 6, 20);
+    sb.setText(r, 2, formattedQuoteDate.value, 7, 20);
+    sb.merge(r, 2, r, 9);
+    r++;
+
+    sb.setText(r, 1, 'Project:', 5, 20);
+    sb.setText(r, 2, quoteForm.value.projectName, 7, 20);
+    sb.merge(r, 2, r, 9);
+    r++;
+
+    sb.setText(
+        r,
+        1,
+        'Công ty Star Light là đơn vị phát triển mảng dự án sản phẩm Ariston, rất hân hạnh gửi bảng báo giá cho Quý Khách hàng. Cụ thể như sau',
+        6,
+        24,
+    );
+    sb.merge(r, 1, r, 9);
+    r++;
+
+    sb.setText(r, 1, 'Sản Phẩm\nProduct', 23, 38);
+    sb.setText(r, 2, 'Mã sản phẩm\nModel', 23, 38);
+    sb.setText(r, 3, 'Xuất xứ\nOrigin', 23, 38);
+    sb.setText(r, 4, 'Hình ảnh sản phẩm\nImage', 23, 38);
+    sb.setText(r, 5, 'Đơn vị', 23, 38);
+    sb.setText(r, 6, 'Đặc tính kỹ thuật\nSpecifications', 23, 38);
+    sb.setText(r, 7, 'Giá bán dự án\nSelling Price\n(VNĐ)', 23, 38);
+    sb.setText(r, 8, 'Số lượng\nQuantity\n(chiếc)', 23, 38);
+    sb.setText(r, 9, 'Thành tiền\nAmount\n(VNĐ)', 23, 38);
+    r++;
+
+    items.value.forEach((item, idx) => {
+        const specLines = formatSpecLines(item.specifications);
+        const specText = specLines.join('\n');
+        const wrappedSpecLines = estimateWrappedLineCount(specText, colWidths[5]);
+        const wrappedLabelLines = estimateWrappedLineCount(item.productLabel, colWidths[0]);
+        const wrappedModelLines = estimateWrappedLineCount(item.modelCode, colWidths[1]);
+        const maxLines = Math.max(1, wrappedSpecLines, wrappedLabelLines, wrappedModelLines);
+        const prodAsset = productAssets[idx] ?? null;
+        const rowH = Math.max(prodAsset ? 118 : 34, maxLines * 16 + 14);
+
+        const uPrice = Math.max(0, Math.round(Number(item.unitPrice) || 0));
+        const qty = Math.max(0, Math.round(Number(item.quantity) || 0));
+        const amount = rowAmount(item);
+
+        sb.setText(r, 1, item.productLabel, 24, rowH);
+        sb.setText(r, 2, item.modelCode, 24, rowH);
+        sb.setText(r, 3, item.origin, 24, rowH);
+        sb.setEmpty(r, 4, 11);
+        if (prodAsset) {
+            sb.addFittedImage(prodAsset, 4, r, 145, 138, 10, 8);
+        }
+        sb.setText(r, 5, item.unit, 24, rowH);
+        sb.setText(r, 6, specText, 12, rowH);
+        sb.setText(r, 7, formatVnd(uPrice), 24, rowH);
+        sb.setText(r, 8, formatVnd(qty), 24, rowH);
+        sb.setText(r, 9, formatVnd(amount), 24, rowH);
+        r++;
+    });
+
+    sb.setText(r, 1, 'TỔNG CỘNG (chưa bao gồm thuế VAT) - Sub Total (not included VAT)', 15, 24);
+    sb.merge(r, 1, r, 7, 15);
+    sb.setEmpty(r, 8, 15);
+    sb.setText(r, 9, formatVnd(subTotal.value), 24, 24);
+    r++;
+
+    sb.setText(r, 1, `Thuế VAT (${formattedVatLabel.value})`, 15, 24);
+    sb.merge(r, 1, r, 7, 15);
+    sb.setEmpty(r, 8, 15);
+    sb.setText(r, 9, formatVnd(vatAmount.value), 24, 24);
+    r++;
+
+    sb.setText(r, 1, 'TỔNG CỘNG (bao gồm thuế VAT) - Sub Total (included VAT)', 15, 24);
+    sb.merge(r, 1, r, 7, 15);
+    sb.setEmpty(r, 8, 15);
+    sb.setText(r, 9, formatVnd(grandTotal.value), 16, 24);
+    r += 2;
+
+    sb.setText(r, 1, 'Điều kiện thương mại:', 17, 21);
+    sb.merge(r, 1, r, 9);
+    r++;
+
+    const terms = [
+        `1. Báo giá có hiệu lực đến ngày: ${formattedValidUntil.value}`,
+        '2. Phương thức thanh toán: Thỏa Thuận',
+        '3. Phương thức giao hàng: đến chân công trình',
+        '4. Thời gian giao hàng: 40 ngày đối với hàng trong nước, 90 ngày đối với hàng nhập khẩu kể từ ngày đơn đặt hàng được xác nhận',
+        '5. Bảo hành: 2 năm linh kiện điện tử, 3 năm với máy nén Theo chính sách bảo hành của Ariston Việt Nam',
+        '6. Chúng tôi hy vọng báo giá này sẽ làm hài lòng Quý Công ty. Mọi thắc mắc xin vui lòng liên lạc với chúng tôi',
+        'Rất mong nhận được sự ủng hộ từ Quý Công ty.',
+    ];
+    for (const line of terms) {
+        const lineH = line.length > 105 ? 32 : 20;
+        sb.setText(r, 1, line, 18, lineH);
+        sb.merge(r, 1, r, 9);
+        r++;
+    }
+
+    r++;
+    sb.setText(r, 1, 'Many thanks & Best regards', 5, 20);
+    sb.merge(r, 1, r, 9);
+    r++;
+    if (quoteForm.value.signerName.trim()) {
+        sb.setText(r, 1, quoteForm.value.signerName, 20, 20);
+        sb.merge(r, 1, r, 9);
+        r++;
+    }
+    if (quoteForm.value.signerPhone.trim()) {
+        sb.setText(r, 1, `HP: ${quoteForm.value.signerPhone}`, 5, 20);
+        sb.merge(r, 1, r, 9);
+        r++;
+    }
+    if (quoteForm.value.signerEmail.trim()) {
+        sb.setText(r, 1, `Email : ${quoteForm.value.signerEmail}`, 21, 20);
+        sb.merge(r, 1, r, 9);
+    }
+
+    const fileSlug = sanitizeExcelFilename(quoteForm.value.projectName, 'Ariston');
+    const orientation = isPortraitMode.value ? 'portrait' : 'landscape';
+    downloadXlsxWorkbook(
+        'Bao Gia Ariston',
+        sb.toSheetXml(orientation),
+        sb.images,
+        `Bao-gia-Ariston-${fileSlug}.xlsx`,
+    );
+    notifyToast('Đã xuất báo giá Ariston ra file Excel (.xlsx) thành công.');
+};
+
+const exportKflexQuotationExcel = async (): Promise<void> => {
+    const colWidths = [5.5, 30, 12, 15, 14, 8.5, 8.5, 8.5, 8.5, 9.5, 9.5, 14, 16, 19];
+    const sb = createXlsxSheetBuilder(colWidths);
+
+    const [starLightAsset, kflexAsset] = await Promise.all([
+        loadImageAsPngBytes(starLightLogoUrl.value),
+        loadImageAsPngBytes(kflexLogoUrl.value),
+    ]);
+
+    sb.setRowHeight(1, 22);
+    sb.setRowHeight(2, 18);
+    sb.setRowHeight(3, 18);
+    sb.setRowHeight(4, 18);
+
+    sb.merge(1, 1, 4, 2);
+    sb.addFittedImage(starLightAsset, 1, 1, 102, 74, 8, 6);
+
+    sb.setText(1, 3, 'CÔNG TY CỔ PHẦN QUỐC TẾ STAR LIGHT', 1, 22);
+    sb.merge(1, 3, 1, 12);
+    sb.setText(2, 3, 'Địa chỉ VP: Số 15 Nguyễn Cảnh Dị, Định Công, Hà Nội', 2, 18);
+    sb.merge(2, 3, 2, 12);
+    sb.setText(3, 3, 'Điện thoại: 0243 201 8322 - Hotline: 0979 541 345', 2, 18);
+    sb.merge(3, 3, 3, 12);
+    sb.setText(4, 3, 'www: starlightgroup.vn', 2, 18);
+    sb.merge(4, 3, 4, 12);
+
+    sb.merge(1, 13, 4, 14);
+    sb.addFittedImage(kflexAsset, 13, 1, 132, 58, 8, 12);
+
+    let r = 5;
+    sb.setText(r, 1, kflexQuoteForm.value.documentTitle, 3, 28);
+    sb.merge(r, 1, r, 14);
+    r++;
+
+    sb.setText(r, 1, 'Kính gửi:', 4, 21);
+    sb.merge(r, 1, r, 2);
+    sb.setText(r, 3, kflexQuoteForm.value.recipientCompany, 5, 21);
+    sb.merge(r, 3, r, 14);
+    r++;
+
+    sb.setText(r, 1, 'Người nhận:', 6, 20);
+    sb.merge(r, 1, r, 2);
+    sb.setText(r, 3, kflexQuoteForm.value.recipientPerson, 7, 20);
+    sb.merge(r, 3, r, 14);
+    r++;
+
+    sb.setText(r, 1, 'Project:', 6, 20);
+    sb.merge(r, 1, r, 2);
+    sb.setText(r, 3, kflexQuoteForm.value.projectName, 7, 20);
+    sb.merge(r, 3, r, 14);
+    r++;
+
+    sb.setText(r, 1, 'Thời gian:', 6, 20);
+    sb.merge(r, 1, r, 2);
+    sb.setText(r, 3, kflexFormattedQuoteDate.value, 7, 20);
+    sb.merge(r, 3, r, 14);
+    r++;
+
+    sb.setText(r, 1, kflexQuoteForm.value.introText, 8, 24);
+    sb.merge(r, 1, r, 14);
+    r++;
+
+    const hRow1 = r;
+    const hRow2 = r + 1;
+    sb.setRowHeight(hRow1, 24);
+    sb.setRowHeight(hRow2, 30);
+
+    sb.setText(hRow1, 1, 'TT', 9);
+    sb.merge(hRow1, 1, hRow2, 1, 9);
+
+    sb.setText(hRow1, 2, 'Tên vật tư', 9);
+    sb.merge(hRow1, 2, hRow2, 2, 9);
+
+    sb.setText(hRow1, 3, 'Nhãn hiệu', 9);
+    sb.merge(hRow1, 3, hRow2, 3, 9);
+
+    sb.setText(hRow1, 4, 'Thương hiệu - Xuất xứ', 9);
+    sb.merge(hRow1, 4, hRow2, 4, 9);
+
+    sb.setText(hRow1, 5, 'Loại sản phẩm', 9);
+    sb.merge(hRow1, 5, hRow2, 5, 9);
+
+    sb.setText(hRow1, 6, 'Kích thước', 9);
+    sb.merge(hRow1, 6, hRow1, 9, 9);
+    sb.setText(hRow2, 6, 'Chiều dày\n(mm)', 9);
+    sb.setText(hRow2, 7, 'ID (mm)', 9);
+    sb.setText(hRow2, 8, 'Chiều rộng\n(m)', 9);
+    sb.setText(hRow2, 9, 'Chiều dài\n(m)', 9);
+
+    sb.setText(hRow1, 10, 'Khối lượng', 9);
+    sb.merge(hRow1, 10, hRow1, 11, 9);
+    sb.setText(hRow2, 10, 'm', 9);
+    sb.setText(hRow2, 11, 'm2', 9);
+
+    sb.setText(hRow1, 12, 'Đơn giá\nUnit Price', 9);
+    sb.merge(hRow1, 12, hRow2, 12, 9);
+
+    sb.setText(hRow1, 13, 'Tổng\nTotal', 9);
+    sb.merge(hRow1, 13, hRow2, 13, 9);
+
+    sb.setText(hRow1, 14, 'Ghi chú', 9);
+    sb.merge(hRow1, 14, hRow2, 14, 9);
+
+    r = hRow2 + 1;
+
+    for (const row of kflexRenderRows.value) {
+        if (row.rowType === 'section') {
+            sb.setEmpty(r, 1, 10);
+            sb.setText(r, 2, (row.sectionTitle || '').toUpperCase(), 10, 25);
+            sb.merge(r, 2, r, 14, 10);
+            r++;
+            continue;
+        }
+
+        const it = row.item;
+        const displayName =
+            it.itemName.trim() ||
+            `${it.brandLabel} ${it.thickness}${it.innerDiameter ? 'x' + it.innerDiameter : 'mm'}`;
+
+        const linesName = estimateWrappedLineCount(displayName, colWidths[1]);
+        const linesBrand = estimateWrappedLineCount(it.brandLabel, colWidths[2]);
+        const linesOrigin = estimateWrappedLineCount(it.originLabel, colWidths[3]);
+        const linesType = estimateWrappedLineCount(it.productTypeLabel, colWidths[4]);
+        const linesNote =
+            row.noteRowspan === 1 ? estimateWrappedLineCount(it.note || '', colWidths[13]) : 1;
+        const maxLines = Math.max(1, linesName, linesBrand, linesOrigin, linesType, linesNote);
+        const rowH = Math.max(26, maxLines * 16 + 10);
+
+        sb.setText(r, 1, String(row.tt), 11, rowH);
+        sb.setText(r, 2, displayName, 12, rowH);
+        sb.setText(r, 3, it.brandLabel, 11, rowH);
+        sb.setText(r, 4, it.originLabel, 11, rowH);
+        sb.setText(r, 5, it.productTypeLabel, 11, rowH);
+        sb.setText(r, 6, it.thickness, 11, rowH);
+        sb.setText(r, 7, it.innerDiameter, 11, rowH);
+        sb.setText(r, 8, it.widthM, 11, rowH);
+        sb.setText(r, 9, it.lengthM, 11, rowH);
+
+        const formattedQtyM = formatKflexNum(it.qtyM);
+        const formattedQtyM2 = formatKflexNum(it.qtyM2);
+
+        if (formattedQtyM) {
+            sb.setText(r, 10, formattedQtyM, 22, rowH);
+        } else {
+            sb.setEmpty(r, 10, 11);
+        }
+
+        if (formattedQtyM2) {
+            sb.setText(r, 11, formattedQtyM2, 22, rowH);
+        } else {
+            sb.setEmpty(r, 11, 11);
+        }
+
+        sb.setText(r, 12, formatKflexTotalNum(it.unitPrice), 13, rowH);
+        sb.setText(r, 13, formatKflexTotalNum(kflexRowAmount(it)), 14, rowH);
+
+        if (row.noteRowspan > 0) {
+            sb.setText(r, 14, it.note || '', 11, rowH);
+            if (row.noteRowspan > 1) {
+                sb.merge(r, 14, r + row.noteRowspan - 1, 14, 11);
+            }
+        } else {
+            sb.setEmpty(r, 14, 11);
+        }
+
+        r++;
+    }
+
+    sb.setText(r, 1, 'TỔNG CỘNG (chưa bao gồm thuế VAT) - Sub Total (Not included VAT)', 15, 24);
+    sb.merge(r, 1, r, 12, 15);
+    sb.setText(r, 13, formatKflexTotalNum(kflexSubTotal.value), 16, 24);
+    r++;
+
+    sb.setText(r, 1, `Thuế VAT (${kflexFormattedVatLabel.value})`, 15, 24);
+    sb.merge(r, 1, r, 12, 15);
+    sb.setText(r, 13, formatKflexTotalNum(kflexVatAmount.value), 16, 24);
+    r++;
+
+    sb.setText(r, 1, 'TỔNG CỘNG (bao gồm thuế VAT) - Sub Total (included VAT)', 15, 24);
+    sb.merge(r, 1, r, 12, 15);
+    sb.setText(r, 13, formatKflexTotalNum(kflexGrandTotal.value), 16, 24);
+    r += 2;
+
+    sb.setText(r, 1, 'Điều kiện thương mại:', 17, 21);
+    sb.merge(r, 1, r, 14);
+    r++;
+
+    const kfTerms = [
+        `1. Báo giá có hiệu lực đến ngày: ${kflexFormattedValidUntil.value}`,
+        `2. Phương thức thanh toán: ${kflexQuoteForm.value.paymentTerms}`,
+        `3. Phương thức giao hàng: ${kflexQuoteForm.value.deliveryMethod}`,
+        `4. Thời gian giao hàng: ${kflexQuoteForm.value.deliveryTime}`,
+        '5. Chúng tôi hy vọng báo giá này sẽ làm hài lòng Quý Công ty. Mọi thắc mắc xin vui lòng liên lạc với chúng tôi',
+        'Rất mong nhận được sự ủng hộ từ Quý Công ty.',
+    ];
+    for (const line of kfTerms) {
+        const lineH = line.length > 115 ? 32 : 20;
+        sb.setText(r, 1, line, 18, lineH);
+        sb.merge(r, 1, r, 14);
+        r++;
+    }
+
+    r++;
+    sb.setText(r, 2, 'Many thanks & Best regards', 19, 20);
+    sb.merge(r, 2, r, 14);
+    r++;
+
+    sb.setText(r, 1, kflexQuoteForm.value.contactName, 20, 20);
+    sb.merge(r, 1, r, 14);
+    r++;
+
+    sb.setText(r, 1, 'HP', 19, 20);
+    sb.setText(r, 2, kflexQuoteForm.value.contactHp, 4, 20);
+    sb.merge(r, 2, r, 14);
+    r++;
+
+    sb.setText(r, 1, 'Email :', 19, 20);
+    sb.setText(r, 2, kflexQuoteForm.value.contactEmail, 21, 20);
+    sb.merge(r, 2, r, 14);
+
+    const fileSlug = sanitizeExcelFilename(kflexQuoteForm.value.projectName, 'K-Flex');
+    downloadXlsxWorkbook(
+        'Bao Gia K-Flex',
+        sb.toSheetXml('portrait'),
+        sb.images,
+        `Bao-gia-K-Flex-${fileSlug}.xlsx`,
+    );
+    notifyToast('Đã xuất báo giá bảo ôn K-Flex ra file Excel (.xlsx) thành công.');
+};
+
 const linkedQuotationFile = ref<File | null>(null);
 const linkedAdminNote = ref(props.initialContact?.admin_note ?? '');
 const isSendingLinkedQuotation = ref(false);
@@ -2218,26 +3201,42 @@ const submitLinkedQuotationResponse = (): void => {
     >
         <div class="page-head">
             <div>
-                <h2>Tạo Báo Giá &amp; Xuất PDF</h2>
-                <p>Lập bảng báo giá dự án chuẩn mẫu Star Light và xuất file PDF khổ A4.</p>
+                <h2>Tạo Báo Giá &amp; Xuất PDF / Excel</h2>
+                <p>Lập bảng báo giá dự án chuẩn mẫu Star Light và xuất file PDF khổ A4 hoặc file Excel.</p>
             </div>
             <div class="actions">
-                <button
-                    v-if="activeQuotationType === 'ariston'"
-                    class="btn primary"
-                    type="button"
-                    @click="printQuotationPdf"
-                >
-                    🖨️ In / Xuất PDF Báo Giá Ariston
-                </button>
-                <button
-                    v-else
-                    class="btn primary"
-                    type="button"
-                    @click="printKflexQuotationPdf"
-                >
-                    🖨️ In / Xuất PDF Báo Giá K-Flex
-                </button>
+                <template v-if="activeQuotationType === 'ariston'">
+                    <button
+                        class="btn kflex-excel-btn"
+                        type="button"
+                        @click="exportQuotationExcel"
+                    >
+                        📊 Xuất Excel Báo Giá Ariston
+                    </button>
+                    <button
+                        class="btn primary"
+                        type="button"
+                        @click="printQuotationPdf"
+                    >
+                        🖨️ In / Xuất PDF Báo Giá Ariston
+                    </button>
+                </template>
+                <template v-else>
+                    <button
+                        class="btn kflex-excel-btn"
+                        type="button"
+                        @click="exportKflexQuotationExcel"
+                    >
+                        📊 Xuất Excel Báo Giá K-Flex
+                    </button>
+                    <button
+                        class="btn primary"
+                        type="button"
+                        @click="printKflexQuotationPdf"
+                    >
+                        🖨️ In / Xuất PDF Báo Giá K-Flex
+                    </button>
+                </template>
             </div>
         </div>
 
@@ -2499,12 +3498,26 @@ const submitLinkedQuotationResponse = (): void => {
 
                             <label class="kb-quote-field">
                                 <span>Giá bán (VNĐ)</span>
-                                <input v-model.number="item.unitPrice" type="number" min="0" step="1000" />
+                                <input
+                                    v-model.number="item.unitPrice"
+                                    type="number"
+                                    min="0"
+                                    step="1000"
+                                    class="kb-quote-no-spin"
+                                    @wheel.prevent="($event.target as HTMLInputElement).blur()"
+                                />
                             </label>
 
                             <label class="kb-quote-field">
                                 <span>Số lượng (chiếc)</span>
-                                <input v-model.number="item.quantity" type="number" min="1" step="1" />
+                                <input
+                                    v-model.number="item.quantity"
+                                    type="number"
+                                    min="1"
+                                    step="1"
+                                    class="kb-quote-no-spin"
+                                    @wheel.prevent="($event.target as HTMLInputElement).blur()"
+                                />
                             </label>
 
                             <div class="kb-quote-field">
@@ -2584,9 +3597,14 @@ const submitLinkedQuotationResponse = (): void => {
                                 : `Khổ A4 Ngang — ${items.length} sản phẩm`
                         }})
                     </strong>
-                    <button class="btn primary" type="button" @click="printQuotationPdf">
-                        🖨️ In / Xuất PDF ({{ isPortraitMode ? 'A4 Đứng' : 'A4 Ngang' }})
-                    </button>
+                    <div class="kb-quote-preview-actions">
+                        <button class="btn kflex-excel-btn" type="button" @click="exportQuotationExcel">
+                            📊 Xuất Excel
+                        </button>
+                        <button class="btn primary" type="button" @click="printQuotationPdf">
+                            🖨️ In / Xuất PDF ({{ isPortraitMode ? 'A4 Đứng' : 'A4 Ngang' }})
+                        </button>
+                    </div>
                 </div>
 
                 <div class="kb-quote-paper" :class="{ 'is-portrait': isPortraitMode }">
@@ -2637,15 +3655,15 @@ const submitLinkedQuotationResponse = (): void => {
                     <table class="qp-table">
                         <thead>
                             <tr>
-                                <th style="width: 9.5%">Sản Phẩm<em>Product</em></th>
+                                <th style="width: 9.0%">Sản Phẩm<em>Product</em></th>
                                 <th style="width: 8.5%">Mã sản phẩm<em>Model</em></th>
                                 <th style="width: 5.5%">Xuất xứ<em>Origin</em></th>
-                                <th style="width: 18.5%">Hình ảnh sản phẩm<em>Image</em></th>
+                                <th style="width: 17.5%">Hình ảnh sản phẩm<em>Image</em></th>
                                 <th style="width: 4.5%">Đơn vị</th>
-                                <th style="width: 29.0%">Đặc tính kỹ thuật<em>Specifications</em></th>
-                                <th style="width: 8.5%">Giá bán dự án<em>Selling Price</em><em>(VNĐ)</em></th>
-                                <th style="width: 6.5%">Số lượng Quantity<br>(chiếc)</th>
-                                <th style="width: 9.5%">Thành tiền<em>Amount</em><em>(VNĐ)</em></th>
+                                <th style="width: 26.5%">Đặc tính kỹ thuật<em>Specifications</em></th>
+                                <th style="width: 10.5%">Giá bán dự án<em>Selling Price</em><em>(VNĐ)</em></th>
+                                <th style="width: 6.0%">Số lượng Quantity<br>(chiếc)</th>
+                                <th style="width: 12.0%">Thành tiền<em>Amount</em><em>(VNĐ)</em></th>
                             </tr>
                         </thead>
                         <tbody>
@@ -2671,30 +3689,30 @@ const submitLinkedQuotationResponse = (): void => {
                                         {{ specLine }}
                                     </div>
                                 </td>
-                                <td class="qp-center qp-bold">{{ formatVnd(item.unitPrice) }}</td>
-                                <td class="qp-center qp-bold">{{ formatVnd(item.quantity) }}</td>
-                                <td class="qp-center qp-bold">{{ formatVnd(rowAmount(item)) }}</td>
+                                <td class="qp-center qp-bold qp-nowrap">{{ formatVnd(item.unitPrice) }}</td>
+                                <td class="qp-center qp-bold qp-nowrap">{{ formatVnd(item.quantity) }}</td>
+                                <td class="qp-center qp-bold qp-nowrap">{{ formatVnd(rowAmount(item)) }}</td>
                             </tr>
                             <tr class="qp-summary-row">
                                 <td colspan="7" class="qp-summary-label">
                                     TỔNG CỘNG (chưa bao gồm thuế VAT) - <em>Sub Total (not included VAT)</em>
                                 </td>
                                 <td></td>
-                                <td class="qp-center">{{ formatVnd(subTotal) }}</td>
+                                <td class="qp-center qp-nowrap">{{ formatVnd(subTotal) }}</td>
                             </tr>
                             <tr class="qp-summary-row">
                                 <td colspan="7" class="qp-summary-label">
                                     Thuế VAT ({{ formattedVatLabel }})
                                 </td>
                                 <td></td>
-                                <td class="qp-center">{{ formatVnd(vatAmount) }}</td>
+                                <td class="qp-center qp-nowrap">{{ formatVnd(vatAmount) }}</td>
                             </tr>
                             <tr class="qp-summary-row">
                                 <td colspan="7" class="qp-summary-label">
                                     TỔNG CỘNG (bao gồm thuế VAT) - <em>Sub Total (included VAT)</em>
                                 </td>
                                 <td></td>
-                                <td class="qp-center">{{ formatVnd(grandTotal) }}</td>
+                                <td class="qp-center qp-nowrap">{{ formatVnd(grandTotal) }}</td>
                             </tr>
                         </tbody>
                     </table>
@@ -3143,7 +4161,7 @@ const submitLinkedQuotationResponse = (): void => {
                                                 v-model="item.lengthM"
                                                 type="text"
                                                 class="kflex-cell-input kflex-cell-center"
-                                                placeholder="2"
+                                                :placeholder="item.formType === 'tube' && item.productLine === 'm_flex' ? '1.83' : '2'"
                                             />
                                         </td>
 
@@ -3155,9 +4173,11 @@ const submitLinkedQuotationResponse = (): void => {
                                                 type="number"
                                                 min="0"
                                                 step="any"
-                                                class="kflex-cell-input kflex-cell-center"
+                                                inputmode="decimal"
+                                                class="kflex-cell-input kflex-cell-center kb-quote-no-spin"
                                                 placeholder="m"
                                                 title="Khối lượng (m)"
+                                                @wheel.prevent="($event.target as HTMLInputElement).blur()"
                                             />
                                             <input
                                                 v-else
@@ -3165,9 +4185,11 @@ const submitLinkedQuotationResponse = (): void => {
                                                 type="number"
                                                 min="0"
                                                 step="any"
-                                                class="kflex-cell-input kflex-cell-center"
+                                                inputmode="decimal"
+                                                class="kflex-cell-input kflex-cell-center kb-quote-no-spin"
                                                 placeholder="m2"
                                                 title="Khối lượng (m2)"
+                                                @wheel.prevent="($event.target as HTMLInputElement).blur()"
                                             />
                                         </td>
 
@@ -3178,7 +4200,9 @@ const submitLinkedQuotationResponse = (): void => {
                                                 type="number"
                                                 min="0"
                                                 step="1"
-                                                class="kflex-cell-input kflex-cell-right"
+                                                inputmode="numeric"
+                                                class="kflex-cell-input kflex-cell-right kb-quote-no-spin"
+                                                @wheel.prevent="($event.target as HTMLInputElement).blur()"
                                             />
                                         </td>
 
@@ -3231,9 +4255,14 @@ const submitLinkedQuotationResponse = (): void => {
                     <strong>
                         Xem trước bản in Báo giá Bảo ôn K-Flex (Khổ A4 Đứng — {{ kflexTotalItemsCount }} hạng mục)
                     </strong>
-                    <button class="btn primary" type="button" @click="printKflexQuotationPdf">
-                        🖨️ In / Xuất PDF Báo Giá K-Flex (A4)
-                    </button>
+                    <div class="kb-quote-preview-actions">
+                        <button class="btn kflex-excel-btn" type="button" @click="exportKflexQuotationExcel">
+                            📊 Xuất Excel Báo Giá K-Flex
+                        </button>
+                        <button class="btn primary" type="button" @click="printKflexQuotationPdf">
+                            🖨️ In / Xuất PDF Báo Giá K-Flex (A4)
+                        </button>
+                    </div>
                 </div>
 
                 <div class="kb-quote-paper kflex-quote-paper">
@@ -3279,20 +4308,20 @@ const submitLinkedQuotationResponse = (): void => {
 
                     <table class="kflex-qp-table">
                         <colgroup>
-                            <col style="width: 6.0%" />
-                            <col style="width: 16.2%" />
-                            <col style="width: 7.2%" />
-                            <col style="width: 9.0%" />
-                            <col style="width: 7.2%" />
-                            <col style="width: 4.4%" />
-                            <col style="width: 4.4%" />
-                            <col style="width: 4.4%" />
-                            <col style="width: 4.4%" />
-                            <col style="width: 5.4%" />
-                            <col style="width: 5.4%" />
-                            <col style="width: 7.2%" />
-                            <col style="width: 7.8%" />
-                            <col style="width: 11.0%" />
+                            <col style="width: 3.8%" />
+                            <col style="width: 16.0%" />
+                            <col style="width: 6.8%" />
+                            <col style="width: 8.4%" />
+                            <col style="width: 7.0%" />
+                            <col style="width: 4.2%" />
+                            <col style="width: 4.0%" />
+                            <col style="width: 4.2%" />
+                            <col style="width: 4.2%" />
+                            <col style="width: 4.8%" />
+                            <col style="width: 4.8%" />
+                            <col style="width: 9.2%" />
+                            <col style="width: 11.2%" />
+                            <col style="width: 11.4%" />
                         </colgroup>
                         <thead>
                             <tr>
@@ -3332,10 +4361,10 @@ const submitLinkedQuotationResponse = (): void => {
                                     <td class="qp-center">{{ row.item.innerDiameter }}</td>
                                     <td class="qp-center">{{ row.item.widthM }}</td>
                                     <td class="qp-center">{{ row.item.lengthM }}</td>
-                                    <td class="qp-center">{{ formatKflexNum(row.item.qtyM) }}</td>
-                                    <td class="qp-center">{{ formatKflexNum(row.item.qtyM2) }}</td>
-                                    <td class="qp-center">{{ formatKflexTotalNum(row.item.unitPrice) }}</td>
-                                    <td class="kflex-qp-right qp-bold">
+                                    <td class="qp-center qp-nowrap">{{ formatKflexNum(row.item.qtyM) }}</td>
+                                    <td class="qp-center qp-nowrap">{{ formatKflexNum(row.item.qtyM2) }}</td>
+                                    <td class="qp-center qp-nowrap">{{ formatKflexTotalNum(row.item.unitPrice) }}</td>
+                                    <td class="kflex-qp-right qp-bold qp-nowrap">
                                         {{ formatKflexTotalNum(kflexRowAmount(row.item)) }}
                                     </td>
                                     <td
@@ -3887,6 +4916,12 @@ const submitLinkedQuotationResponse = (): void => {
     text-align: right;
 }
 
+.qp-nowrap {
+    white-space: nowrap !important;
+    word-break: normal !important;
+    overflow-wrap: normal !important;
+}
+
 .kflex-qp-note {
     font-size: 9.5px;
     line-height: 1.2;
@@ -3902,6 +4937,42 @@ const submitLinkedQuotationResponse = (): void => {
     text-align: right;
     color: #c00000;
     font-weight: 700;
+    white-space: nowrap !important;
+    word-break: normal !important;
+    overflow-wrap: normal !important;
+}
+
+.kb-quote-preview-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.kflex-excel-btn {
+    border-color: #16a34a !important;
+    background: #16a34a !important;
+    color: #ffffff !important;
+    font-weight: 600;
+}
+
+.kflex-excel-btn:hover {
+    background: #15803d !important;
+    border-color: #15803d !important;
+}
+
+.kb-quote-no-spin::-webkit-outer-spin-button,
+.kb-quote-no-spin::-webkit-inner-spin-button,
+.kflex-cell-input[type='number']::-webkit-outer-spin-button,
+.kflex-cell-input[type='number']::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+.kb-quote-no-spin,
+.kflex-cell-input[type='number'] {
+    -moz-appearance: textfield;
+    appearance: textfield;
 }
 
 .kflex-qp-no-border {

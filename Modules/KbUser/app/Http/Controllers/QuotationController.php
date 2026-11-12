@@ -11,11 +11,13 @@ use Database\Seeders\PublicQuoteUserSeeder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
+use Throwable;
 
 class QuotationController extends Controller
 {
@@ -23,15 +25,17 @@ class QuotationController extends Controller
 
     public const PUBLIC_QUOTE_EMAIL = 'publicquote@gmail.com';
 
-    public function showLogin(Request $request): Response|RedirectResponse
+    public function showLogin(Request $request): Response|\Symfony\Component\HttpFoundation\Response
     {
         if ($this->resolveAuthenticatedQuoteUser($request) !== null) {
-            return to_route('kbuser.quotations.index');
+            return to_route('kbuser.quotations.index')
+                ->header('X-Robots-Tag', 'noindex, nofollow');
         }
 
         return Inertia::render('quotations/Login', [
             'status' => $request->session()->get('status'),
-        ]);
+            'recaptchaSiteKey' => (string) config('services.recaptcha.site_key'),
+        ])->toResponse($request)->header('X-Robots-Tag', 'noindex, nofollow');
     }
 
     public function login(Request $request): RedirectResponse
@@ -39,11 +43,19 @@ class QuotationController extends Controller
         $credentials = $request->validate([
             'email' => ['required', 'string', 'email', 'max:255'],
             'password' => ['required', 'string', 'max:255'],
+            'recaptcha_token' => ['required', 'string'],
         ], [
             'email.required' => 'Vui lòng nhập địa chỉ email.',
             'email.email' => 'Địa chỉ email không hợp lệ.',
             'password.required' => 'Vui lòng nhập mật khẩu.',
+            'recaptcha_token.required' => 'Vui lòng tích xác nhận "Tôi không phải là người máy" (Google reCAPTCHA).',
         ]);
+
+        if (! $this->verifyGoogleRecaptcha((string) $credentials['recaptcha_token'], $request->ip())) {
+            throw ValidationException::withMessages([
+                'recaptcha_token' => 'Xác thực Google reCAPTCHA không hợp lệ hoặc đã hết hạn. Vui lòng tích chọn lại.',
+            ]);
+        }
 
         $email = Str::lower(trim($credentials['email']));
         $throttleKey = 'kbuser-quotation-login|'.$email.'|'.$request->ip();
@@ -92,7 +104,8 @@ class QuotationController extends Controller
         $quoteUser = $this->resolveAuthenticatedQuoteUser($request);
 
         if ($quoteUser === null) {
-            return to_route('kbuser.quotations.login');
+            return to_route('kbuser.quotations.login')
+                ->header('X-Robots-Tag', 'noindex, nofollow');
         }
 
         Product::ensureOriginColumn();
@@ -170,5 +183,42 @@ class QuotationController extends Controller
         }
 
         return $user;
+    }
+
+    private function verifyGoogleRecaptcha(string $token, ?string $ip = null): bool
+    {
+        if (trim($token) === '') {
+            return false;
+        }
+
+        if (app()->environment('testing')) {
+            return $token !== 'invalid-token';
+        }
+
+        $secretKey = trim((string) config('services.recaptcha.secret_key'));
+        if ($secretKey === '') {
+            return true;
+        }
+
+        try {
+            $request = Http::asForm()->timeout(8);
+            if (app()->environment('local')) {
+                $request = $request->withoutVerifying();
+            }
+
+            $response = $request->post('https://www.google.com/recaptcha/api/siteverify', array_filter([
+                'secret' => $secretKey,
+                'response' => $token,
+                'remoteip' => $ip,
+            ]));
+
+            if (! $response->successful()) {
+                return false;
+            }
+
+            return (bool) $response->json('success', false);
+        } catch (Throwable) {
+            return false;
+        }
     }
 }

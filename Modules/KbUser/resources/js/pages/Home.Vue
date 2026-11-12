@@ -967,13 +967,66 @@ onUnmounted(() => {
         <section id="about" class="section">
           <div class="wrap split-feature">
             <div class="feature-visual reveal visible">
-              <div class="feature-lines"></div>
-              <div class="feature-big">Less loss.<br>More life.<small>Insulation that works.</small>
+              <div class="feature-lines" aria-hidden="true"></div>
+              <div class="feature-sunlight" aria-hidden="true"></div>
+
+              <div class="feature-visual-top">
+                <span class="feature-visual-pill">
+                  <span class="feature-visual-dot" aria-hidden="true"></span>
+                  HVAC MART · SIGNATURE
+                </span>
+                <div class="feature-big">
+                  Less loss. <em>More life.</em>
+                </div>
               </div>
-              <div class="insulation-roll">
-                <div class="roll-core"></div>
+
+              <div class="feature-iconic-stage">
+                <div class="feature-orbit-ring is-outer" aria-hidden="true"></div>
+                <div class="feature-orbit-ring is-inner" aria-hidden="true"></div>
+
+                <div class="feature-iconic-duo">
+                  <div class="feature-iconic-item is-ariston">
+                    <div class="feature-iconic-pedestal">
+                      <img
+                        src="../../assets/images/ariston_water_heater.svg"
+                        alt="Ariston"
+                        loading="lazy"
+                      >
+                    </div>
+                    <span>ARISTON</span>
+                  </div>
+
+                  <div class="feature-iconic-emblem" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+                      <path d="M12 3c2.8 3.2 4.2 5.8 4.2 8.2a4.2 4.2 0 1 1-8.4 0C7.8 8.8 9.2 6.2 12 3Z" />
+                      <path d="M4 18c2.2-1.4 4.8-1.4 7 0s4.8 1.4 7 0" />
+                    </svg>
+                  </div>
+
+                  <div class="feature-iconic-item is-kflex">
+                    <div class="feature-iconic-pedestal">
+                      <img
+                        src="../../assets/images/foam.png"
+                        alt="K-FLEX"
+                        loading="lazy"
+                      >
+                    </div>
+                    <span>K-FLEX</span>
+                  </div>
+                </div>
               </div>
-              <div class="feature-label"><strong>K-FLEX · THERMAL INSULATION</strong><span>Giải pháp bảo ôn chuyên dụng</span>
+
+              <div class="feature-label">
+                <span class="feature-label-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                    <path d="m12 3 8 4v5c0 5-3.5 7.8-8 9-4.5-1.2-8-4-8-9V7z" />
+                    <path d="m8.5 12 2.2 2.2 4.8-5" />
+                  </svg>
+                </span>
+                <div>
+                  <strong>GIẢI PHÁP NHIỆT &amp; BẢO ÔN</strong>
+                  <span>Biểu tượng chất lượng cho mọi công trình</span>
+                </div>
               </div>
             </div>
             <div class="feature-copy reveal visible">

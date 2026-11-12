@@ -85,7 +85,7 @@ class SeoController extends Controller
                 ->whereRaw('LENGTH(TRIM(seo_description)) >= 30')
                 ->count()
             : $categoryUrlsCount;
-        $staticPagesCount = 9;
+        $staticPagesCount = 8;
 
         $sampleProjects = FeaturedProject::query()
             ->latest()
@@ -333,7 +333,6 @@ class SeoController extends Controller
                 'Disallow: /admin',
                 'Disallow: /chat/',
                 'Disallow: /my-account',
-                'Disallow: /quotations/login',
                 '',
                 'Sitemap: '.SiteSetting::canonicalUrl('/sitemap.xml'),
             ]);
@@ -453,7 +452,6 @@ class SeoController extends Controller
             SiteSetting::canonicalUrl('/catalogues'),
             SiteSetting::canonicalUrl('/about-us'),
             SiteSetting::canonicalUrl('/contacts'),
-            SiteSetting::canonicalUrl('/quotations'),
         ])
             ->concat(Category::query()->with('parent:id,name')->latest('id')->get(['id', 'parent_id', 'name'])->map(
                 fn (Category $category): string => $category->parent_id !== null

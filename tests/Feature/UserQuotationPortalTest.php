@@ -9,16 +9,28 @@ use Modules\KbUser\Http\Controllers\QuotationController;
 
 test('visitors and regular authenticated users are redirected to quotation login when visiting the quotation builder', function () {
     $this->get(route('kbuser.quotations.index'))
-        ->assertRedirect(route('kbuser.quotations.login'));
+        ->assertRedirect(route('kbuser.quotations.login'))
+        ->assertHeader('X-Robots-Tag', 'noindex, nofollow');
 
     $regularUser = User::factory()->create();
 
     $this->actingAs($regularUser)
         ->get(route('kbuser.quotations.index'))
-        ->assertRedirect(route('kbuser.quotations.login'));
+        ->assertRedirect(route('kbuser.quotations.login'))
+        ->assertHeader('X-Robots-Tag', 'noindex, nofollow');
 
     $this->get(route('kbuser.quotations.login'))
-        ->assertOk();
+        ->assertOk()
+        ->assertHeader('X-Robots-Tag', 'noindex, nofollow')
+        ->assertSee('<meta name="robots" content="noindex, nofollow">', false);
+
+    $this->get(route('kbuser.sitemap'))
+        ->assertOk()
+        ->assertDontSee('/quotations', false);
+
+    $this->get(route('kbuser.robots'))
+        ->assertOk()
+        ->assertDontSee('Disallow: /quotations', false);
 });
 
 test('the seeded public quote account can log in, view the quotation builder, and log out', function () {
@@ -30,6 +42,14 @@ test('the seeded public quote account can log in, view the quotation builder, an
     $this->post(route('kbuser.quotations.login.store'), [
         'email' => 'publicquote@gmail.com',
         'password' => 'stlquote',
+    ])
+        ->assertSessionHasErrors('recaptcha_token')
+        ->assertSessionMissing(QuotationController::SESSION_KEY);
+
+    $this->post(route('kbuser.quotations.login.store'), [
+        'email' => 'publicquote@gmail.com',
+        'password' => 'stlquote',
+        'recaptcha_token' => 'test-recaptcha-token',
     ])
         ->assertRedirect(route('kbuser.quotations.index'))
         ->assertSessionHas(QuotationController::SESSION_KEY);
@@ -60,6 +80,7 @@ test('invalid credentials or non-authorized accounts cannot log in to the quotat
     $this->post(route('kbuser.quotations.login.store'), [
         'email' => 'publicquote@gmail.com',
         'password' => 'wrong-password',
+        'recaptcha_token' => 'test-recaptcha-token',
     ])
         ->assertSessionHasErrors('email')
         ->assertSessionMissing(QuotationController::SESSION_KEY);
@@ -67,6 +88,7 @@ test('invalid credentials or non-authorized accounts cannot log in to the quotat
     $this->post(route('kbuser.quotations.login.store'), [
         'email' => $otherUser->email,
         'password' => 'stlqoute',
+        'recaptcha_token' => 'test-recaptcha-token',
     ])
         ->assertSessionHasErrors('email')
         ->assertSessionMissing(QuotationController::SESSION_KEY);
