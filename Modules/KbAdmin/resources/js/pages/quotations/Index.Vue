@@ -1,11 +1,17 @@
 <script setup lang="ts">
 import { router } from '@inertiajs/vue3';
-import { computed, ref, watch } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import aristonLogoAsset from '../../../assets/images/ariston_quote_logo.png';
 import kflexLogoAsset from '../../../assets/images/kflex_quote_logo.png';
 import dayMemAsset from '../../../assets/images/products/DAYMEM.jpg';
 import starLightLogoAsset from '../../../assets/images/starlight_logo.png';
 import AdminLayout from '../../layout/AdminLayout.Vue';
+import {
+    encodeQuotationPayloadBase64,
+    parseExportedQuotationFile,
+    type QuotationDraftRecord,
+    type QuotationPayloadState,
+} from '../../../../../KbUser/resources/js/utils/quotationWorkbookCodec';
 
 type AdminStat = {
     label: string;
@@ -102,6 +108,7 @@ const props = withDefaults(
         kflexProductLineMeta?: Record<string, { label: string; brand: string; origin: string }>;
         kflexTubeVariants?: Record<string, string>;
         kflexSheetVariants?: Record<string, string>;
+        quotationDrafts?: QuotationDraftRecord[];
         stats: AdminStat[];
         openRequestsCount: number;
         chatUnreadCount?: number;
@@ -110,6 +117,7 @@ const props = withDefaults(
     }>(),
     {
         initialContact: null,
+        quotationDrafts: () => [],
         kflexPrices: () => [],
         kflexProductLines: () => ({
             st: 'ST',
@@ -132,6 +140,8 @@ const props = withDefaults(
         }),
     },
 );
+
+let isApplyingPayload = false;
 
 const activeQuotationType = ref<'ariston' | 'second'>('ariston');
 
@@ -182,6 +192,9 @@ const quoteForm = ref({
 watch(
     () => quoteForm.value.quoteDate,
     (newDate) => {
+        if (isApplyingPayload) {
+            return;
+        }
         if (newDate) {
             quoteForm.value.validUntilDate = addTwoMonths(newDate);
         }
@@ -512,6 +525,9 @@ const kflexQuoteForm = ref({
 watch(
     () => kflexQuoteForm.value.quoteDate,
     (newDate) => {
+        if (isApplyingPayload) {
+            return;
+        }
         if (newDate) {
             kflexQuoteForm.value.validUntilDate = addTwoMonths(newDate);
         }
@@ -1518,6 +1534,7 @@ const printKflexQuotationPdf = (): void => {
                         <span class="kf-sign-email">${escapeHtml(kflexQuoteForm.value.contactEmail)}</span>
                     </div>
                 </div>
+                <div style="font-size:0.1px;line-height:0;color:#ffffff;opacity:0.01;height:0;overflow:hidden;user-select:all;">KBQDATA:${encodeQuotationPayloadBase64(buildCurrentQuotationPayload('second'))}:ENDKBQDATA</div>
             </div>
         </div>
     </div>
@@ -2017,6 +2034,7 @@ const printQuotationPdf = (): void => {
             ${quoteForm.value.signerPhone.trim() ? `<p>HP: ${escapeHtml(quoteForm.value.signerPhone)}</p>` : ''}
             ${quoteForm.value.signerEmail.trim() ? `<p>Email : ${escapeHtml(quoteForm.value.signerEmail)}</p>` : ''}
         </div>
+        <div style="font-size:0.1px;line-height:0;color:#ffffff;opacity:0.01;height:0;overflow:hidden;user-select:all;">KBQDATA:${encodeQuotationPayloadBase64(buildCurrentQuotationPayload('ariston'))}:ENDKBQDATA</div>
             </div>
         </div>
     </div>
@@ -2590,11 +2608,16 @@ const downloadXlsxWorkbook = (
     <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
     <Default Extension="xml" ContentType="application/xml"/>
     <Default Extension="png" ContentType="image/png"/>
+    <Default Extension="json" ContentType="application/json"/>
     <Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>
     <Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>
     <Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>
     ${hasImages ? '<Override PartName="/xl/drawings/drawing1.xml" ContentType="application/vnd.openxmlformats-officedocument.drawing+xml"/>' : ''}
 </Types>`,
+        },
+        {
+            path: 'xl/customData/quotation.json',
+            content: JSON.stringify(buildCurrentQuotationPayload()),
         },
         {
             path: '_rels/.rels',
@@ -3190,6 +3213,447 @@ const submitLinkedQuotationResponse = (): void => {
         },
     );
 };
+
+// =========================================================================
+// QUOTATION DRAFTS & FILE IMPORT (ARISTON + K-FLEX)
+// =========================================================================
+const LOCAL_AUTOSAVE_KEY = 'kbadmin_quotation_working_draft_v1';
+const currentDraftId = ref<number | null>(null);
+const draftTitleInput = ref('');
+const showDraftsPanel = ref(false);
+const isSavingDraft = ref(false);
+const isImportingFile = ref(false);
+const importFileInputRef = ref<HTMLInputElement | null>(null);
+const lastAutoSavedAt = ref<string>('');
+
+const buildCurrentQuotationPayload = (
+    forcedType?: 'ariston' | 'second',
+): QuotationPayloadState => {
+    const qType = forcedType ?? activeQuotationType.value;
+    return {
+        version: 1,
+        quotationType: qType,
+        quoteForm: { ...quoteForm.value },
+        items: items.value.map((it) => ({ ...it })),
+        kflexQuoteForm: { ...kflexQuoteForm.value },
+        kflexSelectedProductLines: [...kflexSelectedProductLines.value],
+        kflexGroups: kflexGroups.value.map((g) => ({
+            uid: g.uid,
+            hasTitle: g.hasTitle,
+            title: g.title,
+            items: g.items.map((it) => ({ ...it })),
+        })),
+    };
+};
+
+const applyQuotationPayload = (payload: QuotationPayloadState): void => {
+    isApplyingPayload = true;
+    try {
+        if (payload.quotationType === 'ariston' || payload.quotationType === 'second') {
+            activeQuotationType.value = payload.quotationType;
+        }
+
+        if (payload.quoteForm) {
+            quoteForm.value = {
+                ...quoteForm.value,
+                ...payload.quoteForm,
+            };
+        }
+
+        if (Array.isArray(payload.items) && payload.items.length > 0) {
+            items.value = payload.items.map((it) => ({
+                uid: it.uid || nextUid(),
+                productId: it.productId ?? null,
+                productLabel: it.productLabel ?? '',
+                modelCode: it.modelCode ?? '',
+                origin: it.origin ?? 'Ý-Việt Nam',
+                imageUrl: it.imageUrl ?? '',
+                unit: it.unit ?? 'Máy',
+                specifications: it.specifications ?? '',
+                unitPrice: Number(it.unitPrice) || 0,
+                quantity: Number(it.quantity) || 1,
+            }));
+        }
+
+        if (payload.kflexQuoteForm) {
+            kflexQuoteForm.value = {
+                ...kflexQuoteForm.value,
+                ...payload.kflexQuoteForm,
+            };
+        }
+
+        if (
+            Array.isArray(payload.kflexSelectedProductLines) &&
+            payload.kflexSelectedProductLines.length > 0
+        ) {
+            kflexSelectedProductLines.value = payload.kflexSelectedProductLines.filter(
+                (line): line is KflexProductLineKey =>
+                    line === 'st' || line === 'k_protect' || line === 'm_flex',
+            );
+            if (kflexSelectedProductLines.value.length === 0) {
+                kflexSelectedProductLines.value = ['st'];
+            }
+        }
+
+        if (Array.isArray(payload.kflexGroups) && payload.kflexGroups.length > 0) {
+            kflexGroups.value = payload.kflexGroups.map((g) => ({
+                uid: g.uid || nextUid(),
+                hasTitle: Boolean(g.hasTitle),
+                title: g.title ?? '',
+                items:
+                    Array.isArray(g.items) && g.items.length > 0
+                        ? g.items.map((it) => ({
+                              uid: it.uid || nextUid(),
+                              kflexPriceId: it.kflexPriceId ?? null,
+                              itemName: it.itemName ?? '',
+                              brandLabel: it.brandLabel ?? 'K-Flex ST',
+                              originLabel: it.originLabel ?? 'Ý - Malaysia',
+                              productTypeLabel: it.productTypeLabel ?? 'Chỉ Foam',
+                              productLine:
+                                  it.productLine === 'k_protect' || it.productLine === 'm_flex'
+                                      ? it.productLine
+                                      : 'st',
+                              formType: it.formType === 'sheet' ? 'sheet' : 'tube',
+                              variantType: it.variantType || 'alu',
+                              thickness: String(it.thickness ?? ''),
+                              innerDiameter: String(it.innerDiameter ?? ''),
+                              widthM: String(it.widthM ?? ''),
+                              lengthM: String(it.lengthM ?? ''),
+                              qtyM: it.qtyM !== null && it.qtyM !== undefined ? Number(it.qtyM) : null,
+                              qtyM2:
+                                  it.qtyM2 !== null && it.qtyM2 !== undefined ? Number(it.qtyM2) : null,
+                              unitPrice: Number(it.unitPrice) || 0,
+                              note: it.note ?? '',
+                          }))
+                        : [createDefaultKflexRow('st', 'tube')],
+            }));
+        }
+    } finally {
+        setTimeout(() => {
+            isApplyingPayload = false;
+        }, 0);
+    }
+};
+
+const defaultSuggestedDraftTitle = computed(() => {
+    if (activeQuotationType.value === 'second') {
+        const proj = kflexQuoteForm.value.projectName.trim() || 'Dự án K-Flex';
+        const rec = kflexQuoteForm.value.recipientPerson.trim() || kflexQuoteForm.value.recipientCompany.trim();
+        return `Nháp K-Flex - ${proj}${rec ? ` (${rec})` : ''}`;
+    }
+    const proj = quoteForm.value.projectName.trim() || 'Dự án Ariston';
+    const rec = quoteForm.value.recipientPerson.trim() || quoteForm.value.recipientCompany.trim();
+    return `Nháp Ariston - ${proj}${rec ? ` (${rec})` : ''}`;
+});
+
+const persistLocalWorkingDraft = (): void => {
+    try {
+        const payload = buildCurrentQuotationPayload();
+        localStorage.setItem(
+            LOCAL_AUTOSAVE_KEY,
+            JSON.stringify({
+                updatedAt: new Date().toISOString(),
+                draftId: currentDraftId.value,
+                draftTitle: draftTitleInput.value,
+                payload,
+            }),
+        );
+        const now = new Date();
+        lastAutoSavedAt.value = `${pad2(now.getHours())}:${pad2(now.getMinutes())}:${pad2(now.getSeconds())}`;
+    } catch {
+        // Ignore storage quota errors
+    }
+};
+
+let autoSaveTimer: number | null = null;
+watch(
+    [activeQuotationType, quoteForm, items, kflexQuoteForm, kflexSelectedProductLines, kflexGroups],
+    () => {
+        if (isApplyingPayload) {
+            return;
+        }
+        if (autoSaveTimer !== null) {
+            window.clearTimeout(autoSaveTimer);
+        }
+        autoSaveTimer = window.setTimeout(() => {
+            persistLocalWorkingDraft();
+        }, 500);
+    },
+    { deep: true },
+);
+
+onMounted(() => {
+    if (props.initialContact) {
+        return;
+    }
+    try {
+        const raw = localStorage.getItem(LOCAL_AUTOSAVE_KEY);
+        if (!raw) {
+            return;
+        }
+        const parsed = JSON.parse(raw) as {
+            updatedAt?: string;
+            draftId?: number | null;
+            draftTitle?: string;
+            payload?: QuotationPayloadState;
+        };
+        if (parsed?.payload) {
+            applyQuotationPayload(parsed.payload);
+            if (parsed.draftId) {
+                currentDraftId.value = parsed.draftId;
+            }
+            if (parsed.draftTitle) {
+                draftTitleInput.value = parsed.draftTitle;
+            }
+            if (parsed.updatedAt) {
+                const dt = new Date(parsed.updatedAt);
+                if (!Number.isNaN(dt.getTime())) {
+                    lastAutoSavedAt.value = `${pad2(dt.getHours())}:${pad2(dt.getMinutes())}`;
+                }
+            }
+        }
+    } catch {
+        // Ignore invalid local draft
+    }
+});
+
+const saveQuotationDraft = (saveAsNew = false): void => {
+    if (isSavingDraft.value) {
+        return;
+    }
+
+    const isKflex = activeQuotationType.value === 'second';
+    const titleToSave =
+        draftTitleInput.value.trim() || defaultSuggestedDraftTitle.value.slice(0, 180);
+    const payload = buildCurrentQuotationPayload();
+
+    isSavingDraft.value = true;
+    persistLocalWorkingDraft();
+
+    router.post(
+        '/admin/quotations/drafts',
+        {
+            draft_id: saveAsNew ? null : currentDraftId.value,
+            title: titleToSave,
+            quotation_type: activeQuotationType.value,
+            project_name: isKflex
+                ? kflexQuoteForm.value.projectName
+                : quoteForm.value.projectName,
+            recipient_company: isKflex
+                ? kflexQuoteForm.value.recipientCompany
+                : quoteForm.value.recipientCompany,
+            recipient_person: isKflex
+                ? kflexQuoteForm.value.recipientPerson
+                : quoteForm.value.recipientPerson,
+            items_count: isKflex ? kflexTotalItemsCount.value : items.value.length,
+            grand_total: isKflex ? kflexGrandTotal.value : grandTotal.value,
+            payload: payload as unknown as Record<string, any>,
+        },
+        {
+            preserveScroll: true,
+            preserveState: true,
+            onSuccess: () => {
+                draftTitleInput.value = titleToSave;
+                const matching = props.quotationDrafts?.[0];
+                if (saveAsNew && matching) {
+                    currentDraftId.value = matching.id;
+                } else if (!currentDraftId.value && matching) {
+                    currentDraftId.value = matching.id;
+                }
+                showDraftsPanel.value = true;
+                persistLocalWorkingDraft();
+                notifyToast(`Đã lưu bản nháp "${titleToSave}" thành công.`);
+            },
+            onError: () => {
+                notifyToast('Không thể lưu bản nháp lên máy chủ. Đã lưu tạm trên trình duyệt.');
+            },
+            onFinish: () => {
+                isSavingDraft.value = false;
+            },
+        },
+    );
+};
+
+const loadQuotationDraft = (draft: QuotationDraftRecord): void => {
+    if (!draft.payload) {
+        notifyToast('Bản nháp này không có dữ liệu chi tiết.');
+        return;
+    }
+    applyQuotationPayload(draft.payload);
+    currentDraftId.value = draft.id;
+    draftTitleInput.value = draft.title;
+    persistLocalWorkingDraft();
+    notifyToast(`Đã nạp bản nháp "${draft.title}" để tiếp tục chỉnh sửa.`);
+};
+
+const overwriteQuotationDraft = (draft: QuotationDraftRecord): void => {
+    currentDraftId.value = draft.id;
+    if (!draftTitleInput.value.trim()) {
+        draftTitleInput.value = draft.title;
+    }
+    saveQuotationDraft(false);
+};
+
+const deleteQuotationDraft = (draft: QuotationDraftRecord): void => {
+    router.delete(`/admin/quotations/drafts/${draft.id}`, {
+        preserveScroll: true,
+        preserveState: true,
+        onSuccess: () => {
+            if (currentDraftId.value === draft.id) {
+                currentDraftId.value = null;
+            }
+            notifyToast(`Đã xóa bản nháp "${draft.title}".`);
+        },
+    });
+};
+
+const resetQuotationToDefault = (): void => {
+    isApplyingPayload = true;
+    try {
+        currentDraftId.value = null;
+        draftTitleInput.value = '';
+        localStorage.removeItem(LOCAL_AUTOSAVE_KEY);
+        if (activeQuotationType.value === 'ariston') {
+            quoteForm.value = {
+                documentTitle: 'BÁO GIÁ BƠM NHIỆT ARISTON',
+                recipientCompany: 'QUÝ ĐỐI TÁC CÔNG TY CỔ PHẦN TẬP ĐOÀN BĐS VẠN XUÂN',
+                recipientPerson: 'Ms.Vân Chi',
+                contactPhone: '0963.015.966',
+                quoteDate: todayIso,
+                validUntilDate: addTwoMonths(todayIso),
+                projectName: 'Chung cư cao cấp Vạn Xuân',
+                vatPercent: 8,
+                signerName: 'Nguyễn Tuấn Kiệt',
+                signerPhone: '0979 807 234',
+                signerEmail: 'tuankiet@starlightgroup.vn',
+            };
+            items.value = [createItemFromProduct(defaultFirstProduct, 798)];
+        } else {
+            kflexQuoteForm.value = {
+                documentTitle: 'BÁO GIÁ BẢO ÔN K-FLEX',
+                recipientCompany: 'Quý đối tác Công ty Cổ phần Kỹ thuật Thăng Tiến',
+                recipientPerson: 'Mr.Phương',
+                projectName: 'Detech Tower',
+                quoteDate: todayIso,
+                validUntilDate: addTwoMonths(todayIso),
+                vatPercent: 8,
+                introText: 'Công ty Star Light là đơn vị phân phối mảng dự án sản phẩm bảo ôn K-FLEX',
+                paymentTerms: 'Thỏa thuận',
+                deliveryMethod: 'Giao hàng tại chân công trình',
+                deliveryTime:
+                    'tối thiểu 40 ngày (đối với hàng nhập khẩu) kể từ ngày đơn đặt hàng được xác nhận, Hiện đơn hàng đang có sẵn',
+                contactName: 'Mr.Kiệt',
+                contactHp: '0979.807.234',
+                contactEmail: 'tuankiet@starlightgroup.vn',
+            };
+            kflexSelectedProductLines.value = ['st'];
+            kflexGroups.value = [
+                {
+                    uid: nextUid(),
+                    hasTitle: true,
+                    title: 'BẢO ÔN CHO ĐƯỜNG THÉP',
+                    items: [createDefaultKflexRow('st', 'tube')],
+                },
+            ];
+        }
+        notifyToast('Đã đặt lại biểu mẫu báo giá về mặc định.');
+    } finally {
+        setTimeout(() => {
+            isApplyingPayload = false;
+        }, 0);
+    }
+};
+
+const triggerImportQuotationFile = (): void => {
+    importFileInputRef.value?.click();
+};
+
+const importQuotationFromFileObject = async (file: File): Promise<void> => {
+    isImportingFile.value = true;
+    try {
+        let importedPayload: Partial<QuotationPayloadState> | null = null;
+        try {
+            importedPayload = await parseExportedQuotationFile(
+                file,
+                props.aristonProducts,
+                props.kflexPrices,
+                todayIso,
+            );
+        } catch (clientErr) {
+            const formData = new FormData();
+            formData.append('quotation_file', file);
+            const csrfToken =
+                document
+                    .querySelector('meta[name="csrf-token"]')
+                    ?.getAttribute('content') || '';
+            const res = await fetch('/admin/quotations/import', {
+                method: 'POST',
+                headers: {
+                    Accept: 'application/json',
+                    ...(csrfToken ? { 'X-CSRF-TOKEN': csrfToken } : {}),
+                },
+                body: formData,
+            });
+            if (res.ok) {
+                const data = (await res.json()) as { payload?: Partial<QuotationPayloadState> };
+                if (data?.payload) {
+                    importedPayload = data.payload;
+                }
+            } else {
+                throw clientErr;
+            }
+        }
+
+        if (!importedPayload) {
+            throw new Error('Không đọc được dữ liệu báo giá từ file đã chọn.');
+        }
+
+        const mergedPayload: QuotationPayloadState = {
+            ...buildCurrentQuotationPayload(),
+            ...importedPayload,
+        };
+
+        applyQuotationPayload(mergedPayload);
+        currentDraftId.value = null;
+        draftTitleInput.value = `Sửa từ file: ${file.name.replace(/\.[^.]+$/, '')}`;
+        persistLocalWorkingDraft();
+
+        const typeLabel =
+            mergedPayload.quotationType === 'second' ? 'Bảo ôn K-Flex' : 'Bơm nhiệt / Bình nước nóng Ariston';
+        notifyToast(`Đã nhập file "${file.name}" (${typeLabel}) thành công để chỉnh sửa.`);
+    } catch (err) {
+        const msg =
+            err instanceof Error
+                ? err.message
+                : 'Không thể đọc file báo giá. Vui lòng chọn file .xlsx hoặc .pdf đã xuất từ hệ thống.';
+        notifyToast(msg);
+    } finally {
+        isImportingFile.value = false;
+        if (importFileInputRef.value) {
+            importFileInputRef.value.value = '';
+        }
+    }
+};
+
+const onImportQuotationFileChange = async (event: Event): Promise<void> => {
+    const input = event.target as HTMLInputElement | null;
+    const file = input?.files?.[0];
+    if (!file) {
+        return;
+    }
+    await importQuotationFromFileObject(file);
+};
+
+const formatDraftTime = (iso?: string | null): string => {
+    if (!iso) {
+        return '';
+    }
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) {
+        return iso;
+    }
+    return `${pad2(d.getDate())}/${pad2(d.getMonth() + 1)}/${d.getFullYear()} ${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+};
 </script>
 
 <template>
@@ -3205,6 +3669,36 @@ const submitLinkedQuotationResponse = (): void => {
                 <p>Lập bảng báo giá dự án chuẩn mẫu Star Light và xuất file PDF khổ A4 hoặc file Excel.</p>
             </div>
             <div class="actions">
+                <input
+                    ref="importFileInputRef"
+                    type="file"
+                    accept=".xlsx,.pdf,.json,.html,.htm"
+                    class="kb-hidden-file-input"
+                    @change="onImportQuotationFileChange"
+                />
+                <button
+                    type="button"
+                    class="btn kb-import-btn"
+                    :disabled="isImportingFile"
+                    @click="triggerImportQuotationFile"
+                >
+                    {{ isImportingFile ? '⏳ Đang đọc file...' : '📂 Nhập file báo giá để sửa' }}
+                </button>
+                <button
+                    type="button"
+                    class="btn kb-draft-save-btn"
+                    :disabled="isSavingDraft"
+                    @click="saveQuotationDraft(false)"
+                >
+                    {{ isSavingDraft ? '⏳ Đang lưu...' : '💾 Lưu bản nháp' }}
+                </button>
+                <button
+                    type="button"
+                    class="btn"
+                    @click="showDraftsPanel = !showDraftsPanel"
+                >
+                    📋 Bản nháp ({{ props.quotationDrafts.length }})
+                </button>
                 <template v-if="activeQuotationType === 'ariston'">
                     <button
                         class="btn kflex-excel-btn"
@@ -3237,6 +3731,134 @@ const submitLinkedQuotationResponse = (): void => {
                         🖨️ In / Xuất PDF Báo Giá K-Flex
                     </button>
                 </template>
+            </div>
+        </div>
+
+        <!-- Thanh công cụ Lưu Bản Nháp & Nhập File Báo Giá Để Sửa Chữa -->
+        <div class="kb-quote-draft-bar-card">
+            <div class="kb-quote-draft-bar-top">
+                <div class="kb-quote-draft-input-group">
+                    <span class="kb-quote-draft-badge">
+                        {{ currentDraftId ? `Đang sửa nháp #${currentDraftId}` : 'Bản đang soạn' }}
+                    </span>
+                    <input
+                        v-model="draftTitleInput"
+                        type="text"
+                        class="kb-quote-draft-title-input"
+                        :placeholder="defaultSuggestedDraftTitle"
+                    />
+                    <button
+                        type="button"
+                        class="btn kb-draft-save-btn"
+                        :disabled="isSavingDraft"
+                        @click="saveQuotationDraft(false)"
+                    >
+                        💾 {{ currentDraftId ? 'Cập nhật bản nháp' : 'Lưu bản nháp' }}
+                    </button>
+                    <button
+                        v-if="currentDraftId"
+                        type="button"
+                        class="btn"
+                        :disabled="isSavingDraft"
+                        @click="saveQuotationDraft(true)"
+                    >
+                        ＋ Lưu thành nháp mới
+                    </button>
+                </div>
+
+                <div class="kb-quote-draft-right-actions">
+                    <span v-if="lastAutoSavedAt" class="kb-quote-autosave-hint">
+                        ✓ Đã tự lưu tạm lúc {{ lastAutoSavedAt }}
+                    </span>
+                    <button
+                        type="button"
+                        class="btn kb-import-btn"
+                        :disabled="isImportingFile"
+                        @click="triggerImportQuotationFile"
+                    >
+                        📥 Nhập file báo giá đã xuất (.xlsx / .pdf)
+                    </button>
+                    <button
+                        type="button"
+                        class="btn"
+                        @click="showDraftsPanel = !showDraftsPanel"
+                    >
+                        {{ showDraftsPanel ? '▲ Ẩn danh sách nháp' : `▼ Danh sách bản nháp (${props.quotationDrafts.length})` }}
+                    </button>
+                    <button
+                        type="button"
+                        class="btn danger"
+                        title="Đặt lại toàn bộ thông tin về mẫu mặc định ban đầu"
+                        @click="resetQuotationToDefault"
+                    >
+                        ↺ Đặt lại mặc định
+                    </button>
+                </div>
+            </div>
+
+            <div v-if="showDraftsPanel" class="kb-quote-drafts-drawer">
+                <div class="kb-quote-drafts-drawer-head">
+                    <strong>Danh sách bản nháp báo giá đã lưu ({{ props.quotationDrafts.length }})</strong>
+                    <small>Bấm "Mở sửa tiếp" để nạp lại toàn bộ thông tin báo giá chưa xuất ra file.</small>
+                </div>
+
+                <div v-if="props.quotationDrafts.length === 0" class="kb-quote-drafts-empty">
+                    Chưa có bản nháp nào được lưu. Bạn có thể bấm nút <strong>"💾 Lưu bản nháp"</strong> bất cứ lúc nào khi đang làm báo giá.
+                </div>
+
+                <div v-else class="kb-quote-drafts-grid">
+                    <div
+                        v-for="draft in props.quotationDrafts"
+                        :key="draft.id"
+                        class="kb-quote-draft-item"
+                        :class="{ active: currentDraftId === draft.id }"
+                    >
+                        <div class="kb-quote-draft-item-main">
+                            <div class="kb-quote-draft-item-title-row">
+                                <span
+                                    class="kb-quote-draft-type-tag"
+                                    :class="draft.quotation_type === 'second' ? 'kflex' : 'ariston'"
+                                >
+                                    {{ draft.quotation_type === 'second' ? 'K-Flex' : 'Ariston' }}
+                                </span>
+                                <strong>{{ draft.title }}</strong>
+                            </div>
+                            <div class="kb-quote-draft-item-meta">
+                                <span v-if="draft.project_name">Dự án: <b>{{ draft.project_name }}</b></span>
+                                <span v-if="draft.recipient_person || draft.recipient_company">
+                                    · Kính gửi: {{ draft.recipient_person || draft.recipient_company }}
+                                </span>
+                                <span>· {{ draft.items_count }} dòng SP</span>
+                                <span>· Tổng: <b>{{ formatVnd(draft.grand_total) }} đ</b></span>
+                                <span v-if="draft.updated_at">· Cập nhật: {{ formatDraftTime(draft.updated_at) }}</span>
+                            </div>
+                        </div>
+                        <div class="kb-quote-draft-item-actions">
+                            <button
+                                type="button"
+                                class="btn primary"
+                                @click="loadQuotationDraft(draft)"
+                            >
+                                ✏️ Mở sửa tiếp
+                            </button>
+                            <button
+                                type="button"
+                                class="btn"
+                                title="Ghi đè dữ liệu đang soạn hiện tại vào bản nháp này"
+                                @click="overwriteQuotationDraft(draft)"
+                            >
+                                💾 Ghi đè
+                            </button>
+                            <button
+                                type="button"
+                                class="btn danger"
+                                @click="deleteQuotationDraft(draft)"
+                            >
+                                🗑️ Xóa
+                            </button>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -5044,5 +5666,214 @@ const submitLinkedQuotationResponse = (): void => {
 
 .kflex-qp-sign-email {
     color: #0070c0;
+}
+
+.kb-hidden-file-input {
+    display: none;
+}
+
+.kb-import-btn {
+    border-color: #2563eb !important;
+    background: #eff6ff !important;
+    color: #1d4ed8 !important;
+    font-weight: 600;
+}
+
+.kb-import-btn:hover {
+    background: #dbeafe !important;
+}
+
+.kb-draft-save-btn {
+    border-color: #d97706 !important;
+    background: #fffbeb !important;
+    color: #b45309 !important;
+    font-weight: 600;
+}
+
+.kb-draft-save-btn:hover {
+    background: #fef3c7 !important;
+}
+
+.kb-quote-draft-bar-card {
+    background: #ffffff;
+    border: 1px solid #cbd5e1;
+    border-radius: 12px;
+    padding: 12px 14px;
+    margin-bottom: 14px;
+    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+}
+
+.kb-quote-draft-bar-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.kb-quote-draft-input-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 1 1 420px;
+    flex-wrap: wrap;
+}
+
+.kb-quote-draft-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 5px 10px;
+    border-radius: 999px;
+    background: #f1f5f9;
+    color: #334155;
+    font-size: 12px;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.kb-quote-draft-title-input {
+    flex: 1 1 220px;
+    min-width: 180px;
+    padding: 7px 11px;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    font-size: 13px;
+    color: #0f172a;
+}
+
+.kb-quote-draft-title-input:focus {
+    outline: none;
+    border-color: #2563eb;
+    box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.14);
+}
+
+.kb-quote-draft-right-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.kb-quote-autosave-hint {
+    font-size: 12px;
+    color: #15803d;
+    background: #f0fdf4;
+    border: 1px solid #bbf7d0;
+    padding: 4px 9px;
+    border-radius: 999px;
+    font-weight: 600;
+}
+
+.kb-quote-drafts-drawer {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px dashed #cbd5e1;
+}
+
+.kb-quote-drafts-drawer-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 10px;
+}
+
+.kb-quote-drafts-drawer-head strong {
+    font-size: 13.5px;
+    color: #0f172a;
+}
+
+.kb-quote-drafts-drawer-head small {
+    font-size: 12px;
+    color: #64748b;
+}
+
+.kb-quote-drafts-empty {
+    padding: 14px;
+    border-radius: 8px;
+    background: #f8fafc;
+    color: #475569;
+    font-size: 13px;
+    text-align: center;
+}
+
+.kb-quote-drafts-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-height: 320px;
+    overflow-y: auto;
+}
+
+.kb-quote-draft-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 12px;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    background: #f8fafc;
+    flex-wrap: wrap;
+}
+
+.kb-quote-draft-item.active {
+    border-color: #2563eb;
+    background: #eff6ff;
+}
+
+.kb-quote-draft-item-main {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    min-width: 220px;
+    flex: 1;
+}
+
+.kb-quote-draft-item-title-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.kb-quote-draft-item-title-row strong {
+    font-size: 13.5px;
+    color: #0f172a;
+}
+
+.kb-quote-draft-type-tag {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.kb-quote-draft-type-tag.ariston {
+    background: #fee2e2;
+    color: #b91c1c;
+}
+
+.kb-quote-draft-type-tag.kflex {
+    background: #dbeafe;
+    color: #1d4ed8;
+}
+
+.kb-quote-draft-item-meta {
+    font-size: 12px;
+    color: #475569;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.kb-quote-draft-item-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
 }
 </style>

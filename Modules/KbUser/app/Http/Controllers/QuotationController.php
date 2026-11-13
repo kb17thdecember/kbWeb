@@ -6,8 +6,11 @@ use App\Http\Controllers\Controller;
 use App\Models\Category;
 use App\Models\KflexPrice;
 use App\Models\Product;
+use App\Models\QuotationDraft;
 use App\Models\User;
+use App\Support\QuotationFileImporter;
 use Database\Seeders\PublicQuoteUserSeeder;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -109,6 +112,7 @@ class QuotationController extends Controller
         }
 
         Product::ensureOriginColumn();
+        QuotationDraft::ensureTableExists();
 
         $aristonCategory = Category::query()
             ->whereNull('parent_id')
@@ -152,6 +156,11 @@ class QuotationController extends Controller
             ])
             ->values();
 
+        $quotationDrafts = QuotationDraft::query()
+            ->latest('updated_at')
+            ->limit(50)
+            ->get();
+
         return Inertia::render('quotations/Index', [
             'aristonProducts' => $aristonProducts,
             'kflexPrices' => $kflexPrices,
@@ -159,11 +168,117 @@ class QuotationController extends Controller
             'kflexProductLineMeta' => KflexPrice::PRODUCT_LINE_META,
             'kflexTubeVariants' => KflexPrice::TUBE_VARIANTS,
             'kflexSheetVariants' => KflexPrice::SHEET_VARIANTS,
+            'quotationDrafts' => $quotationDrafts,
             'quoteUser' => [
                 'name' => $quoteUser->name,
                 'email' => $quoteUser->email,
             ],
         ]);
+    }
+
+    public function storeDraft(Request $request): RedirectResponse|JsonResponse
+    {
+        $quoteUser = $this->resolveAuthenticatedQuoteUser($request);
+
+        if ($quoteUser === null) {
+            abort(403, 'Vui lòng đăng nhập tài khoản báo giá.');
+        }
+
+        QuotationDraft::ensureTableExists();
+
+        $validated = $request->validate([
+            'draft_id' => ['nullable', 'integer'],
+            'title' => ['required', 'string', 'max:255'],
+            'quotation_type' => ['required', 'string', 'in:ariston,second'],
+            'project_name' => ['nullable', 'string', 'max:255'],
+            'recipient_company' => ['nullable', 'string', 'max:255'],
+            'recipient_person' => ['nullable', 'string', 'max:255'],
+            'items_count' => ['required', 'integer', 'min:1'],
+            'grand_total' => ['required', 'integer', 'min:0'],
+            'payload' => ['required', 'array'],
+        ]);
+
+        $draft = null;
+        if (! empty($validated['draft_id'])) {
+            $draft = QuotationDraft::query()->find((int) $validated['draft_id']);
+        }
+
+        $attributes = [
+            'user_id' => $quoteUser->id,
+            'title' => trim($validated['title']),
+            'quotation_type' => $validated['quotation_type'],
+            'project_name' => isset($validated['project_name']) ? trim((string) $validated['project_name']) : null,
+            'recipient_company' => isset($validated['recipient_company']) ? trim((string) $validated['recipient_company']) : null,
+            'recipient_person' => isset($validated['recipient_person']) ? trim((string) $validated['recipient_person']) : null,
+            'items_count' => (int) $validated['items_count'],
+            'grand_total' => (int) $validated['grand_total'],
+            'payload' => $validated['payload'],
+        ];
+
+        if ($draft !== null) {
+            $draft->update($attributes);
+            $message = 'Đã cập nhật bản nháp báo giá thành công.';
+        } else {
+            $draft = QuotationDraft::query()->create($attributes);
+            $message = 'Đã lưu bản nháp báo giá mới thành công.';
+        }
+
+        if ($request->wantsJson()) {
+            return response()->json([
+                'message' => $message,
+                'draft' => $draft->fresh(),
+            ]);
+        }
+
+        return back()->with('toast', $message);
+    }
+
+    public function destroyDraft(Request $request, QuotationDraft $quotationDraft): RedirectResponse|JsonResponse
+    {
+        $quoteUser = $this->resolveAuthenticatedQuoteUser($request);
+
+        if ($quoteUser === null) {
+            abort(403, 'Vui lòng đăng nhập tài khoản báo giá.');
+        }
+
+        $quotationDraft->delete();
+
+        if ($request->wantsJson()) {
+            return response()->json([
+                'message' => 'Đã xóa bản nháp báo giá.',
+            ]);
+        }
+
+        return back()->with('toast', 'Đã xóa bản nháp báo giá.');
+    }
+
+    public function importFile(Request $request, QuotationFileImporter $importer): JsonResponse
+    {
+        $quoteUser = $this->resolveAuthenticatedQuoteUser($request);
+
+        if ($quoteUser === null) {
+            abort(403, 'Vui lòng đăng nhập tài khoản báo giá.');
+        }
+
+        $request->validate([
+            'file' => ['required', 'file', 'max:20480'],
+        ], [
+            'file.required' => 'Vui lòng chọn file báo giá cần nhập.',
+        ]);
+
+        try {
+            $file = $request->file('file');
+            $payload = $importer->import($file->getRealPath(), $file->getClientOriginalName());
+
+            return response()->json([
+                'payload' => $payload,
+                'message' => 'Đã đọc file báo giá thành công.',
+            ]);
+        } catch (Throwable $e) {
+            return response()->json([
+                'message' => $e->getMessage() ?: 'Không thể đọc file báo giá này.',
+            ], 422);
+        }
     }
 
     private function resolveAuthenticatedQuoteUser(Request $request): ?User

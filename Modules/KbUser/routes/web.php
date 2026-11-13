@@ -250,6 +250,9 @@ Route::middleware(UseKbUserRootView::class)->group(function () {
     Route::get('/auth/google/callback', [UserAuthController::class, 'handleGoogleCallback'])->name('kbuser.auth.google.callback');
 
     Route::get('/quotations', [QuotationController::class, 'index'])->name('kbuser.quotations.index');
+    Route::post('/quotations/drafts', [QuotationController::class, 'storeDraft'])->name('kbuser.quotations.drafts.store');
+    Route::delete('/quotations/drafts/{quotationDraft}', [QuotationController::class, 'destroyDraft'])->whereNumber('quotationDraft')->name('kbuser.quotations.drafts.destroy');
+    Route::post('/quotations/import', [QuotationController::class, 'importFile'])->name('kbuser.quotations.import');
     Route::get('/quotations/login', [QuotationController::class, 'showLogin'])->name('kbuser.quotations.login');
     Route::post('/quotations/login', [QuotationController::class, 'login'])->name('kbuser.quotations.login.store');
     Route::post('/quotations/logout', [QuotationController::class, 'logout'])->name('kbuser.quotations.logout');
