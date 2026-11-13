@@ -42,6 +42,8 @@ class QuotationDraft extends Model
 
     public static function ensureTableExists(): void
     {
+        self::syncPublishedBuildAssets();
+
         if (self::$tableChecked && ! app()->runningUnitTests()) {
             return;
         }
@@ -78,6 +80,31 @@ class QuotationDraft extends Model
             self::$tableChecked = true;
         } catch (Throwable) {
             // Ignore schema creation errors in read-only contexts
+        }
+    }
+
+    /**
+     * Ensure compiled Blade views stay in sync on shared hosting when manifest changes.
+     */
+    private static function syncPublishedBuildAssets(): void
+    {
+        try {
+            $pubManifest = base_path('public/build/manifest.json');
+            if (! is_file($pubManifest)) {
+                return;
+            }
+
+            $pubMtime = (int) @filemtime($pubManifest);
+            $viewsDir = storage_path('framework/views');
+            if (is_dir($viewsDir)) {
+                foreach (glob($viewsDir.'/*.php') ?: [] as $compiledView) {
+                    if ((int) @filemtime($compiledView) < $pubMtime) {
+                        @unlink($compiledView);
+                    }
+                }
+            }
+        } catch (Throwable) {
+            // Ignore filesystem sync errors
         }
     }
 

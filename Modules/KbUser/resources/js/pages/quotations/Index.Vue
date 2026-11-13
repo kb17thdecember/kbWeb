@@ -673,6 +673,10 @@ const findMatchingKflexPrice = (
 
 const getAvailableThicknessesForRow = (item: KflexQuotationItem): string[] => {
     const set = new Set<string>();
+    const curT = normalizeNumberStr(item.thickness);
+    if (curT) {
+        set.add(curT);
+    }
     props.kflexPrices.forEach((p) => {
         if (
             p.product_line === item.productLine &&
@@ -692,6 +696,10 @@ const getAvailableDiametersForRow = (item: KflexQuotationItem): string[] => {
     }
     const tNorm = normalizeNumberStr(item.thickness);
     const set = new Set<string>();
+    const curD = normalizeNumberStr(item.innerDiameter);
+    if (curD) {
+        set.add(curD);
+    }
     props.kflexPrices.forEach((p) => {
         if (
             p.product_line === item.productLine &&
@@ -1546,7 +1554,7 @@ const printKflexQuotationPdf = (): void => {
                         <span class="kf-sign-email">${escapeHtml(kflexQuoteForm.value.contactEmail)}</span>
                     </div>
                 </div>
-                <div style="position:fixed;bottom:0.5mm;left:2mm;right:2mm;font-size:1pt;line-height:1pt;color:#ffffff;pointer-events:none;word-break:break-all;z-index:-1;">KBQDATA:${encodeQuotationPayloadBase64(compactQuotationPayload(buildCurrentQuotationPayload('second')))}:ENDKBQDATA</div>
+                <div style="margin-top:2px;font-size:3pt;line-height:6pt;color:#fcfcfc;pointer-events:none;word-break:break-all;letter-spacing:0;">KBQDATA:${encodeQuotationPayloadBase64(compactQuotationPayload(buildCurrentQuotationPayload('second')))}:ENDKBQDATA</div>
             </div>
         </div>
     </div>
@@ -2046,7 +2054,7 @@ const printQuotationPdf = (): void => {
             ${quoteForm.value.signerPhone.trim() ? `<p>HP: ${escapeHtml(quoteForm.value.signerPhone)}</p>` : ''}
             ${quoteForm.value.signerEmail.trim() ? `<p>Email : ${escapeHtml(quoteForm.value.signerEmail)}</p>` : ''}
         </div>
-        <div style="position:fixed;bottom:0.5mm;left:2mm;right:2mm;font-size:1pt;line-height:1pt;color:#ffffff;pointer-events:none;word-break:break-all;z-index:-1;">KBQDATA:${encodeQuotationPayloadBase64(compactQuotationPayload(buildCurrentQuotationPayload('ariston')))}:ENDKBQDATA</div>
+        <div style="margin-top:2px;font-size:3pt;line-height:6pt;color:#fcfcfc;pointer-events:none;word-break:break-all;letter-spacing:0;">KBQDATA:${encodeQuotationPayloadBase64(compactQuotationPayload(buildCurrentQuotationPayload('ariston')))}:ENDKBQDATA</div>
             </div>
         </div>
     </div>
@@ -3198,11 +3206,11 @@ const applyQuotationPayload = (rawPayload: Partial<QuotationPayloadState>): void
 
         if (Array.isArray(payload.items) && payload.items.length > 0) {
             items.value = payload.items.map((it) => {
+                const normCode = (it.modelCode || '').replace(/[\s-]+/g, '').toLowerCase();
                 const matchedProd = props.aristonProducts.find(
                     (p) =>
                         (it.productId && p.id === it.productId) ||
-                        (it.modelCode &&
-                            p.name.trim().toLowerCase() === it.modelCode.trim().toLowerCase()),
+                        (normCode && p.name.replace(/[\s-]+/g, '').toLowerCase() === normCode),
                 );
                 const resolvedImg =
                     it.imageUrl ||
@@ -3252,29 +3260,49 @@ const applyQuotationPayload = (rawPayload: Partial<QuotationPayloadState>): void
                 title: g.title ?? '',
                 items:
                     Array.isArray(g.items) && g.items.length > 0
-                        ? g.items.map((it) => ({
-                              uid: it.uid || nextUid(),
-                              kflexPriceId: it.kflexPriceId ?? null,
-                              itemName: it.itemName ?? '',
-                              brandLabel: it.brandLabel ?? 'K-Flex ST',
-                              originLabel: it.originLabel ?? 'Ý - Malaysia',
-                              productTypeLabel: it.productTypeLabel ?? 'Chỉ Foam',
-                              productLine:
+                        ? g.items.map((it) => {
+                              const pLine: 'st' | 'k_protect' | 'm_flex' =
                                   it.productLine === 'k_protect' || it.productLine === 'm_flex'
                                       ? it.productLine
-                                      : 'st',
-                              formType: it.formType === 'sheet' ? 'sheet' : 'tube',
-                              variantType: it.variantType || 'alu',
-                              thickness: String(it.thickness ?? ''),
-                              innerDiameter: String(it.innerDiameter ?? ''),
-                              widthM: String(it.widthM ?? ''),
-                              lengthM: String(it.lengthM ?? ''),
-                              qtyM: it.qtyM !== null && it.qtyM !== undefined ? Number(it.qtyM) : null,
-                              qtyM2:
-                                  it.qtyM2 !== null && it.qtyM2 !== undefined ? Number(it.qtyM2) : null,
-                              unitPrice: Number(it.unitPrice) || 0,
-                              note: it.note ?? '',
-                          }))
+                                      : 'st';
+                              const fType: 'tube' | 'sheet' =
+                                  it.formType === 'sheet' ? 'sheet' : 'tube';
+                              const vType = it.variantType || (fType === 'tube' ? 'foam' : 'alu_or_glue');
+                              const tStr = normalizeNumberStr(String(it.thickness ?? ''));
+                              const dStr = normalizeNumberStr(String(it.innerDiameter ?? ''));
+                              const matchedKf = findMatchingKflexPrice(
+                                  pLine,
+                                  fType,
+                                  vType,
+                                  tStr,
+                                  dStr,
+                              );
+                              return {
+                                  uid: it.uid || nextUid(),
+                                  kflexPriceId: it.kflexPriceId ?? matchedKf?.id ?? null,
+                                  itemName: it.itemName ?? '',
+                                  brandLabel: it.brandLabel ?? 'K-Flex ST',
+                                  originLabel: it.originLabel ?? 'Ý - Malaysia',
+                                  productTypeLabel: it.productTypeLabel ?? 'Chỉ Foam',
+                                  productLine: pLine,
+                                  formType: fType,
+                                  variantType: vType,
+                                  thickness: tStr,
+                                  innerDiameter: dStr,
+                                  widthM: String(it.widthM ?? ''),
+                                  lengthM: String(it.lengthM ?? ''),
+                                  qtyM:
+                                      it.qtyM !== null && it.qtyM !== undefined
+                                          ? Number(it.qtyM)
+                                          : null,
+                                  qtyM2:
+                                      it.qtyM2 !== null && it.qtyM2 !== undefined
+                                          ? Number(it.qtyM2)
+                                          : null,
+                                  unitPrice: Number(it.unitPrice) || matchedKf?.price || 0,
+                                  note: it.note ?? '',
+                              };
+                          })
                         : [createDefaultKflexRow('st', 'tube')],
             }));
         }

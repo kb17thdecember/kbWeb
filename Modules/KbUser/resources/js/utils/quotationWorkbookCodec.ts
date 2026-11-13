@@ -186,8 +186,22 @@ export function compactQuotationPayload(payload: QuotationPayloadState): Quotati
         quotationType: 'ariston',
         activeQuotationType: 'ariston',
     };
+    const isKflex = (normalized.quotationType || normalized.activeQuotationType) === 'second';
+    if (isKflex) {
+        return {
+            version: 1,
+            quotationType: 'second',
+            activeQuotationType: 'second',
+            kflexQuoteForm: normalized.kflexQuoteForm,
+            kflexSelectedProductLines: normalized.kflexSelectedProductLines,
+            kflexGroups: normalized.kflexGroups,
+        };
+    }
     return {
-        ...normalized,
+        version: 1,
+        quotationType: 'ariston',
+        activeQuotationType: 'ariston',
+        quoteForm: normalized.quoteForm,
         items: Array.isArray(normalized.items)
             ? normalized.items.map((item) => ({
                   ...item,
@@ -261,8 +275,15 @@ export function parseSlashDateToIso(raw: string, fallbackIso: string): string {
     }
     const match = trimmed.match(/(\d{1,2})[/-](\d{1,2})[/-](\d{4})/);
     if (match) {
-        const day = String(Number(match[1])).padStart(2, '0');
-        const month = String(Number(match[2])).padStart(2, '0');
+        let p1 = Number(match[1]);
+        let p2 = Number(match[2]);
+        if (p2 > 12 && p1 <= 12) {
+            const tmp = p1;
+            p1 = p2;
+            p2 = tmp;
+        }
+        const day = String(p1).padStart(2, '0');
+        const month = String(p2).padStart(2, '0');
         const year = match[3];
         return `${year}-${month}-${day}`;
     }
@@ -1398,14 +1419,26 @@ function parseToUnicodeCMap(cmapText: string, map: Map<string, string>): void {
             }
         }
 
-        const ranges = block[1].matchAll(
+        const blockWithoutArrays = block[1].replace(
+            /<([0-9A-Fa-f]+)>\s*<([0-9A-Fa-f]+)>\s*\[[\s\S]*?\]/g,
+            '',
+        );
+        const ranges = blockWithoutArrays.matchAll(
             /<([0-9A-Fa-f]+)>\s*<([0-9A-Fa-f]+)>\s*<([0-9A-Fa-f]+)>/g,
         );
         for (const r of ranges) {
             const start = parseInt(r[1], 16);
             const end = parseInt(r[2], 16);
-            let target = parseInt(r[3], 16);
             const padLen = r[1].length;
+            if (start === end && r[3].length > 4) {
+                const key = start.toString(16).toUpperCase().padStart(padLen, '0');
+                const dst = decodeHexToUnicode(r[3]);
+                if (dst) {
+                    map.set(key, dst);
+                }
+                continue;
+            }
+            let target = parseInt(r[3], 16);
             if (!Number.isNaN(start) && !Number.isNaN(end) && !Number.isNaN(target)) {
                 for (let code = start; code <= end && code - start < 1024; code++) {
                     const key = code.toString(16).toUpperCase().padStart(padLen, '0');
@@ -1415,6 +1448,118 @@ function parseToUnicodeCMap(cmapText: string, map: Map<string, string>): void {
             }
         }
     }
+}
+
+function shouldInsertPdfSpace(prevText: string, nextText: string, gap: number): boolean {
+    if (gap <= 2.4 || prevText.endsWith(' ') || nextText.startsWith(' ')) {
+        return false;
+    }
+    if (/^[.,:;)\]]/.test(nextText) || prevText.endsWith('(') || prevText.endsWith('-')) {
+        return false;
+    }
+    if (
+        gap < 6.5 &&
+        /\p{L}$/u.test(prevText) &&
+        /^[àáạảãăắằẳẵặâấầẩẫậèéẹẻẽêếềểễệìíịỉĩòóọỏõôốồổỗộơớờởỡợùúụủũưứừửữựỳýỵỷỹ]/i.test(nextText)
+    ) {
+        return false;
+    }
+    return true;
+}
+
+type PdfCellRun = {
+    x: number;
+    endX: number;
+    centerX: number;
+    text: string;
+};
+
+type PdfStructuredRow = {
+    page: number;
+    y: number;
+    cellRuns: PdfCellRun[];
+    cells: string[];
+    line: string;
+};
+
+function buildPdfColumnDividers(
+    headerRows: PdfStructuredRow[],
+    tableMinX: number,
+    tableMaxX: number,
+    proportions: number[],
+    colMatchers: Array<(txtLower: string) => boolean>,
+    vLines: number[] = [],
+): number[] {
+    const colCount = proportions.length;
+    const tableVLines = vLines.filter((vl) => vl >= tableMinX - 25 && vl <= tableMaxX + 35);
+    if (tableVLines.length === colCount + 1) {
+        return tableVLines.slice(1, colCount);
+    }
+
+    const span = Math.max(200, tableMaxX - tableMinX);
+    const defaultMin: number[] = [];
+    const defaultMax: number[] = [];
+    let acc = 0;
+    for (let c = 0; c < colCount; c++) {
+        defaultMin[c] = tableMinX + acc * span;
+        acc += proportions[c];
+        defaultMax[c] = tableMinX + acc * span;
+    }
+
+    const detectedMin: Array<number | null> = new Array(colCount).fill(null);
+    const detectedMax: Array<number | null> = new Array(colCount).fill(null);
+
+    for (const hr of headerRows) {
+        for (const cr of hr.cellRuns) {
+            const txtLower = cr.text.toLowerCase().trim();
+            if (!txtLower || txtLower.includes('kích thước') || txtLower.includes('khối lượng')) {
+                continue;
+            }
+            for (let c = 0; c < colCount; c++) {
+                if (colMatchers[c](txtLower)) {
+                    detectedMin[c] = detectedMin[c] === null ? cr.x : Math.min(detectedMin[c]!, cr.x);
+                    detectedMax[c] = detectedMax[c] === null ? cr.endX : Math.max(detectedMax[c]!, cr.endX);
+                    break;
+                }
+            }
+        }
+    }
+
+    const dividers: number[] = [];
+    for (let c = 0; c < colCount - 1; c++) {
+        if (
+            detectedMax[c] !== null &&
+            detectedMin[c + 1] !== null &&
+            detectedMin[c + 1]! > detectedMax[c]!
+        ) {
+            dividers[c] = (detectedMax[c]! + detectedMin[c + 1]!) / 2;
+        } else {
+            dividers[c] = defaultMax[c];
+        }
+    }
+    return dividers;
+}
+
+function resolvePdfColumnIndex(
+    x: number,
+    centerX: number,
+    dividers: number[],
+    leftAlignedCols: number[] = [],
+): number {
+    const colCount = dividers.length + 1;
+    for (const lc of leftAlignedCols) {
+        const leftBound = lc === 0 ? -1e9 : dividers[lc - 1] - 4;
+        const rightBound = lc < dividers.length ? dividers[lc] : 1e9;
+        if (x >= leftBound && x < rightBound && centerX < rightBound + 8) {
+            return lc;
+        }
+    }
+    for (let c = 0; c < dividers.length; c++) {
+        if (centerX < dividers[c]) {
+            return c;
+        }
+    }
+    return colCount - 1;
 }
 
 function decodePdfStringToken(token: string, activeCMap: Map<string, string>, fallbackCMap: Map<string, string>): string {
@@ -1568,10 +1713,10 @@ async function parseExportedQuotationPdf(
         }
     }
 
-    // Map font resource name (/F1, /F2, ...) -> CMap
+    // Map font resource name (/F1, /F2, /TT0, ...) -> CMap
     const fontNameToCMap = new Map<string, Map<string, string>>();
     for (const header of objectHeaders.values()) {
-        const fontRefs = header.matchAll(/\/(F\d+)\s+(\d+)\s+\d+\s+R/g);
+        const fontRefs = header.matchAll(/\/([A-Za-z0-9_.-]+)\s+(\d+)\s+\d+\s+R/g);
         for (const ref of fontRefs) {
             const fontName = ref[1];
             const fontObjId = Number(ref[2]);
@@ -1582,74 +1727,225 @@ async function parseExportedQuotationPdf(
         }
     }
 
-    // 4. Decode BT..ET blocks while tracking active font (/F1 Tf) and line breaks (Td/TD/Tm/T*)
-    const decodedLines: string[] = [];
+    // 4. Decode PDF content streams sequentially
+    type PdfTextRun = {
+        page: number;
+        x: number;
+        endX: number;
+        y: number;
+        fontSize: number;
+        text: string;
+    };
+
+    const estimateRunWidth = (txt: string, fontSize: number): number => {
+        let w = 0;
+        for (let i = 0; i < txt.length; i++) {
+            const ch = txt[i];
+            if (ch === ' ' || ch === 'i' || ch === 'l' || ch === 'I' || ch === '.' || ch === ',' || ch === ':') {
+                w += fontSize * 0.28;
+            } else if (ch.toUpperCase() === ch && ch.toLowerCase() !== ch) {
+                w += fontSize * 0.65;
+            } else {
+                w += fontSize * 0.50;
+            }
+        }
+        return w;
+    };
+
+    const textRuns: PdfTextRun[] = [];
+    const rawVLines: number[] = [];
+    const streamOrderChunks: string[] = [];
+    let pageIdx = 0;
+
     for (const s of allDecompressedStreams) {
         if (!s.includes('BT') || !s.includes('ET')) {
             continue;
         }
-        let activeCMap = fallbackCMap;
-        const btBlocks = s.matchAll(/BT([\s\S]*?)ET/g);
-        for (const blk of btBlocks) {
-            const body = blk[1];
-            let currentLine = '';
-            const opRegex =
-                /\/(F\d+)\s+[\d.-]+\s+Tf|([\d.-]+)\s+([\d.-]+)\s+Td|([\d.-]+)\s+([\d.-]+)\s+TD|[\d.-]+\s+[\d.-]+\s+[\d.-]+\s+[\d.-]+\s+([\d.-]+)\s+([\d.-]+)\s+Tm|\bT\*|<[0-9A-Fa-f\s]+>|\((?:\\.|[^\\()])*\)|\[(?:<[0-9A-Fa-f\s]+>|\((?:\\.|[^\\()])*\)|[\s\d.-])*\]\s*TJ/g;
-            let opMatch: RegExpExecArray | null;
-            let lastTmY: number | null = null;
+        pageIdx++;
+        const reMatches = s.matchAll(/([\d.-]+)\s+([\d.-]+)\s+([\d.-]+)\s+([\d.-]+)\s+re\b/g);
+        for (const rm of reMatches) {
+            const rx = parseFloat(rm[1]);
+            const rw = parseFloat(rm[3]);
+            const rh = parseFloat(rm[4]);
+            if (Math.abs(rw) < 2.0 && Math.abs(rh) > 15.0 && !Number.isNaN(rx)) {
+                rawVLines.push(Math.round(rx * 100) / 100);
+            }
+        }
 
-            while ((opMatch = opRegex.exec(body)) !== null) {
-                const full = opMatch[0];
-                if (opMatch[1]) {
-                    // /F1 ... Tf
-                    activeCMap = fontNameToCMap.get(opMatch[1]) ?? fallbackCMap;
-                } else if (opMatch[2] !== undefined && opMatch[3] !== undefined) {
-                    // dx dy Td
-                    const dy = parseFloat(opMatch[3]);
-                    if (Math.abs(dy) > 1.5 && currentLine.trim()) {
-                        decodedLines.push(currentLine.trim());
-                        currentLine = '';
-                    }
-                } else if (opMatch[4] !== undefined && opMatch[5] !== undefined) {
-                    // dx dy TD
-                    const dy = parseFloat(opMatch[5]);
-                    if (Math.abs(dy) > 1.5 && currentLine.trim()) {
-                        decodedLines.push(currentLine.trim());
-                        currentLine = '';
-                    }
-                } else if (opMatch[6] !== undefined && opMatch[7] !== undefined) {
-                    // a b c d e f Tm
-                    const y = parseFloat(opMatch[7]);
-                    if (lastTmY !== null && Math.abs(y - lastTmY) > 1.5 && currentLine.trim()) {
-                        decodedLines.push(currentLine.trim());
-                        currentLine = '';
-                    }
-                    lastTmY = y;
-                } else if (full === 'T*') {
-                    if (currentLine.trim()) {
-                        decodedLines.push(currentLine.trim());
-                        currentLine = '';
-                    }
-                } else if (full.startsWith('[')) {
-                    // [...] TJ array
-                    const innerTokens = full.matchAll(/<[0-9A-Fa-f\s]+>|\((?:\\.|[^\\()])*\)|(-?\d+(?:\.\d+)?)/g);
-                    for (const it of innerTokens) {
-                        if (it[1] !== undefined) {
-                            const kern = parseFloat(it[1]);
-                            if (kern < -180 && !currentLine.endsWith(' ')) {
-                                currentLine += ' ';
-                            }
-                        } else {
-                            currentLine += decodePdfStringToken(it[0], activeCMap, fallbackCMap);
+        let activeCMap = fallbackCMap;
+        let fontSize = 6.0;
+        let tmA = 1.0;
+        let tmD = 1.0;
+        let curX = 0;
+        let curY = 0;
+
+        const opRegex =
+            /\/([A-Za-z0-9_.-]+)\s+([\d.-]+)\s+Tf|([\d.-]+)\s+([\d.-]+)\s+Td|([\d.-]+)\s+([\d.-]+)\s+TD|([\d.-]+)\s+[\d.-]+\s+[\d.-]+\s+([\d.-]+)\s+([\d.-]+)\s+([\d.-]+)\s+Tm|\[(?:<[0-9A-Fa-f\s]+>|\((?:\\.|[^\\()])*\)|[\s\d.-])*\]\s*TJ|<[0-9A-Fa-f\s]+>\s*Tj|\((?:\\.|[^\\()])*\)\s*Tj/g;
+        let opMatch: RegExpExecArray | null;
+
+        while ((opMatch = opRegex.exec(s)) !== null) {
+            const full = opMatch[0];
+            if (opMatch[1] !== undefined && opMatch[2] !== undefined) {
+                activeCMap = fontNameToCMap.get(opMatch[1]) ?? fallbackCMap;
+                const rawSize = parseFloat(opMatch[2]) || 6.0;
+                fontSize = rawSize > 0 ? rawSize : 6.0;
+            } else if (opMatch[3] !== undefined && opMatch[4] !== undefined) {
+                curX += (parseFloat(opMatch[3]) || 0) * Math.abs(tmA);
+                curY += (parseFloat(opMatch[4]) || 0) * tmD;
+            } else if (opMatch[5] !== undefined && opMatch[6] !== undefined) {
+                curX += (parseFloat(opMatch[5]) || 0) * Math.abs(tmA);
+                curY += (parseFloat(opMatch[6]) || 0) * tmD;
+            } else if (
+                opMatch[7] !== undefined &&
+                opMatch[8] !== undefined &&
+                opMatch[9] !== undefined &&
+                opMatch[10] !== undefined
+            ) {
+                tmA = parseFloat(opMatch[7]) || 1.0;
+                tmD = parseFloat(opMatch[8]) || 1.0;
+                curX = parseFloat(opMatch[9]) || 0;
+                curY = parseFloat(opMatch[10]) || 0;
+            } else {
+                const effFontSize = Math.max(
+                    3.5,
+                    fontSize * (Math.abs(tmD) > 1.5 && fontSize <= 1.5 ? Math.abs(tmD) : 1.0),
+                );
+                let txt = '';
+                const innerTokens = full.matchAll(/<[0-9A-Fa-f\s]+>|\((?:\\.|[^\\()])*\)|(-?\d+(?:\.\d+)?)/g);
+                for (const it of innerTokens) {
+                    if (it[1] !== undefined) {
+                        const kern = parseFloat(it[1]);
+                        if (kern < -180 && !txt.endsWith(' ')) {
+                            txt += ' ';
                         }
+                    } else {
+                        txt += decodePdfStringToken(it[0], activeCMap, fallbackCMap);
                     }
-                } else {
-                    currentLine += decodePdfStringToken(full, activeCMap, fallbackCMap);
+                }
+                if (txt) {
+                    const normTxt = typeof txt.normalize === 'function' ? txt.normalize('NFC') : txt;
+                    streamOrderChunks.push(normTxt);
+                    const estW = estimateRunWidth(normTxt, effFontSize);
+                    textRuns.push({
+                        page: pageIdx,
+                        x: curX,
+                        endX: curX + estW,
+                        y: curY,
+                        fontSize: effFontSize,
+                        text: normTxt,
+                    });
                 }
             }
-            if (currentLine.trim()) {
-                decodedLines.push(currentLine.trim());
+        }
+    }
+
+    // Check stream-order text first so wrapped KBQDATA lines are never scrambled by (x, y) sorting
+    const streamOrderCompact = streamOrderChunks.join('').replace(/\s+/g, '');
+    const streamKbqMatch = streamOrderCompact.match(/KBQDATA:([A-Za-z0-9+/=]+):ENDKBQDATA/);
+    if (streamKbqMatch) {
+        const decoded = decodeQuotationPayloadBase64(streamKbqMatch[1]);
+        if (decoded) {
+            return decoded;
+        }
+    }
+
+    // Auto-detect flipped Y coordinate space (top-down generators where header Y < summary Y)
+    let topMarkerY: number | null = null;
+    let bottomMarkerY: number | null = null;
+    for (const r of textRuns) {
+        if (r.page !== 1) {
+            continue;
+        }
+        const u = r.text.toUpperCase();
+        if (
+            topMarkerY === null &&
+            (u.includes('BÁO GIÁ') || u.includes('STAR LIGHT') || u.includes('KÍNH GỬI'))
+        ) {
+            topMarkerY = r.y;
+        }
+        if (u.includes('TỔNG CỘNG') || u.includes('MANY THANKS') || u.includes('ĐIỀU KIỆN')) {
+            bottomMarkerY = r.y;
+        }
+    }
+    if (topMarkerY !== null && bottomMarkerY !== null && topMarkerY < bottomMarkerY) {
+        for (const r of textRuns) {
+            r.y = -r.y;
+        }
+    }
+
+    rawVLines.sort((a, b) => a - b);
+    const vLines: number[] = [];
+    for (const vx of rawVLines) {
+        if (vLines.length === 0 || Math.abs(vx - vLines[vLines.length - 1]) > 2.0) {
+            vLines.push(vx);
+        }
+    }
+
+    // Group runs into visual rows by page and Y coordinate (tolerance 2.5pt)
+    type PdfVisualRow = {
+        page: number;
+        y: number;
+        runs: PdfTextRun[];
+    };
+    const visualRows: PdfVisualRow[] = [];
+    for (const run of textRuns) {
+        const existing = visualRows.find((r) => r.page === run.page && Math.abs(r.y - run.y) <= 2.5);
+        if (existing) {
+            existing.runs.push(run);
+        } else {
+            visualRows.push({ page: run.page, y: run.y, runs: [run] });
+        }
+    }
+
+    visualRows.sort((a, b) => (a.page !== b.page ? a.page - b.page : b.y - a.y));
+
+    const structuredRows: PdfStructuredRow[] = [];
+    const decodedLines: string[] = [];
+
+    for (const row of visualRows) {
+        row.runs.sort((a, b) => a.x - b.x);
+        const mergedCells: PdfTextRun[] = [];
+        for (const run of row.runs) {
+            if (mergedCells.length === 0) {
+                mergedCells.push({ ...run });
+                continue;
             }
+            const prev = mergedCells[mergedCells.length - 1];
+            const gap = run.x - prev.endX;
+            const crossesVLine = vLines.some(
+                (vl) => prev.x + 1.5 < vl && run.x >= vl - 1.5,
+            );
+            if (!crossesVLine && gap < 5.5) {
+                const needSpace = shouldInsertPdfSpace(prev.text, run.text, gap);
+                prev.text += (needSpace ? ' ' : '') + run.text;
+                prev.endX = Math.max(prev.endX, run.endX);
+            } else {
+                mergedCells.push({ ...run });
+            }
+        }
+        const cellRuns: PdfCellRun[] = [];
+        for (const c of mergedCells) {
+            const cleanText = c.text.replace(/\s+/g, ' ').trim();
+            if (cleanText.length > 0) {
+                cellRuns.push({
+                    x: c.x,
+                    endX: c.endX,
+                    centerX: (c.x + c.endX) / 2,
+                    text: cleanText,
+                });
+            }
+        }
+        const cells = cellRuns.map((c) => c.text);
+        if (cells.length > 0) {
+            const line = cells.join(' ');
+            structuredRows.push({
+                page: row.page,
+                y: row.y,
+                cellRuns,
+                cells,
+                line,
+            });
+            decodedLines.push(line);
         }
     }
 
@@ -1671,15 +1967,15 @@ async function parseExportedQuotationPdf(
         );
     }
 
-    // 5. Structured parsing of extracted PDF lines for Ariston & K-Flex
+    // 5. Structured parsing of extracted PDF lines and cells for Ariston & K-Flex
     const upperAll = combinedText.toUpperCase();
     const isKflex = upperAll.includes('K-FLEX') || upperAll.includes('BẢO ÔN');
 
     if (isKflex) {
-        return parseKflexPdfLines(decodedLines, combinedText, kflexPrices, todayIso);
+        return parseKflexPdfLines(decodedLines, structuredRows, combinedText, kflexPrices, todayIso, vLines);
     }
 
-    return parseAristonPdfLines(decodedLines, combinedText, aristonProducts, todayIso);
+    return parseAristonPdfLines(decodedLines, structuredRows, combinedText, aristonProducts, todayIso, vLines);
 }
 
 function readNextFieldValue(lines: string[], index: number, prefixRegex: RegExp): string {
@@ -1701,9 +1997,11 @@ function readNextFieldValue(lines: string[], index: number, prefixRegex: RegExp)
 
 function parseAristonPdfLines(
     decodedLines: string[],
+    structuredRows: PdfStructuredRow[],
     combinedText: string,
     aristonProducts: CatalogAristonProduct[],
     todayIso: string,
+    vLines: number[] = [],
 ): QuotationPayloadState {
     const quoteForm: AristonQuoteFormState = {
         documentTitle: 'BÁO GIÁ BƠM NHIỆT ARISTON',
@@ -1727,7 +2025,7 @@ function parseAristonPdfLines(
         const lower = line.toLowerCase();
 
         if (lower.startsWith('báo giá') && !lower.includes('có hiệu lực')) {
-            quoteForm.documentTitle = line;
+            quoteForm.documentTitle = line.replace(/b\s+ảo/i, 'BẢO');
         } else if (lower.startsWith('kính gửi')) {
             quoteForm.recipientCompany = readNextFieldValue(
                 decodedLines,
@@ -1769,10 +2067,10 @@ function parseAristonPdfLines(
         } else if (lower.includes('many thanks')) {
             afterThanks = true;
         } else if (afterThanks) {
-            if (/^hp\s*:/i.test(line)) {
-                quoteForm.signerPhone = line.replace(/^hp\s*:\s*/i, '').trim();
-            } else if (/^email\s*:/i.test(line)) {
-                quoteForm.signerEmail = line.replace(/^email\s*:\s*/i, '').trim();
+            if (/^hp\b/i.test(line)) {
+                quoteForm.signerPhone = line.replace(/^hp\s*:?\s*/i, '').trim();
+            } else if (/^email\b/i.test(line)) {
+                quoteForm.signerEmail = line.replace(/^email\s*:?\s*/i, '').trim();
             } else if (!signerFound && line.length > 1 && !line.includes(':')) {
                 quoteForm.signerName = line;
                 signerFound = true;
@@ -1780,79 +2078,211 @@ function parseAristonPdfLines(
         }
     }
 
-    // Extract products appearing in the PDF table section
     const items: AristonQuotationItemState[] = [];
-    const sortedProducts = [...aristonProducts].sort(
-        (a, b) => (b.name?.length ?? 0) - (a.name?.length ?? 0),
-    );
-    const usedProductIds = new Set<number>();
+    const headerRows: PdfStructuredRow[] = [];
+    const bodyRows: PdfStructuredRow[] = [];
+    let inTable = false;
+    let tableMinX = 1e9;
+    let tableMaxX = 0;
 
-    for (let i = 0; i < decodedLines.length; i++) {
-        const line = decodedLines[i].trim();
-        if (line.toUpperCase().startsWith('TỔNG CỘNG')) {
+    for (const row of structuredRows) {
+        const upperLine = row.line.toUpperCase();
+        if (upperLine.startsWith('TỔNG CỘNG')) {
             break;
         }
-        const matchedProd = sortedProducts.find(
-            (p) =>
-                p.name &&
-                !usedProductIds.has(p.id) &&
-                (line === p.name.trim() || line.includes(p.name.trim())),
-        );
-        if (!matchedProd) {
+        const isHeader =
+            upperLine.includes('MÃ SẢN PHẨM') ||
+            upperLine.includes('GIÁ BÁN DỰ ÁN') ||
+            upperLine.includes('ĐẶC TÍNH KỸ THUẬT') ||
+            upperLine.includes('SELLING PRICE') ||
+            upperLine.includes('SPECIFICATIONS') ||
+            (upperLine.includes('PRODUCT') && upperLine.includes('MODEL')) ||
+            upperLine.trim() === '(VNĐ)' ||
+            upperLine.trim() === '(CHIẾC)';
+        if (isHeader) {
+            inTable = true;
+            headerRows.push(row);
+            for (const cr of row.cellRuns) {
+                tableMinX = Math.min(tableMinX, cr.x);
+                tableMaxX = Math.max(tableMaxX, cr.endX);
+            }
             continue;
         }
-        usedProductIds.add(matchedProd.id);
+        if (!inTable) {
+            continue;
+        }
+        bodyRows.push(row);
+        for (const cr of row.cellRuns) {
+            tableMinX = Math.min(tableMinX, cr.x);
+            tableMaxX = Math.max(tableMaxX, cr.endX);
+        }
+    }
 
-        // Look around line i for unitPrice and quantity
-        let unitPrice = matchedProd.price > 0 ? matchedProd.price : 2386000;
-        let quantity = 1;
-        const windowLines = decodedLines.slice(i, Math.min(decodedLines.length, i + 25));
-        const priceCandidates: number[] = [];
-        for (const wl of windowLines) {
-            if (wl.toUpperCase().startsWith('TỔNG CỘNG')) {
-                break;
+    if (tableMinX > tableMaxX) {
+        tableMinX = 40;
+        tableMaxX = 780;
+    }
+
+    const proportions = [0.09, 0.085, 0.055, 0.175, 0.045, 0.265, 0.105, 0.06, 0.12];
+    const matchers = [
+        (s: string) => s === 'sản phẩm' || s === 'product' || s.startsWith('sản phẩm'),
+        (s: string) => s.includes('mã sản phẩm') || s === 'model',
+        (s: string) => s.includes('xuất xứ') || s === 'origin',
+        (s: string) => s.includes('hình ảnh') || s === 'image',
+        (s: string) => s.includes('đơn vị'),
+        (s: string) => s.includes('đặc tính') || s.includes('specifications'),
+        (s: string) => s.includes('giá bán') || s.includes('selling price'),
+        (s: string) => s.includes('số lượng') || s.includes('quantity') || s.includes('(chiếc)'),
+        (s: string) => s.includes('thành tiền') || s.includes('amount'),
+    ];
+    const dividers = buildPdfColumnDividers(headerRows, tableMinX, tableMaxX, proportions, matchers, vLines);
+
+    const anchorIndices: number[] = [];
+    for (let idx = 0; idx < bodyRows.length; idx++) {
+        const pm = bodyRows[idx].line.match(/\b\d{1,3}(?:[.,]\d{3})+\b/g);
+        if (pm && pm.length >= 1) {
+            const maxPriceOnRow = Math.max(...pm.map((pStr) => parseFormattedNumber(pStr, 0)));
+            if (maxPriceOnRow >= 10000) {
+                anchorIndices.push(idx);
             }
-            const formattedMatches = wl.match(/\b\d{1,3}(?:[.,]\d{3})+\b/g);
-            if (formattedMatches) {
-                for (const fm of formattedMatches) {
-                    const num = parseFormattedNumber(fm, 0);
-                    if (num >= 10000) {
-                        priceCandidates.push(num);
+        }
+    }
+
+    if (anchorIndices.length > 0) {
+        type BucketRun = { y: number; x: number; text: string };
+        const itemBuckets: BucketRun[][][] = Array.from({ length: anchorIndices.length }, () =>
+            Array.from({ length: 9 }, () => []),
+        );
+
+        for (let rIdx = 0; rIdx < bodyRows.length; rIdx++) {
+            const row = bodyRows[rIdx];
+            let targetBucket = 0;
+            let bestDist = 1e9;
+            for (let bIdx = 0; bIdx < anchorIndices.length; bIdx++) {
+                const aRow = bodyRows[anchorIndices[bIdx]];
+                const dist =
+                    (aRow.page === row.page ? 0 : 10000) + Math.abs(row.y - aRow.y);
+                if (dist < bestDist) {
+                    bestDist = dist;
+                    targetBucket = bIdx;
+                }
+            }
+
+            if (row.cellRuns.length >= 2 && tableMaxX - tableMinX > 120) {
+                for (const cr of row.cellRuns) {
+                    const cIdx = resolvePdfColumnIndex(cr.x, cr.centerX, dividers, [5]);
+                    itemBuckets[targetBucket][cIdx].push({
+                        y: row.y,
+                        x: cr.x,
+                        text: cr.text,
+                    });
+                }
+            } else if (rIdx === anchorIndices[targetBucket] && row.cells.length >= 4) {
+                itemBuckets[targetBucket][0].push({ y: row.y, x: 0, text: row.cells[0] ?? '' });
+                itemBuckets[targetBucket][1].push({ y: row.y, x: 1, text: row.cells[1] ?? '' });
+                itemBuckets[targetBucket][2].push({ y: row.y, x: 2, text: row.cells[2] ?? '' });
+            }
+        }
+
+        for (let bIdx = 0; bIdx < anchorIndices.length; bIdx++) {
+            const bucket = itemBuckets[bIdx];
+            const colJoinedSpace: string[] = [];
+            const colJoinedNewline: string[] = [];
+            for (let c = 0; c < 9; c++) {
+                const cRuns = bucket[c];
+                cRuns.sort((a, b) => (Math.abs(a.y - b.y) > 2 ? b.y - a.y : a.x - b.x));
+                colJoinedSpace[c] = cRuns
+                    .map((r) => r.text)
+                    .join(' ')
+                    .replace(/\s+/g, ' ')
+                    .trim();
+
+                const specLines: string[] = [];
+                let curSpecY: number | null = null;
+                for (const sr of cRuns) {
+                    if (curSpecY === null || Math.abs(sr.y - curSpecY) > 2.5) {
+                        specLines.push(sr.text);
+                        curSpecY = sr.y;
+                    } else {
+                        specLines[specLines.length - 1] += ' ' + sr.text;
+                    }
+                }
+                colJoinedNewline[c] = specLines.join('\n').trim();
+            }
+
+            const anchorRow = bodyRows[anchorIndices[bIdx]];
+            let uPrice = Math.round(parseFormattedNumber(colJoinedSpace[6], 0));
+            let totalAmt = Math.round(parseFormattedNumber(colJoinedSpace[8], 0));
+            let qty = Math.round(parseFormattedNumber(colJoinedSpace[7], 0));
+
+            if (uPrice < 1000) {
+                const pm = anchorRow.line.match(/\b\d{1,3}(?:[.,]\d{3})+\b/g);
+                if (pm && pm.length >= 1) {
+                    uPrice = Math.round(parseFormattedNumber(pm[0], 0));
+                    if (pm.length >= 2) {
+                        totalAmt = Math.round(parseFormattedNumber(pm[pm.length - 1], 0));
                     }
                 }
             }
-            if (/^\d{1,3}$/.test(wl.trim())) {
-                const q = Number(wl.trim());
-                if (q >= 1 && q <= 500) {
-                    quantity = q;
-                }
+            if (qty <= 0) {
+                qty =
+                    uPrice > 0 && totalAmt >= uPrice
+                        ? Math.max(1, Math.round(totalAmt / uPrice))
+                        : 1;
             }
-        }
-        if (priceCandidates.length >= 1) {
-            unitPrice = priceCandidates[0];
-            if (priceCandidates.length >= 2 && unitPrice > 0) {
-                const ratio = Math.round(priceCandidates[1] / unitPrice);
-                if (ratio >= 1 && ratio <= 500 && Math.abs(ratio * unitPrice - priceCandidates[1]) < 100) {
-                    quantity = ratio;
-                }
-            }
-        }
 
-        items.push({
-            uid: makeUid('ariston-pdf'),
-            productId: matchedProd.id,
-            productLabel: matchedProd.product_title || 'Máy nước nóng gián tiếp Ariston',
-            modelCode: matchedProd.name,
-            origin: matchedProd.origin ? `Ý-${matchedProd.origin}` : 'Ý-Việt Nam',
-            imageUrl: resolveProductImageUrl(matchedProd.image?.[0]),
-            unit: 'Máy',
-            specifications: matchedProd.description || '',
-            unitPrice,
-            quantity,
-        });
+            const modelCode = colJoinedSpace[1];
+            const productLabel = colJoinedSpace[0];
+            const normModel = modelCode.replace(/[\s-]+/g, '').toLowerCase();
+
+            const matchedProd = aristonProducts.find((p) => {
+                if (!p.name) {
+                    return false;
+                }
+                const pNorm = p.name.replace(/[\s-]+/g, '').toLowerCase();
+                if (
+                    normModel &&
+                    (pNorm === normModel ||
+                        normModel.includes(pNorm) ||
+                        pNorm.includes(normModel))
+                ) {
+                    return true;
+                }
+                return (
+                    !modelCode &&
+                    Boolean(productLabel) &&
+                    productLabel.toLowerCase().includes(p.name.toLowerCase())
+                );
+            });
+
+            const origin = colJoinedSpace[2]
+                ? colJoinedSpace[2].replace(/\s*-\s*/g, '-')
+                : matchedProd?.origin
+                  ? `Ý-${matchedProd.origin}`
+                  : 'Ý-Việt Nam';
+
+            items.push({
+                uid: makeUid('ariston-pdf-row'),
+                productId: matchedProd?.id ?? null,
+                productLabel:
+                    productLabel ||
+                    matchedProd?.product_title ||
+                    'Máy nước nóng gián tiếp Ariston',
+                modelCode: modelCode || matchedProd?.name || '',
+                origin,
+                imageUrl: resolveProductImageUrl(matchedProd?.image?.[0]),
+                unit: colJoinedSpace[4] || 'Máy',
+                specifications: colJoinedNewline[5] || matchedProd?.description || '',
+                unitPrice: uPrice > 0 ? uPrice : (matchedProd?.price ?? 2386000),
+                quantity: qty,
+            });
+        }
     }
 
     if (items.length === 0) {
+        const sortedProducts = [...aristonProducts].sort(
+            (a, b) => (b.name?.length ?? 0) - (a.name?.length ?? 0),
+        );
         for (const prod of sortedProducts) {
             if (prod.name && combinedText.includes(prod.name)) {
                 items.push({
@@ -1882,9 +2312,11 @@ function parseAristonPdfLines(
 
 function parseKflexPdfLines(
     decodedLines: string[],
+    structuredRows: PdfStructuredRow[],
     combinedText: string,
     kflexPrices: CatalogKflexPrice[],
     todayIso: string,
+    vLines: number[] = [],
 ): QuotationPayloadState {
     const kflexQuoteForm: KflexQuoteFormState = {
         documentTitle: 'BÁO GIÁ BẢO ÔN K-FLEX',
@@ -1904,11 +2336,14 @@ function parseKflexPdfLines(
         contactEmail: 'tuankiet@starlightgroup.vn',
     };
 
+    let afterThanks = false;
+    let contactNameFound = false;
+
     for (let i = 0; i < decodedLines.length; i++) {
         const line = decodedLines[i].trim();
         const lower = line.toLowerCase();
         if (lower.startsWith('báo giá') && !lower.includes('có hiệu lực')) {
-            kflexQuoteForm.documentTitle = line;
+            kflexQuoteForm.documentTitle = line.replace(/b\s+ảo/i, 'BẢO');
         } else if (lower.startsWith('kính gửi')) {
             kflexQuoteForm.recipientCompany = readNextFieldValue(
                 decodedLines,
@@ -1928,6 +2363,8 @@ function parseKflexPdfLines(
             if (dStr) {
                 kflexQuoteForm.quoteDate = parseSlashDateToIso(dStr, todayIso);
             }
+        } else if (lower.includes('đơn vị phân phối')) {
+            kflexQuoteForm.introText = line;
         } else if (lower.includes('thuế vat')) {
             const vm = line.match(/(\d+(?:\.\d+)?)\s*%/);
             if (vm) {
@@ -1952,45 +2389,452 @@ function parseKflexPdfLines(
                 kflexQuoteForm.deliveryMethod = val;
             }
         } else if (lower.includes('4. thời gian giao hàng')) {
-            const val = line.split(':').slice(1).join(':').trim();
+            let val = line.split(':').slice(1).join(':').trim();
             if (val) {
+                const nextLine = (decodedLines[i + 1] ?? '').trim();
+                if (nextLine && !/^([0-9]+\.|rất mong|many thanks)/i.test(nextLine)) {
+                    val += ' ' + nextLine;
+                }
                 kflexQuoteForm.deliveryTime = val;
+            }
+        } else if (lower.includes('many thanks')) {
+            afterThanks = true;
+        } else if (afterThanks) {
+            if (/^hp\b/i.test(line)) {
+                kflexQuoteForm.contactHp = line.replace(/^hp\s*:?\s*/i, '').trim();
+            } else if (/^email\b/i.test(line)) {
+                kflexQuoteForm.contactEmail = line.replace(/^email\s*:?\s*/i, '').trim();
+            } else if (!contactNameFound && line.length > 1 && !line.includes(':')) {
+                kflexQuoteForm.contactName = line;
+                contactNameFound = true;
             }
         }
     }
 
-    const matchedItems: KflexQuotationItemState[] = [];
+    const kflexGroups: KflexQuotationGroupState[] = [];
     const detectedLines = new Set<KflexProductLineKey>();
-    const sortedPrices = [...kflexPrices].sort(
-        (a, b) => (b.product_name?.length ?? 0) - (a.product_name?.length ?? 0),
-    );
+    let currentGroup: KflexQuotationGroupState | null = null;
 
-    for (const p of sortedPrices) {
-        if (p.product_name && combinedText.includes(p.product_name)) {
-            detectedLines.add(p.product_line);
-            matchedItems.push({
-                uid: makeUid('kf-pdf'),
-                kflexPriceId: p.id,
-                itemName: p.product_name,
-                brandLabel:
-                    p.product_line === 'k_protect'
-                        ? 'K-Flex K-Protect'
-                        : p.product_line === 'm_flex'
-                          ? 'K-Flex M-Flex'
-                          : 'K-Flex ST',
-                originLabel: `${p.brand || 'Ý'} - ${p.origin || 'Malaysia'}`,
-                productTypeLabel: p.variant_type === 'alu' ? 'Có nhôm' : 'Chỉ Foam',
-                productLine: p.product_line,
-                formType: p.form_type,
-                variantType: p.variant_type,
-                thickness: p.thickness,
-                innerDiameter: p.diameter || '',
-                widthM: p.form_type === 'sheet' ? '1.2' : '',
-                lengthM: p.form_type === 'tube' ? '2' : '8',
-                qtyM: p.form_type === 'tube' ? 1 : null,
-                qtyM2: p.form_type === 'sheet' ? 1 : null,
-                unitPrice: p.price,
-                note: '',
+    const headerRows: PdfStructuredRow[] = [];
+    const bodyRows: PdfStructuredRow[] = [];
+    let inTable = false;
+    let tableMinX = 1e9;
+    let tableMaxX = 0;
+
+    for (const row of structuredRows) {
+        const lineUpper = row.line.toUpperCase();
+        if (lineUpper.startsWith('TỔNG CỘNG')) {
+            break;
+        }
+        const isHeaderLine =
+            (row.cells[0] === 'TT' && lineUpper.includes('TÊN VẬT TƯ')) ||
+            lineUpper.includes('UNIT PRICE') ||
+            lineUpper.includes('CHIỀU DÀY') ||
+            lineUpper.includes('ID (MM)') ||
+            /^\(MM\)/i.test(row.line.trim());
+        if (isHeaderLine) {
+            inTable = true;
+            headerRows.push(row);
+            for (const cr of row.cellRuns) {
+                tableMinX = Math.min(tableMinX, cr.x);
+                tableMaxX = Math.max(tableMaxX, cr.endX);
+            }
+            continue;
+        }
+        if (!inTable) {
+            continue;
+        }
+        bodyRows.push(row);
+        for (const cr of row.cellRuns) {
+            tableMinX = Math.min(tableMinX, cr.x);
+            tableMaxX = Math.max(tableMaxX, cr.endX);
+        }
+    }
+
+    if (tableMinX > tableMaxX) {
+        tableMinX = 50;
+        tableMaxX = 720;
+    }
+
+    const proportions = [
+        0.038, 0.16, 0.068, 0.084, 0.07, 0.042, 0.04, 0.042, 0.042, 0.048, 0.048, 0.092, 0.112,
+        0.114,
+    ];
+    const matchers = [
+        (s: string) => s === 'tt',
+        (s: string) => s.includes('tên vật tư'),
+        (s: string) => s.includes('nhãn hiệu'),
+        (s: string) => s.includes('thương hiệu') || s.includes('xuất xứ'),
+        (s: string) => s.includes('loại sản') || s === 'phẩm',
+        (s: string) => s.includes('chiều dày'),
+        (s: string) => s.includes('id (mm)') || s === 'id',
+        (s: string) => s.includes('chiều rộng'),
+        (s: string) => s.includes('chiều dài'),
+        (s: string) => s === 'm',
+        (s: string) => s === 'm2',
+        (s: string) => s.includes('đơn giá') || s.includes('unit price'),
+        (s: string) => s.includes('tổng') || s.includes('total'),
+        (s: string) => s.includes('ghi chú'),
+    ];
+    const dividers = buildPdfColumnDividers(headerRows, tableMinX, tableMaxX, proportions, matchers, vLines);
+    if (vLines.length < 14) {
+        for (const hr of headerRows) {
+            for (const cr of hr.cellRuns) {
+                const t = cr.text.toLowerCase();
+                if (t === 'tt') {
+                    dividers[0] = Math.min(dividers[0], cr.endX + 12);
+                } else if (t.includes('nhãn hiệu')) {
+                    dividers[1] = Math.max(dividers[0] + 40, cr.x - 8);
+                }
+            }
+        }
+    }
+
+    type MappedBodyRow = {
+        type: 'section' | 'item' | 'wrap';
+        page: number;
+        y: number;
+        colRuns: Array<Array<{ y: number; x: number; text: string }>>;
+        cells: string[];
+        line: string;
+    };
+
+    const mappedBody: MappedBodyRow[] = [];
+    for (let idx = 0; idx < bodyRows.length; idx++) {
+        const row = bodyRows[idx];
+        const colRuns: Array<Array<{ y: number; x: number; text: string }>> = Array.from(
+            { length: 14 },
+            () => [],
+        );
+        for (const cr of row.cellRuns) {
+            const cIdx = resolvePdfColumnIndex(cr.x, cr.centerX, dividers, [1]);
+            colRuns[cIdx].push({
+                y: row.y,
+                x: cr.x,
+                text: cr.text,
+            });
+        }
+
+        const colTexts = colRuns.map((arr) =>
+            arr
+                .map((r) => r.text)
+                .join(' ')
+                .trim(),
+        );
+        const hasFormattedPrice = /\d{1,3}[.,]\d{3}/.test(row.line);
+        const hasTt = /^\d{1,3}$/.test(colTexts[0]) || /^\d{1,3}$/.test(row.cells[0] ?? '');
+        const hasNumericDims =
+            (colTexts[5] !== '' && !Number.isNaN(Number(colTexts[5].replace(',', '.')))) ||
+            (colTexts[9] !== '' && !Number.isNaN(Number(colTexts[9].replace(',', '.')))) ||
+            (colTexts[10] !== '' && !Number.isNaN(Number(colTexts[10].replace(',', '.'))));
+
+        const lineTrim = row.line.trim();
+        const lineUpper = lineTrim.toUpperCase();
+        const isSectionRow =
+            row.cells.length === 1 &&
+            !hasFormattedPrice &&
+            !hasTt &&
+            (lineUpper.includes('BẢO ÔN') ||
+                lineUpper.includes('HẠNG MỤC') ||
+                lineUpper.includes('PHẦN ') ||
+                (lineUpper === lineTrim &&
+                    lineTrim.length >= 6 &&
+                    /[A-ZÀÁẠẢÃĂẮẰẲẴẶÂẤẦẨẪẬÈÉẸẺẼÊẾỀỂỄỆÌÍỊỈĨÒÓỌỎÕÔỐỒỔỖỘƠỚỜỞỠỢÙÚỤỦŨƯỨỪỬỮỰỲÝỴỶỸ]/.test(
+                        lineTrim,
+                    ) &&
+                    !/^(DN\d+|K-FLEX|ST\b|M-FLEX|TUBE|SHEET)/i.test(lineTrim)));
+
+        const isItemAnchor =
+            !isSectionRow &&
+            (hasFormattedPrice || (hasTt && (hasNumericDims || row.cells.length >= 5)));
+
+        mappedBody.push({
+            type: isSectionRow ? 'section' : isItemAnchor ? 'item' : 'wrap',
+            page: row.page,
+            y: row.y,
+            colRuns,
+            cells: row.cells,
+            line: row.line,
+        });
+    }
+
+    const itemIndices = mappedBody
+        .map((mb, idx) => (mb.type === 'item' ? idx : -1))
+        .filter((idx) => idx >= 0);
+
+    for (let idx = 0; idx < mappedBody.length; idx++) {
+        const mb = mappedBody[idx];
+        if (mb.type !== 'wrap' || itemIndices.length === 0) {
+            continue;
+        }
+        let bestItemIdx: number | null = null;
+        let bestDist = 1e9;
+        for (const iIdx of itemIndices) {
+            if (mappedBody[iIdx].page !== mb.page) {
+                continue;
+            }
+            const dist = Math.abs(mappedBody[iIdx].y - mb.y);
+            if (dist < bestDist && dist <= 36) {
+                bestDist = dist;
+                bestItemIdx = iIdx;
+            }
+        }
+        if (bestItemIdx !== null) {
+            for (let c = 0; c < 14; c++) {
+                for (const cr of mb.colRuns[c]) {
+                    mappedBody[bestItemIdx].colRuns[c].push(cr);
+                }
+            }
+        }
+    }
+
+    for (const mb of mappedBody) {
+        if (mb.type === 'section') {
+            currentGroup = {
+                uid: makeUid('kf-grp-pdf'),
+                hasTitle: true,
+                title: mb.cells[0] ?? mb.line.trim(),
+                items: [],
+            };
+            kflexGroups.push(currentGroup);
+            continue;
+        }
+
+        if (mb.type !== 'item') {
+            continue;
+        }
+
+        const cols: string[] = [];
+        for (let c = 0; c < 14; c++) {
+            const cRuns = mb.colRuns[c];
+            cRuns.sort((a, b) => (Math.abs(a.y - b.y) > 2 ? b.y - a.y : a.x - b.x));
+            cols[c] = cRuns
+                .map((r) => r.text)
+                .join(' ')
+                .replace(/\s+/g, ' ')
+                .trim();
+        }
+
+        const nonEmptyColCount = cols.filter((v) => v !== '').length;
+        let itemName = '';
+        let brandLabel = 'K-Flex ST';
+        let originLabel = 'Ý - Malaysia';
+        let productTypeLabel = 'Chỉ Foam';
+        let productLine: KflexProductLineKey = 'st';
+        let formType: 'tube' | 'sheet' = 'tube';
+        let variantType = 'foam';
+        let thickness = '13';
+        let innerDiameter = '';
+        let widthM = '';
+        let lengthM = '';
+        let qtyVal = 1;
+        let unitPriceVal = 0;
+        let note = '';
+
+        if (nonEmptyColCount >= 6 && (cols[1] !== '' || cols[2] !== '')) {
+            itemName = cols[1];
+            brandLabel = cols[2] || 'K-Flex ST';
+            originLabel = cols[3] || 'Ý - Malaysia';
+            productTypeLabel = cols[4] || 'Chỉ Foam';
+            thickness = cols[5] || '13';
+            innerDiameter = cols[6];
+            widthM = cols[7];
+            lengthM = cols[8];
+            const qtyMStr = cols[9];
+            const qtyM2Str = cols[10];
+            const unitPriceStr = cols[11];
+            const totalStr = cols[12];
+            note = cols[13];
+
+            const brandAndName = `${brandLabel} ${itemName}`.toLowerCase();
+            if (brandAndName.includes('protect')) {
+                productLine = 'k_protect';
+            } else if (brandAndName.includes('m-flex') || brandAndName.includes('mflex')) {
+                productLine = 'm_flex';
+            }
+            detectedLines.add(productLine);
+
+            const isSheet =
+                (qtyM2Str !== '' && qtyMStr === '') ||
+                (widthM !== '' && innerDiameter === '') ||
+                brandAndName.includes('sheet') ||
+                brandAndName.includes('tấm');
+            formType = isSheet ? 'sheet' : 'tube';
+
+            const typeLower = productTypeLabel.toLowerCase();
+            variantType =
+                formType === 'tube'
+                    ? typeLower.includes('không nhôm') || typeLower.includes('chỉ foam')
+                        ? 'foam'
+                        : typeLower.includes('nhôm')
+                          ? 'alu'
+                          : 'foam'
+                    : typeLower.includes('cả keo và nhôm')
+                      ? 'alu_and_glue'
+                      : typeLower.includes('nhôm') || typeLower.includes('keo')
+                        ? 'alu_or_glue'
+                        : 'foam';
+
+            if (!lengthM) {
+                lengthM = formType === 'tube' ? (productLine === 'm_flex' ? '1.83' : '2') : '8';
+            }
+            if (formType === 'sheet' && !widthM) {
+                widthM = '1.2';
+            }
+
+            qtyVal =
+                formType === 'sheet'
+                    ? Math.max(0, parseFormattedNumber(qtyM2Str || qtyMStr, 1))
+                    : Math.max(0, parseFormattedNumber(qtyMStr || qtyM2Str, 1));
+            unitPriceVal = Math.max(
+                0,
+                Math.round(parseFormattedNumber(unitPriceStr || totalStr, 0)),
+            );
+        } else {
+            const cells = [...mb.cells];
+            const hasLeadingTt = /^\d{1,3}$/.test(cells[0] ?? '');
+            const offset = hasLeadingTt ? 1 : 0;
+            itemName = cells[offset] ?? '';
+            brandLabel = cells[offset + 1] ?? 'K-Flex ST';
+            originLabel = cells[offset + 2] ?? 'Ý - Malaysia';
+            productTypeLabel = cells[offset + 3] ?? 'Chỉ Foam';
+            const restCells = cells.slice(offset + 4);
+            if (!itemName || restCells.length < 3) {
+                continue;
+            }
+
+            const brandAndName = `${brandLabel} ${itemName}`.toLowerCase();
+            if (brandAndName.includes('protect')) {
+                productLine = 'k_protect';
+            } else if (brandAndName.includes('m-flex') || brandAndName.includes('mflex')) {
+                productLine = 'm_flex';
+            }
+            detectedLines.add(productLine);
+
+            const isSheet = brandAndName.includes('sheet') || brandAndName.includes('tấm');
+            formType = isSheet ? 'sheet' : 'tube';
+            const typeLower = productTypeLabel.toLowerCase();
+            variantType =
+                formType === 'tube'
+                    ? typeLower.includes('không nhôm') || typeLower.includes('chỉ foam')
+                        ? 'foam'
+                        : typeLower.includes('nhôm')
+                          ? 'alu'
+                          : 'foam'
+                    : typeLower.includes('cả keo và nhôm')
+                      ? 'alu_and_glue'
+                      : typeLower.includes('nhôm') || typeLower.includes('keo')
+                        ? 'alu_or_glue'
+                        : 'foam';
+
+            if (restCells.length > 0 && !/^[\d.,\s-]+$/.test(restCells[restCells.length - 1])) {
+                note = restCells.pop() ?? '';
+            }
+
+            thickness = restCells[0] ?? '13';
+            const secondDim = restCells[1] ?? '';
+            lengthM =
+                restCells.length >= 5
+                    ? (restCells[2] ?? '')
+                    : productLine === 'm_flex'
+                      ? '1.83'
+                      : '2';
+            innerDiameter = formType === 'tube' ? secondDim : '';
+            widthM = formType === 'sheet' ? secondDim || '1.2' : '';
+            const qtyStr = restCells.length >= 3 ? (restCells[restCells.length - 3] ?? '1') : '1';
+            const unitPriceStr =
+                restCells.length >= 2 ? (restCells[restCells.length - 2] ?? '0') : '0';
+
+            qtyVal = Math.max(0, parseFormattedNumber(qtyStr, 1));
+            unitPriceVal = Math.max(0, Math.round(parseFormattedNumber(unitPriceStr, 0)));
+        }
+
+        const matchedPrice = kflexPrices.find(
+            (p) =>
+                p.product_line === productLine &&
+                p.form_type === formType &&
+                p.variant_type === variantType &&
+                String(Number(p.thickness) || p.thickness).trim() ===
+                    String(Number(thickness) || thickness).trim() &&
+                (formType === 'sheet' ||
+                    String(Number(p.diameter) || p.diameter || '').trim() ===
+                        String(Number(innerDiameter) || innerDiameter).trim()),
+        );
+
+        if (!currentGroup) {
+            currentGroup = {
+                uid: makeUid('kf-grp-pdf'),
+                hasTitle: false,
+                title: '',
+                items: [],
+            };
+            kflexGroups.push(currentGroup);
+        }
+
+        currentGroup.items.push({
+            uid: makeUid('kf-pdf'),
+            kflexPriceId: matchedPrice?.id ?? null,
+            itemName,
+            brandLabel,
+            originLabel,
+            productTypeLabel,
+            productLine,
+            formType,
+            variantType,
+            thickness,
+            innerDiameter,
+            widthM,
+            lengthM,
+            qtyM: formType === 'tube' ? qtyVal : null,
+            qtyM2: formType === 'sheet' ? qtyVal : null,
+            unitPrice: unitPriceVal > 0 ? unitPriceVal : (matchedPrice?.price ?? 0),
+            note,
+        });
+    }
+
+    // Fallback: if table rows weren't matched by structure, match catalog product names
+    const nonEmptyGroups = kflexGroups.filter((g) => g.items.length > 0);
+    if (nonEmptyGroups.length === 0) {
+        const matchedItems: KflexQuotationItemState[] = [];
+        const sortedPrices = [...kflexPrices].sort(
+            (a, b) => (b.product_name?.length ?? 0) - (a.product_name?.length ?? 0),
+        );
+        for (const p of sortedPrices) {
+            if (p.product_name && combinedText.includes(p.product_name)) {
+                detectedLines.add(p.product_line);
+                matchedItems.push({
+                    uid: makeUid('kf-pdf'),
+                    kflexPriceId: p.id,
+                    itemName: p.product_name,
+                    brandLabel:
+                        p.product_line === 'k_protect'
+                            ? 'K-Flex K-Protect'
+                            : p.product_line === 'm_flex'
+                              ? 'K-Flex M-Flex'
+                              : 'K-Flex ST',
+                    originLabel: `${p.brand || 'Ý'} - ${p.origin || 'Malaysia'}`,
+                    productTypeLabel: p.variant_type === 'alu' ? 'Có nhôm' : 'Chỉ Foam',
+                    productLine: p.product_line,
+                    formType: p.form_type,
+                    variantType: p.variant_type,
+                    thickness: p.thickness,
+                    innerDiameter: p.diameter || '',
+                    widthM: p.form_type === 'sheet' ? '1.2' : '',
+                    lengthM: p.form_type === 'tube' ? '2' : '8',
+                    qtyM: p.form_type === 'tube' ? 1 : null,
+                    qtyM2: p.form_type === 'sheet' ? 1 : null,
+                    unitPrice: p.price,
+                    note: '',
+                });
+            }
+        }
+        if (matchedItems.length > 0) {
+            const hasSecInText = combinedText.toUpperCase().includes('BẢO ÔN CHO');
+            nonEmptyGroups.push({
+                uid: makeUid('kf-grp-pdf'),
+                hasTitle: hasSecInText,
+                title: hasSecInText ? 'BẢO ÔN CHO ĐƯỜNG THÉP' : '',
+                items: matchedItems,
             });
         }
     }
@@ -2001,16 +2845,6 @@ function parseKflexPdfLines(
         activeQuotationType: 'second',
         kflexQuoteForm,
         kflexSelectedProductLines: detectedLines.size > 0 ? Array.from(detectedLines) : ['st'],
-        kflexGroups:
-            matchedItems.length > 0
-                ? [
-                      {
-                          uid: makeUid('kf-grp-pdf'),
-                          hasTitle: true,
-                          title: 'BẢO ÔN CHO ĐƯỜNG THÉP',
-                          items: matchedItems,
-                      },
-                  ]
-                : [],
+        kflexGroups: nonEmptyGroups,
     };
 }
