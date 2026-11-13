@@ -24,7 +24,11 @@ test('visitors and regular authenticated users are redirected to quotation login
     $this->get(route('kbuser.quotations.login'))
         ->assertOk()
         ->assertHeader('X-Robots-Tag', 'noindex, nofollow')
-        ->assertSee('<meta name="robots" content="noindex, nofollow">', false);
+        ->assertSee('<meta name="robots" content="noindex, nofollow">', false)
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('quotations/Login')
+            ->where('auth.hasQuoteSession', false),
+        );
 
     $this->get(route('kbuser.sitemap'))
         ->assertOk()
@@ -63,6 +67,7 @@ test('the seeded public quote account can log in, view the quotation builder, an
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->component('quotations/Index')
+            ->where('auth.hasQuoteSession', true)
             ->where('aristonProducts', fn ($products) => collect($products)->firstWhere('id', $slim30Id)['origin'] === 'Việt Nam'
                 && collect($products)->firstWhere('id', $proR40Id)['origin'] === 'Trung Quốc'),
         );
@@ -196,8 +201,9 @@ test('authorized quote user can import an exported xlsx quotation file for editi
     ])->assertRedirect(route('kbuser.quotations.index'));
 
     $tmpPath = tempnam(sys_get_temp_dir(), 'quote_xlsx_');
+    @unlink($tmpPath);
     $zip = new ZipArchive;
-    $zip->open($tmpPath, ZipArchive::OVERWRITE);
+    $zip->open($tmpPath, ZipArchive::CREATE | ZipArchive::OVERWRITE);
     $sheetXml = <<<'XML'
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">

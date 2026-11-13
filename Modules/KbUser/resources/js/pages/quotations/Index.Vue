@@ -241,7 +241,7 @@ const resolveImageUrl = (raw?: string | null): string => {
     return typeof window !== 'undefined' ? `${window.location.origin}${path}` : path;
 };
 
-const deriveAristonShortOrigin = (product?: AristonProduct): string => {
+const computeAristonShortOrigin = (product?: AristonProduct): string => {
     if (!product) {
         return 'Việt Nam';
     }
@@ -272,6 +272,37 @@ const deriveAristonShortOrigin = (product?: AristonProduct): string => {
     }
 
     return 'Trung Quốc';
+};
+
+const aristonProductMetaMap = computed(() => {
+    const map = new Map<
+        number,
+        {
+            shortOrigin: string;
+            firstImageUrl: string;
+            searchHaystack: string;
+        }
+    >();
+
+    for (const prod of props.aristonProducts) {
+        const shortOrigin = computeAristonShortOrigin(prod);
+        const firstImageUrl = resolveImageUrl(prod.image?.[0]);
+        const searchHaystack = `${prod.name} ${prod.product_title || ''} ${prod.subcategory?.name || ''}`.toLowerCase();
+        map.set(prod.id, {
+            shortOrigin,
+            firstImageUrl,
+            searchHaystack,
+        });
+    }
+
+    return map;
+});
+
+const deriveAristonShortOrigin = (product?: AristonProduct): string => {
+    if (!product) {
+        return 'Việt Nam';
+    }
+    return aristonProductMetaMap.value.get(product.id)?.shortOrigin ?? computeAristonShortOrigin(product);
 };
 
 const deriveAristonOrigin = (product?: AristonProduct): string => {
@@ -354,16 +385,25 @@ const filteredAristonCatalog = computed(() => {
     if (!q) {
         return props.aristonProducts;
     }
-    return props.aristonProducts.filter(
-        (prod) =>
+    const metaMap = aristonProductMetaMap.value;
+    return props.aristonProducts.filter((prod) => {
+        const haystack = metaMap.get(prod.id)?.searchHaystack;
+        if (haystack !== undefined) {
+            return haystack.includes(q);
+        }
+        return (
             prod.name.toLowerCase().includes(q) ||
             (prod.product_title || '').toLowerCase().includes(q) ||
-            (prod.subcategory?.name || '').toLowerCase().includes(q),
-    );
+            (prod.subcategory?.name || '').toLowerCase().includes(q)
+        );
+    });
 });
 
-const isProductSelected = (productId: number): boolean =>
-    items.value.some((item) => item.productId === productId);
+const selectedProductIdsSet = computed(
+    () => new Set(items.value.map((item) => item.productId).filter((id): id is number => id !== null)),
+);
+
+const isProductSelected = (productId: number): boolean => selectedProductIdsSet.value.has(productId);
 
 const toggleProductSelection = (product: AristonProduct): void => {
     const existingIndex = items.value.findIndex((item) => item.productId === product.id);
@@ -647,6 +687,48 @@ const normalizeNumberStr = (val?: string | null): string => {
     return trimmed;
 };
 
+const kflexLookupIndex = computed(() => {
+    const priceByKey = new Map<string, KflexPriceRecord>();
+    const thicknessesByVariant = new Map<string, Set<string>>();
+    const diametersByThickness = new Map<string, Set<string>>();
+
+    for (const p of props.kflexPrices) {
+        const tNorm = normalizeNumberStr(p.thickness);
+        const dNorm = normalizeNumberStr(p.diameter);
+        const variantKey = `${p.product_line}|${p.form_type}|${p.variant_type}`;
+        const thicknessKey = `${variantKey}|${tNorm}`;
+        const exactKey = p.form_type === 'tube' ? `${thicknessKey}|${dNorm}` : thicknessKey;
+
+        if (!priceByKey.has(exactKey)) {
+            priceByKey.set(exactKey, p);
+        }
+
+        if (tNorm) {
+            let tSet = thicknessesByVariant.get(variantKey);
+            if (!tSet) {
+                tSet = new Set<string>();
+                thicknessesByVariant.set(variantKey, tSet);
+            }
+            tSet.add(tNorm);
+        }
+
+        if (p.form_type === 'tube' && tNorm && dNorm) {
+            let dSet = diametersByThickness.get(thicknessKey);
+            if (!dSet) {
+                dSet = new Set<string>();
+                diametersByThickness.set(thicknessKey, dSet);
+            }
+            dSet.add(dNorm);
+        }
+    }
+
+    return {
+        priceByKey,
+        thicknessesByVariant,
+        diametersByThickness,
+    };
+});
+
 const findMatchingKflexPrice = (
     productLine: 'st' | 'k_protect' | 'm_flex',
     formType: 'tube' | 'sheet',
@@ -656,37 +738,20 @@ const findMatchingKflexPrice = (
 ): KflexPriceRecord | undefined => {
     const tNorm = normalizeNumberStr(thickness);
     const dNorm = normalizeNumberStr(innerDiameter);
+    const thicknessKey = `${productLine}|${formType}|${variantType}|${tNorm}`;
+    const exactKey = formType === 'tube' ? `${thicknessKey}|${dNorm}` : thicknessKey;
 
-    return props.kflexPrices.find((p) => {
-        if (p.product_line !== productLine || p.form_type !== formType || p.variant_type !== variantType) {
-            return false;
-        }
-        if (normalizeNumberStr(p.thickness) !== tNorm) {
-            return false;
-        }
-        if (formType === 'tube') {
-            return normalizeNumberStr(p.diameter) === dNorm;
-        }
-        return true;
-    });
+    return kflexLookupIndex.value.priceByKey.get(exactKey);
 };
 
 const getAvailableThicknessesForRow = (item: KflexQuotationItem): string[] => {
-    const set = new Set<string>();
+    const variantKey = `${item.productLine}|${item.formType}|${item.variantType}`;
+    const indexed = kflexLookupIndex.value.thicknessesByVariant.get(variantKey);
+    const set = new Set<string>(indexed ?? []);
     const curT = normalizeNumberStr(item.thickness);
     if (curT) {
         set.add(curT);
     }
-    props.kflexPrices.forEach((p) => {
-        if (
-            p.product_line === item.productLine &&
-            p.form_type === item.formType &&
-            p.variant_type === item.variantType &&
-            p.thickness
-        ) {
-            set.add(normalizeNumberStr(p.thickness));
-        }
-    });
     return Array.from(set).sort((a, b) => Number(a) - Number(b));
 };
 
@@ -695,22 +760,13 @@ const getAvailableDiametersForRow = (item: KflexQuotationItem): string[] => {
         return [];
     }
     const tNorm = normalizeNumberStr(item.thickness);
-    const set = new Set<string>();
+    const thicknessKey = `${item.productLine}|tube|${item.variantType}|${tNorm}`;
+    const indexed = kflexLookupIndex.value.diametersByThickness.get(thicknessKey);
+    const set = new Set<string>(indexed ?? []);
     const curD = normalizeNumberStr(item.innerDiameter);
     if (curD) {
         set.add(curD);
     }
-    props.kflexPrices.forEach((p) => {
-        if (
-            p.product_line === item.productLine &&
-            p.form_type === 'tube' &&
-            p.variant_type === item.variantType &&
-            normalizeNumberStr(p.thickness) === tNorm &&
-            p.diameter
-        ) {
-            set.add(normalizeNumberStr(p.diameter));
-        }
-    });
     return Array.from(set).sort((a, b) => Number(a) - Number(b));
 };
 
@@ -4064,8 +4120,10 @@ const formatDraftTime = (iso?: string | null): string => {
                                 </span>
                                 <img
                                     v-if="prod.image?.[0]"
-                                    :src="resolveImageUrl(prod.image[0])"
+                                    :src="aristonProductMetaMap.get(prod.id)?.firstImageUrl || resolveImageUrl(prod.image[0])"
                                     :alt="prod.name"
+                                    loading="lazy"
+                                    decoding="async"
                                     class="kb-quote-catalog-thumb"
                                 />
                                 <div class="kb-quote-catalog-meta">

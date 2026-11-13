@@ -15,6 +15,8 @@ class QuotationDraft extends Model
 
     private static bool $tableChecked = false;
 
+    private static bool $assetsChecked = false;
+
     protected $fillable = [
         'user_id',
         'title',
@@ -48,6 +50,14 @@ class QuotationDraft extends Model
             return;
         }
 
+        $markerFile = storage_path('framework/cache/quotation_drafts_schema_v2.flag');
+
+        if (! app()->runningUnitTests() && is_file($markerFile)) {
+            self::$tableChecked = true;
+
+            return;
+        }
+
         try {
             if (Schema::hasTable('quotation_drafts')) {
                 self::$tableChecked = true;
@@ -58,6 +68,10 @@ class QuotationDraft extends Model
                     }
                 } catch (Throwable) {
                     // Ignore column alter if not needed
+                }
+
+                if (! app()->runningUnitTests()) {
+                    @file_put_contents($markerFile, '1');
                 }
 
                 return;
@@ -78,6 +92,10 @@ class QuotationDraft extends Model
             });
 
             self::$tableChecked = true;
+
+            if (! app()->runningUnitTests()) {
+                @file_put_contents($markerFile, '1');
+            }
         } catch (Throwable) {
             // Ignore schema creation errors in read-only contexts
         }
@@ -88,6 +106,12 @@ class QuotationDraft extends Model
      */
     private static function syncPublishedBuildAssets(): void
     {
+        if (self::$assetsChecked) {
+            return;
+        }
+
+        self::$assetsChecked = true;
+
         try {
             $pubManifest = base_path('public/build/manifest.json');
             if (! is_file($pubManifest)) {
@@ -96,13 +120,22 @@ class QuotationDraft extends Model
 
             $pubMtime = (int) @filemtime($pubManifest);
             $viewsDir = storage_path('framework/views');
-            if (is_dir($viewsDir)) {
-                foreach (glob($viewsDir.'/*.php') ?: [] as $compiledView) {
-                    if ((int) @filemtime($compiledView) < $pubMtime) {
-                        @unlink($compiledView);
-                    }
+            if (! is_dir($viewsDir)) {
+                return;
+            }
+
+            $mtimeMarker = $viewsDir.'/.manifest_mtime';
+            if (is_file($mtimeMarker) && (int) @file_get_contents($mtimeMarker) === $pubMtime) {
+                return;
+            }
+
+            foreach (glob($viewsDir.'/*.php') ?: [] as $compiledView) {
+                if ((int) @filemtime($compiledView) < $pubMtime) {
+                    @unlink($compiledView);
                 }
             }
+
+            @file_put_contents($mtimeMarker, (string) $pubMtime);
         } catch (Throwable) {
             // Ignore filesystem sync errors
         }

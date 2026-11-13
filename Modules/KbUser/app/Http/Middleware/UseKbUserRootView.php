@@ -91,7 +91,7 @@ class UseKbUserRootView
 
     private function shouldRecordVisit(Request $request, Response $response): bool
     {
-        if (! $request->isMethod('GET') || $response->getStatusCode() >= 400) {
+        if (! $request->isMethod('GET') || $response->getStatusCode() >= 300) {
             return false;
         }
 

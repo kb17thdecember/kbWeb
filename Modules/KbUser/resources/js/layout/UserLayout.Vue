@@ -328,11 +328,12 @@ onUnmounted(() => {
                 </Link>
 
                 <nav class="navlinks" :class="{ open: isMenuOpen }" id="navlinks" aria-label="Điều hướng chính">
-                    <Link href="/" class="nav-top-link" :aria-current="props.activePage === 'home' ? 'page' : undefined" @click="closeMenu">Trang chủ</Link>
+                    <Link href="/" prefetch class="nav-top-link" :aria-current="props.activePage === 'home' ? 'page' : undefined" @click="closeMenu">Trang chủ</Link>
 
                     <div class="nav-dropdown">
                         <Link
                             href="/categories"
+                            prefetch
                             class="nav-top-link"
                             :aria-current="props.activePage === 'categories' ? 'page' : undefined"
                             @click="closeMenu"
@@ -378,6 +379,7 @@ onUnmounted(() => {
                     <div class="nav-dropdown">
                         <Link
                             href="/products"
+                            prefetch
                             class="nav-top-link"
                             :aria-current="props.activePage === 'products' ? 'page' : undefined"
                             @click="closeMenu"
@@ -405,6 +407,7 @@ onUnmounted(() => {
                     <div class="nav-dropdown">
                         <Link
                             href="/catalogues"
+                            prefetch
                             class="nav-top-link"
                             :aria-current="props.activePage === 'catalogues' ? 'page' : undefined"
                             @click="closeMenu"
@@ -429,6 +432,7 @@ onUnmounted(() => {
                     <div class="nav-dropdown">
                         <Link
                             href="/featured-projects"
+                            prefetch
                             class="nav-top-link"
                             :aria-current="props.activePage === 'projects' ? 'page' : undefined"
                             @click="closeMenu"
@@ -450,9 +454,9 @@ onUnmounted(() => {
                         </div>
                     </div>
 
-                    <Link href="/news" class="nav-top-link" :aria-current="props.activePage === 'news' ? 'page' : undefined" @click="closeMenu">Tin tức</Link>
-                    <Link href="/about-us" class="nav-top-link" :aria-current="props.activePage === 'about' ? 'page' : undefined" @click="closeMenu">Về chúng tôi</Link>
-                    <Link href="/contacts" class="nav-top-link" :aria-current="props.activePage === 'contact' ? 'page' : undefined" @click="closeMenu">Liên hệ</Link>
+                    <Link href="/news" prefetch class="nav-top-link" :aria-current="props.activePage === 'news' ? 'page' : undefined" @click="closeMenu">Tin tức</Link>
+                    <Link href="/about-us" prefetch class="nav-top-link" :aria-current="props.activePage === 'about' ? 'page' : undefined" @click="closeMenu">Về chúng tôi</Link>
+                    <Link href="/contacts" prefetch class="nav-top-link" :aria-current="props.activePage === 'contact' ? 'page' : undefined" @click="closeMenu">Liên hệ</Link>
 
                     <div class="navlinks-auth-mobile">
                         <template v-if="authUser">

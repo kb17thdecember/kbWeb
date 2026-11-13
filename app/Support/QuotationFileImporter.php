@@ -4,6 +4,7 @@ namespace App\Support;
 
 use App\Models\KflexPrice;
 use App\Models\Product;
+use Illuminate\Support\Collection;
 use RuntimeException;
 use SimpleXMLElement;
 
@@ -356,7 +357,7 @@ class QuotationFileImporter
                 $gap = $run['x'] - $prev['endX'];
                 $crossesVLine = false;
                 foreach ($vLines as $vl) {
-                    if ($prev['x'] + 1.5 < $vl && $run['x'] >= $vl - 1.5) {
+                    if ($vl > $prev['x'] + 1.5 && $run['x'] >= $vl - 1.5) {
                         $crossesVLine = true;
                         break;
                     }
@@ -1441,7 +1442,7 @@ class QuotationFileImporter
             if ($cdPos + 46 > $len || substr($bytes, $cdPos, 4) !== "PK\x01\x02") {
                 break;
             }
-            $cd = unpack('vmethod/Vcrc/VcompSize/VuncompSize/vnameLen/vextraLen/vcommentLen/vdisk/vintAttr/VextAttr/VlocalOffset', substr($bytes, $cdPos + 10, 36));
+            $cd = unpack('vmethod/vmtime/vmdate/Vcrc/VcompSize/VuncompSize/vnameLen/vextraLen/vcommentLen/vdisk/vintAttr/VextAttr/VlocalOffset', substr($bytes, $cdPos + 10, 36));
             if (! is_array($cd)) {
                 break;
             }
@@ -2118,6 +2119,9 @@ class QuotationFileImporter
             foreach ($cell->is->xpath('.//*[local-name()="t"]') ?: [] as $part) {
                 $text .= (string) $part;
             }
+            if ($text === '' && isset($cell->is->t)) {
+                $text = (string) $cell->is->t;
+            }
 
             return $text;
         }
@@ -2240,9 +2244,9 @@ class QuotationFileImporter
     }
 
     /**
-     * @return \Illuminate\Support\Collection<int, KflexPrice>
+     * @return Collection<int, KflexPrice>
      */
-    private function safeKflexPrices(): \Illuminate\Support\Collection
+    private function safeKflexPrices(): Collection
     {
         try {
             return KflexPrice::query()->get();
@@ -2252,9 +2256,9 @@ class QuotationFileImporter
     }
 
     /**
-     * @return \Illuminate\Support\Collection<int, Product>
+     * @return Collection<int, Product>
      */
-    private function safeAristonProducts(): \Illuminate\Support\Collection
+    private function safeAristonProducts(): Collection
     {
         try {
             return Product::query()->with('images')->get();

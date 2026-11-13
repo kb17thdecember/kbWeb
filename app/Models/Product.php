@@ -23,6 +23,8 @@ class Product extends Model
 
     public $table = 'products';
 
+    private static bool $originColumnChecked = false;
+
     protected $attributes = [
         'tag' => self::TAG_REGULAR,
     ];
@@ -67,7 +69,7 @@ class Product extends Model
                 ? self::TAG_FEATURED
                 : self::TAG_REGULAR;
 
-            if (Schema::hasColumn('products', 'origin')) {
+            if (static::$originColumnChecked || Schema::hasColumn('products', 'origin')) {
                 $rawOrigin = trim((string) $product->origin);
 
                 if ($rawOrigin === '') {
@@ -95,7 +97,28 @@ class Product extends Model
 
     public static function ensureOriginColumn(): void
     {
-        if (! Schema::hasTable('products') || Schema::hasColumn('products', 'origin')) {
+        if (static::$originColumnChecked && ! app()->runningUnitTests()) {
+            return;
+        }
+
+        $markerFile = storage_path('framework/cache/products_origin_column.flag');
+
+        if (! app()->runningUnitTests() && is_file($markerFile)) {
+            static::$originColumnChecked = true;
+
+            return;
+        }
+
+        if (! Schema::hasTable('products')) {
+            return;
+        }
+
+        if (Schema::hasColumn('products', 'origin')) {
+            static::$originColumnChecked = true;
+            if (! app()->runningUnitTests()) {
+                @file_put_contents($markerFile, '1');
+            }
+
             return;
         }
 
@@ -104,6 +127,11 @@ class Product extends Model
                 $table->string('origin', 100)->nullable()->after('product_title');
             }
         });
+
+        static::$originColumnChecked = true;
+        if (! app()->runningUnitTests()) {
+            @file_put_contents($markerFile, '1');
+        }
     }
 
     public static function resolveDefaultOrigin(

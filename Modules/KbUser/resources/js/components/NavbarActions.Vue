@@ -52,10 +52,19 @@ const props = defineProps<{
 }>();
 
 const page = usePage<{
-    auth?: { user?: AuthUser | null; loginMethod?: string | null; googleError?: string | null; wishlistIds?: number[] };
+    auth?: {
+        user?: AuthUser | null;
+        loginMethod?: string | null;
+        googleError?: string | null;
+        wishlistIds?: number[];
+        hasQuoteSession?: boolean;
+    };
     siteSettings?: Record<string, string>;
 }>();
 const authUser = computed<AuthUser | null>(() => page.props.auth?.user ?? null);
+const quotationEntryHref = computed<string>(() =>
+    page.props.auth?.hasQuoteSession ? '/quotations' : '/quotations/login',
+);
 const siteSettings = computed<Record<string, string>>(() => page.props.siteSettings ?? {});
 const loginMethod = computed<string>(() => page.props.auth?.loginMethod ?? 'account');
 const googleError = computed<string | null>(() => page.props.auth?.googleError ?? null);
@@ -788,7 +797,8 @@ onUnmounted(() => {
         <Link
             class="icon-btn"
             id="quotationBuilderToggle"
-            href="/quotations"
+            :href="quotationEntryHref"
+            prefetch
             rel="nofollow"
             aria-label="Tạo báo giá PDF"
             title="Tạo báo giá PDF"

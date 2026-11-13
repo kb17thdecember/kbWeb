@@ -58,6 +58,7 @@ class HandleInertiaRequests extends Middleware
                 'loginMethod' => fn () => $request->session()->get('kbuser_login_method', 'account'),
                 'googleError' => fn () => $request->session()->get('google_error'),
                 'wishlistIds' => fn () => $user ? $user->wishlists()->pluck('product_id')->all() : [],
+                'hasQuoteSession' => fn () => $request->session()->has('kbuser_quotation_auth_user_id'),
             ],
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
             'currentTeam' => fn () => $user?->currentTeam ? $user->toUserTeam($user->currentTeam) : null,

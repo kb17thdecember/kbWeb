@@ -13,6 +13,7 @@ use Database\Seeders\PublicQuoteUserSeeder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\RateLimiter;
@@ -69,11 +70,12 @@ class QuotationController extends Controller
             ]);
         }
 
-        if ($email === self::PUBLIC_QUOTE_EMAIL && User::query()->where('email', self::PUBLIC_QUOTE_EMAIL)->doesntExist()) {
-            app(PublicQuoteUserSeeder::class)->run();
-        }
-
         $user = User::query()->where('email', $email)->first();
+
+        if ($user === null && $email === self::PUBLIC_QUOTE_EMAIL) {
+            app(PublicQuoteUserSeeder::class)->run();
+            $user = User::query()->where('email', $email)->first();
+        }
 
         $isAllowedAccount = $user !== null && (
             Str::lower($user->email) === self::PUBLIC_QUOTE_EMAIL || $user->is_admin
@@ -114,47 +116,94 @@ class QuotationController extends Controller
         Product::ensureOriginColumn();
         QuotationDraft::ensureTableExists();
 
-        $aristonCategory = Category::query()
-            ->whereNull('parent_id')
-            ->where('name', 'like', '%Ariston%')
-            ->first();
+        $aristonCacheKey = sprintf(
+            'quotation_ariston_products_v1:%d:%s:%d:%s',
+            Product::query()->count(),
+            (string) Product::query()->max('updated_at'),
+            Category::query()->count(),
+            (string) Category::query()->max('updated_at'),
+        );
 
-        $aristonCategoryIds = [];
+        $aristonProducts = Cache::remember($aristonCacheKey, now()->addMinutes(30), static function (): array {
+            $aristonCategory = Category::query()
+                ->whereNull('parent_id')
+                ->where('name', 'like', '%Ariston%')
+                ->first(['id']);
 
-        if ($aristonCategory) {
-            $childIds = Category::query()
-                ->where('parent_id', $aristonCategory->id)
-                ->pluck('id')
-                ->all();
-            $aristonCategoryIds = [$aristonCategory->id, ...$childIds];
-        }
+            $aristonCategoryIds = [];
 
-        $aristonProducts = Product::query()
-            ->with(['category:id,name', 'subcategory:id,name', 'images'])
-            ->when(
-                count($aristonCategoryIds) > 0,
-                fn ($query) => $query->whereIn('category_id', $aristonCategoryIds)
-                    ->orWhereIn('subcategory_id', $aristonCategoryIds),
-            )
-            ->orderBy('display_order')
-            ->orderBy('id')
-            ->get();
+            if ($aristonCategory) {
+                $childIds = Category::query()
+                    ->where('parent_id', $aristonCategory->id)
+                    ->pluck('id')
+                    ->all();
+                $aristonCategoryIds = [$aristonCategory->id, ...$childIds];
+            }
 
-        $kflexPrices = KflexPrice::query()
-            ->orderBy('product_line')
-            ->orderBy('form_type')
-            ->orderBy('variant_type')
-            ->orderBy('id')
-            ->get()
-            ->sortBy([
-                ['product_line', 'asc'],
-                ['form_type', 'asc'],
-                ['variant_type', 'asc'],
-                fn (KflexPrice $a, KflexPrice $b): int => (int) preg_replace('/[^0-9]/', '', $a->thickness) <=> (int) preg_replace('/[^0-9]/', '', $b->thickness),
-                fn (KflexPrice $a, KflexPrice $b): int => (int) preg_replace('/[^0-9]/', '', (string) $a->diameter) <=> (int) preg_replace('/[^0-9]/', '', (string) $b->diameter),
-                ['id', 'asc'],
-            ])
-            ->values();
+            return Product::query()
+                ->select([
+                    'id',
+                    'name',
+                    'product_title',
+                    'origin',
+                    'category_id',
+                    'subcategory_id',
+                    'description',
+                    'display_order',
+                    'price',
+                    'discount',
+                    'tag',
+                    'status',
+                ])
+                ->with(['category:id,name', 'subcategory:id,name', 'images'])
+                ->when(
+                    count($aristonCategoryIds) > 0,
+                    fn ($query) => $query->whereIn('category_id', $aristonCategoryIds)
+                        ->orWhereIn('subcategory_id', $aristonCategoryIds),
+                )
+                ->orderBy('display_order')
+                ->orderBy('id')
+                ->get()
+                ->toArray();
+        });
+
+        $kflexCacheKey = sprintf(
+            'quotation_kflex_prices_v1:%d:%s',
+            KflexPrice::query()->count(),
+            (string) KflexPrice::query()->max('updated_at'),
+        );
+
+        $kflexPrices = Cache::remember($kflexCacheKey, now()->addMinutes(30), static function (): array {
+            return KflexPrice::query()
+                ->select([
+                    'id',
+                    'product_line',
+                    'form_type',
+                    'variant_type',
+                    'thickness',
+                    'diameter',
+                    'brand',
+                    'origin',
+                    'product_name',
+                    'unit',
+                    'price',
+                ])
+                ->orderBy('product_line')
+                ->orderBy('form_type')
+                ->orderBy('variant_type')
+                ->orderBy('id')
+                ->get()
+                ->sortBy(static fn (KflexPrice $item): array => [
+                    $item->product_line,
+                    $item->form_type,
+                    $item->variant_type,
+                    (int) preg_replace('/[^0-9]/', '', (string) $item->thickness),
+                    (int) preg_replace('/[^0-9]/', '', (string) $item->diameter),
+                    $item->id,
+                ])
+                ->values()
+                ->toArray();
+        });
 
         $quotationDrafts = QuotationDraft::query()
             ->latest('updated_at')
@@ -304,7 +353,8 @@ class QuotationController extends Controller
         }
 
         try {
-            $payload = $importer->import($uploadedFile->getRealPath(), $uploadedFile->getClientOriginalName());
+            $filePath = $uploadedFile->getRealPath() ?: $uploadedFile->getPathname();
+            $payload = $importer->import($filePath, $uploadedFile->getClientOriginalName());
 
             return response()->json([
                 'payload' => $payload,

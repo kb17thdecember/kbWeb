@@ -12,6 +12,8 @@ use Throwable;
 
 class Contact extends Model
 {
+    private static bool $quotationColumnsChecked = false;
+
     protected $fillable = [
         'user_id',
         'name',
@@ -44,8 +46,29 @@ class Contact extends Model
 
     public static function ensureQuotationColumns(): void
     {
+        if (self::$quotationColumnsChecked && ! app()->runningUnitTests()) {
+            return;
+        }
+
+        $markerFile = storage_path('framework/cache/contacts_quotation_columns.flag');
+
+        if (! app()->runningUnitTests() && is_file($markerFile)) {
+            self::$quotationColumnsChecked = true;
+
+            return;
+        }
+
         try {
-            if (! Schema::hasTable('contacts') || Schema::hasColumn('contacts', 'quotation_path')) {
+            if (! Schema::hasTable('contacts')) {
+                return;
+            }
+
+            if (Schema::hasColumn('contacts', 'quotation_path')) {
+                self::$quotationColumnsChecked = true;
+                if (! app()->runningUnitTests()) {
+                    @file_put_contents($markerFile, '1');
+                }
+
                 return;
             }
 
@@ -63,6 +86,11 @@ class Contact extends Model
                     $table->timestamp('quoted_at')->nullable();
                 }
             });
+
+            self::$quotationColumnsChecked = true;
+            if (! app()->runningUnitTests()) {
+                @file_put_contents($markerFile, '1');
+            }
         } catch (Throwable) {
             // Ignore schema check errors in read-only contexts
         }

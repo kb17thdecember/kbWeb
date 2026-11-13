@@ -7,10 +7,26 @@ use Throwable;
 
 class SiteSetting extends Model
 {
+    /**
+     * @var array<string, string>|null
+     */
+    private static ?array $cachedSettings = null;
+
     protected $fillable = [
         'key',
         'value',
     ];
+
+    protected static function booted(): void
+    {
+        static::saved(function (): void {
+            self::$cachedSettings = null;
+        });
+
+        static::deleted(function (): void {
+            self::$cachedSettings = null;
+        });
+    }
 
     /**
      * @return array<string, string>
@@ -70,6 +86,10 @@ class SiteSetting extends Model
      */
     public static function allSettings(): array
     {
+        if (self::$cachedSettings !== null && ! app()->runningUnitTests()) {
+            return self::$cachedSettings;
+        }
+
         $defaults = self::defaults();
         $optionalEmptyKeys = [
             'site_logo',
@@ -101,6 +121,8 @@ class SiteSetting extends Model
             }
         }
 
+        self::$cachedSettings = $defaults;
+
         return $defaults;
     }
 
@@ -121,6 +143,8 @@ class SiteSetting extends Model
                 ['value' => $value !== null ? trim($value) : null],
             );
         }
+
+        self::$cachedSettings = null;
     }
 
     public static function canonicalBaseUrl(): string
