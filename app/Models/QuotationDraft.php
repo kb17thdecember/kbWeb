@@ -5,12 +5,15 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Throwable;
 
 class QuotationDraft extends Model
 {
     protected $table = 'quotation_drafts';
+
+    private static bool $tableChecked = false;
 
     protected $fillable = [
         'user_id',
@@ -39,14 +42,28 @@ class QuotationDraft extends Model
 
     public static function ensureTableExists(): void
     {
+        if (self::$tableChecked && ! app()->runningUnitTests()) {
+            return;
+        }
+
         try {
             if (Schema::hasTable('quotation_drafts')) {
+                self::$tableChecked = true;
+                try {
+                    $driver = Schema::getConnection()->getDriverName();
+                    if (in_array($driver, ['mysql', 'mariadb'], true)) {
+                        DB::statement('ALTER TABLE `quotation_drafts` MODIFY `payload` LONGTEXT NOT NULL');
+                    }
+                } catch (Throwable) {
+                    // Ignore column alter if not needed
+                }
+
                 return;
             }
 
             Schema::create('quotation_drafts', function (Blueprint $table): void {
                 $table->id();
-                $table->foreignId('user_id')->nullable()->constrained('users')->nullOnDelete();
+                $table->unsignedBigInteger('user_id')->nullable()->index();
                 $table->string('title');
                 $table->string('quotation_type', 32)->default('ariston');
                 $table->string('project_name')->nullable();
@@ -54,9 +71,11 @@ class QuotationDraft extends Model
                 $table->string('recipient_person')->nullable();
                 $table->unsignedInteger('items_count')->default(1);
                 $table->unsignedBigInteger('grand_total')->default(0);
-                $table->json('payload');
+                $table->longText('payload');
                 $table->timestamps();
             });
+
+            self::$tableChecked = true;
         } catch (Throwable) {
             // Ignore schema creation errors in read-only contexts
         }

@@ -11,7 +11,7 @@ use ZipArchive;
 class QuotationFileImporter
 {
     /**
-     * Import an exported quotation file (.xlsx, .json) and return its structured state payload.
+     * Import an exported quotation file (.xlsx, .pdf, .json, .html) and return its structured state payload.
      *
      * @return array<string, mixed>
      */
@@ -22,14 +22,297 @@ class QuotationFileImporter
         if ($ext === 'json') {
             $raw = (string) file_get_contents($filePath);
             $decoded = json_decode($raw, true);
-            if (! is_array($decoded) || ! in_array($decoded['activeQuotationType'] ?? '', ['ariston', 'second'], true)) {
+            $normalized = $this->normalizePayload(is_array($decoded) ? $decoded : null);
+            if ($normalized === null) {
                 throw new RuntimeException('File JSON không đúng định dạng báo giá.');
             }
 
-            return $decoded;
+            return $normalized;
+        }
+
+        if ($ext === 'html' || $ext === 'htm') {
+            $raw = (string) file_get_contents($filePath);
+            if (preg_match('/KBQDATA:([A-Za-z0-9+\/=\s]+):ENDKBQDATA/', $raw, $m) === 1) {
+                $decoded = $this->decodeBase64Payload($m[1]);
+                if ($decoded !== null) {
+                    return $decoded;
+                }
+            }
+            throw new RuntimeException('File HTML không chứa dữ liệu báo giá hợp lệ.');
+        }
+
+        if ($ext === 'pdf') {
+            return $this->importPdf($filePath);
         }
 
         return $this->importXlsx($filePath);
+    }
+
+    /**
+     * @param  array<string, mixed>|null  $payload
+     * @return array<string, mixed>|null
+     */
+    private function normalizePayload(?array $payload): ?array
+    {
+        if (! is_array($payload)) {
+            return null;
+        }
+
+        $qType = $payload['quotationType'] ?? $payload['activeQuotationType'] ?? null;
+        if (! in_array($qType, ['ariston', 'second'], true)) {
+            if (! empty($payload['kflexGroups']) && empty($payload['items'])) {
+                $qType = 'second';
+            } elseif (! empty($payload['items']) || ! empty($payload['quoteForm'])) {
+                $qType = 'ariston';
+            } else {
+                return null;
+            }
+        }
+
+        $payload['version'] = $payload['version'] ?? 1;
+        $payload['quotationType'] = $qType;
+        $payload['activeQuotationType'] = $qType;
+
+        return $payload;
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private function decodeBase64Payload(string $base64): ?array
+    {
+        $clean = preg_replace('/[^A-Za-z0-9+\/=]/', '', $base64) ?? '';
+        if ($clean === '') {
+            return null;
+        }
+
+        $rawJson = base64_decode($clean, true);
+        if (! is_string($rawJson) || $rawJson === '') {
+            return null;
+        }
+
+        $decoded = json_decode($rawJson, true);
+
+        return $this->normalizePayload(is_array($decoded) ? $decoded : null);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function importPdf(string $path): array
+    {
+        $rawPdf = (string) file_get_contents($path);
+        if ($rawPdf === '') {
+            throw new RuntimeException('File PDF trống hoặc không thể đọc.');
+        }
+
+        if (preg_match('/KBQDATA:([A-Za-z0-9+\/=\s]+):ENDKBQDATA/', $rawPdf, $m) === 1) {
+            $decoded = $this->decodeBase64Payload($m[1]);
+            if ($decoded !== null) {
+                return $decoded;
+            }
+        }
+
+        $streams = [];
+        if (preg_match_all('/stream\r?\n([\s\S]*?)\r?\n?endstream/', $rawPdf, $matches)) {
+            foreach ($matches[1] as $rawStream) {
+                $inflated = @gzuncompress($rawStream);
+                if ($inflated === false) {
+                    $inflated = @gzinflate($rawStream);
+                }
+                $streamContent = is_string($inflated) ? $inflated : $rawStream;
+                $streams[] = $streamContent;
+
+                if (preg_match('/KBQDATA:([A-Za-z0-9+\/=\s]+):ENDKBQDATA/', $streamContent, $m) === 1) {
+                    $decoded = $this->decodeBase64Payload($m[1]);
+                    if ($decoded !== null) {
+                        return $decoded;
+                    }
+                }
+            }
+        }
+
+        $cmap = [];
+        foreach ($streams as $s) {
+            if (str_contains($s, 'beginbfchar') || str_contains($s, 'beginbfrange')) {
+                if (preg_match_all('/<([0-9A-Fa-f]+)>\s*<([0-9A-Fa-f]+)>/', $s, $pairs, PREG_SET_ORDER)) {
+                    foreach ($pairs as $p) {
+                        $src = strtoupper($p[1]);
+                        $dst = $this->decodeHexUtf16($p[2]);
+                        if ($dst !== '' && ! isset($cmap[$src])) {
+                            $cmap[$src] = $dst;
+                        }
+                    }
+                }
+            }
+        }
+
+        $lines = [];
+        foreach ($streams as $s) {
+            if (! str_contains($s, 'BT') || ! str_contains($s, 'ET')) {
+                continue;
+            }
+            if (preg_match_all('/BT([\s\S]*?)ET/', $s, $btBlocks)) {
+                foreach ($btBlocks[1] as $blk) {
+                    $line = '';
+                    if (preg_match_all('/<([0-9A-Fa-f]+)>|\((?:\\\\.|[^\\\\()])*\)/', $blk, $tokens, PREG_SET_ORDER)) {
+                        foreach ($tokens as $tok) {
+                            if (! empty($tok[1])) {
+                                $hex = strtoupper($tok[1]);
+                                $step = isset($cmap[substr($hex, 0, 4)]) || strlen($hex) % 4 === 0 ? 4 : 2;
+                                for ($i = 0; $i < strlen($hex); $i += $step) {
+                                    $code = substr($hex, $i, $step);
+                                    if (isset($cmap[$code])) {
+                                        $line .= $cmap[$code];
+                                    } else {
+                                        $charCode = hexdec($code);
+                                        if ($charCode >= 32 && $charCode <= 126) {
+                                            $line .= chr((int) $charCode);
+                                        }
+                                    }
+                                }
+                            } else {
+                                $line .= stripcslashes(substr($tok[0], 1, -1));
+                            }
+                        }
+                    }
+                    if (trim($line) !== '') {
+                        $lines[] = trim($line);
+                    }
+                }
+            }
+        }
+
+        $combined = implode("\n", $lines);
+        $compact = preg_replace('/\s+/', '', $combined) ?? '';
+        if (
+            preg_match('/KBQDATA:([A-Za-z0-9+\/=\s]+):ENDKBQDATA/', $combined, $m) === 1
+            || preg_match('/KBQDATA:([A-Za-z0-9+\/=]+):ENDKBQDATA/', $compact, $m) === 1
+        ) {
+            $decoded = $this->decodeBase64Payload($m[1]);
+            if ($decoded !== null) {
+                return $decoded;
+            }
+        }
+
+        if (trim($combined) === '') {
+            throw new RuntimeException('Không thể đọc nội dung từ file PDF này.');
+        }
+
+        $todayIso = now()->format('Y-m-d');
+        $upper = mb_strtoupper($combined, 'UTF-8');
+        if (str_contains($upper, 'K-FLEX') || str_contains($upper, 'BẢO ÔN')) {
+            $kflexPrices = KflexPrice::query()->get();
+            $matchedItems = [];
+            foreach ($kflexPrices as $p) {
+                if ($p->product_name !== '' && str_contains($combined, $p->product_name)) {
+                    $matchedItems[] = [
+                        'uid' => 'imp-kf-pdf-'.$p->id.'-'.uniqid(),
+                        'kflexPriceId' => $p->id,
+                        'itemName' => $p->product_name,
+                        'brandLabel' => $p->product_line === 'k_protect' ? 'K-Flex K-Protect' : ($p->product_line === 'm_flex' ? 'K-Flex M-Flex' : 'K-Flex ST'),
+                        'originLabel' => ($p->brand ?: 'Ý').' - '.($p->origin ?: 'Malaysia'),
+                        'productTypeLabel' => $p->variant_type === 'alu' ? 'Có nhôm' : 'Chỉ Foam',
+                        'productLine' => $p->product_line,
+                        'formType' => $p->form_type,
+                        'variantType' => $p->variant_type,
+                        'thickness' => (string) $p->thickness,
+                        'innerDiameter' => (string) ($p->diameter ?? ''),
+                        'widthM' => $p->form_type === 'sheet' ? '1.2' : '',
+                        'lengthM' => $p->form_type === 'tube' ? '2' : '8',
+                        'qtyM' => $p->form_type === 'tube' ? 1 : null,
+                        'qtyM2' => $p->form_type === 'sheet' ? 1 : null,
+                        'unitPrice' => (int) $p->price,
+                        'note' => '',
+                    ];
+                }
+            }
+
+            return [
+                'version' => 1,
+                'quotationType' => 'second',
+                'activeQuotationType' => 'second',
+                'kflexQuoteForm' => [
+                    'documentTitle' => 'BÁO GIÁ BẢO ÔN K-FLEX',
+                    'recipientCompany' => '',
+                    'recipientPerson' => '',
+                    'projectName' => '',
+                    'quoteDate' => $todayIso,
+                    'validUntilDate' => now()->addMonths(2)->format('Y-m-d'),
+                    'vatPercent' => 8,
+                    'introText' => 'Công ty Star Light là đơn vị phân phối mảng dự án sản phẩm bảo ôn K-FLEX',
+                    'paymentTerms' => 'Thỏa thuận',
+                    'deliveryMethod' => 'Giao hàng tại chân công trình',
+                    'deliveryTime' => 'tối thiểu 40 ngày (đối với hàng nhập khẩu) kể từ ngày đơn đặt hàng được xác nhận, Hiện đơn hàng đang có sẵn',
+                    'contactName' => 'Mr.Kiệt',
+                    'contactHp' => '0979.807.234',
+                    'contactEmail' => 'tuankiet@starlightgroup.vn',
+                ],
+                'kflexSelectedProductLines' => ['st'],
+                'kflexGroups' => $matchedItems !== [] ? [[
+                    'uid' => 'imp-kf-grp-pdf-'.uniqid(),
+                    'hasTitle' => true,
+                    'title' => 'BẢO ÔN CHO ĐƯỜNG THÉP',
+                    'items' => $matchedItems,
+                ]] : [],
+            ];
+        }
+
+        $aristonProducts = Product::query()->with('images')->get();
+        $items = [];
+        foreach ($aristonProducts as $prod) {
+            if ($prod->name !== '' && str_contains($combined, $prod->name)) {
+                $items[] = [
+                    'uid' => 'imp-ariston-pdf-'.$prod->id.'-'.uniqid(),
+                    'productId' => $prod->id,
+                    'productLabel' => $prod->product_title ?: 'Máy nước nóng gián tiếp Ariston',
+                    'modelCode' => $prod->name,
+                    'origin' => $prod->origin ? 'Ý-'.$prod->origin : 'Ý-Việt Nam',
+                    'imageUrl' => $prod->image[0] ?? '',
+                    'unit' => 'Máy',
+                    'specifications' => $prod->description ?? '',
+                    'unitPrice' => (int) ($prod->price > 0 ? $prod->price : 2386000),
+                    'quantity' => 1,
+                ];
+            }
+        }
+
+        return [
+            'version' => 1,
+            'quotationType' => 'ariston',
+            'activeQuotationType' => 'ariston',
+            'quoteForm' => [
+                'documentTitle' => 'BÁO GIÁ BƠM NHIỆT ARISTON',
+                'recipientCompany' => '',
+                'recipientPerson' => '',
+                'contactPhone' => '',
+                'quoteDate' => $todayIso,
+                'validUntilDate' => now()->addMonths(2)->format('Y-m-d'),
+                'projectName' => '',
+                'vatPercent' => 8,
+                'signerName' => 'Nguyễn Tuấn Kiệt',
+                'signerPhone' => '0979 807 234',
+                'signerEmail' => 'tuankiet@starlightgroup.vn',
+            ],
+            'items' => $items,
+        ];
+    }
+
+    private function decodeHexUtf16(string $hex): string
+    {
+        $clean = preg_replace('/[^0-9A-Fa-f]/', '', $hex) ?? '';
+        if ($clean === '') {
+            return '';
+        }
+        $out = '';
+        for ($i = 0; $i + 4 <= strlen($clean); $i += 4) {
+            $code = hexdec(substr($clean, $i, 4));
+            if ($code > 0) {
+                $out .= mb_chr((int) $code, 'UTF-8');
+            }
+        }
+
+        return $out;
     }
 
     /**
@@ -58,7 +341,7 @@ class QuotationFileImporter
             if (is_string($embeddedJson) && $embeddedJson !== '') {
                 $decoded = json_decode($embeddedJson, true);
                 if (is_array($decoded)) {
-                    $embeddedState = $decoded;
+                    $embeddedState = $this->normalizePayload($decoded);
                 }
             }
 
@@ -92,7 +375,7 @@ class QuotationFileImporter
         }
 
         $isKflex = false;
-        for ($r = 1; $r <= min($maxRow, 20); $r++) {
+        for ($r = 1; $r <= min($maxRow, 25); $r++) {
             $c1 = mb_strtoupper($this->cellText($grid, $r, 1), 'UTF-8');
             $c2 = mb_strtoupper($this->cellText($grid, $r, 2), 'UTF-8');
             if (
@@ -132,7 +415,7 @@ class QuotationFileImporter
             'documentTitle' => $baseForm['documentTitle'] ?? ($this->cellText($grid, 5, 1) ?: 'BÁO GIÁ BƠM NHIỆT ARISTON'),
             'recipientCompany' => $baseForm['recipientCompany'] ?? '',
             'recipientPerson' => $baseForm['recipientPerson'] ?? '',
-            'contactPhone' => '',
+            'contactPhone' => $baseForm['contactPhone'] ?? '',
             'quoteDate' => $baseForm['quoteDate'] ?? $todayIso,
             'validUntilDate' => $baseForm['validUntilDate'] ?? now()->addMonths(2)->format('Y-m-d'),
             'projectName' => $baseForm['projectName'] ?? '',
@@ -148,7 +431,7 @@ class QuotationFileImporter
         }
 
         $tableHeaderRow = 0;
-        for ($r = 5; $r <= min($maxRow, 20); $r++) {
+        for ($r = 5; $r <= min($maxRow, 25); $r++) {
             $c1 = $this->cellText($grid, $r, 1);
             $c2 = $this->cellText($grid, $r, 2) ?: $this->cellText($grid, $r, 3);
             $c1Lower = mb_strtolower($c1, 'UTF-8');
@@ -268,6 +551,7 @@ class QuotationFileImporter
 
         return [
             'version' => 1,
+            'quotationType' => 'ariston',
             'activeQuotationType' => 'ariston',
             'quoteForm' => $quoteForm,
             'items' => $items !== [] ? $items : ($embeddedState['items'] ?? []),
@@ -324,7 +608,7 @@ class QuotationFileImporter
         }
 
         $tableHeaderStartRow = 0;
-        for ($r = 5; $r <= min($maxRow, 20); $r++) {
+        for ($r = 5; $r <= min($maxRow, 25); $r++) {
             $c1 = $this->cellText($grid, $r, 1);
             $cVal = $this->cellText($grid, $r, 3) ?: $this->cellText($grid, $r, 2);
             $c1Lower = mb_strtolower($c1, 'UTF-8');
@@ -525,6 +809,7 @@ class QuotationFileImporter
 
         return [
             'version' => 1,
+            'quotationType' => 'second',
             'activeQuotationType' => 'second',
             'kflexQuoteForm' => $kflexQuoteForm,
             'kflexSelectedProductLines' => $detectedLines !== [] ? $detectedLines : ($embeddedState['kflexSelectedProductLines'] ?? ['st']),

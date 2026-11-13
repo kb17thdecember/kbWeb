@@ -17,7 +17,7 @@ return new class extends Migration
 
         Schema::create('quotation_drafts', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('user_id')->nullable()->constrained('users')->nullOnDelete();
+            $table->unsignedBigInteger('user_id')->nullable()->index();
             $table->string('title');
             $table->string('quotation_type', 32)->default('ariston');
             $table->string('project_name')->nullable();
@@ -25,7 +25,7 @@ return new class extends Migration
             $table->string('recipient_person')->nullable();
             $table->unsignedInteger('items_count')->default(1);
             $table->unsignedBigInteger('grand_total')->default(0);
-            $table->json('payload');
+            $table->longText('payload');
             $table->timestamps();
         });
     }

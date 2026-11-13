@@ -130,8 +130,13 @@ Route::middleware([UseKbAdminRootView::class, EnsureAdminAuthenticated::class])
 
         Route::get('/quotations', [QuotationController::class, 'index'])
             ->name('admin.quotations.index');
+        Route::get('/quotations/drafts', [QuotationController::class, 'listDrafts'])
+            ->name('admin.quotations.drafts.index');
         Route::post('/quotations/drafts', [QuotationController::class, 'storeDraft'])
             ->name('admin.quotations.drafts.store');
+        Route::post('/quotations/drafts/{quotationDraft}/delete', [QuotationController::class, 'destroyDraft'])
+            ->whereNumber('quotationDraft')
+            ->name('admin.quotations.drafts.delete');
         Route::delete('/quotations/drafts/{quotationDraft}', [QuotationController::class, 'destroyDraft'])
             ->whereNumber('quotationDraft')
             ->name('admin.quotations.drafts.destroy');

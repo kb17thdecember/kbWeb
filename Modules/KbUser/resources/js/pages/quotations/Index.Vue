@@ -7,7 +7,10 @@ import starLightLogoAsset from '../../../assets/images/starlight_logo.png';
 import dayMemAsset from '../../../../../KbAdmin/resources/assets/images/products/DAYMEM.jpg';
 import UserLayout from '../../layout/UserLayout.Vue';
 import {
+    compactQuotationPayload,
     encodeQuotationPayloadBase64,
+    getCsrfHeaders,
+    normalizeQuotationPayload,
     parseExportedQuotationFile,
     type QuotationDraftRecord,
     type QuotationPayloadState,
@@ -1543,7 +1546,7 @@ const printKflexQuotationPdf = (): void => {
                         <span class="kf-sign-email">${escapeHtml(kflexQuoteForm.value.contactEmail)}</span>
                     </div>
                 </div>
-                <div style="font-size:0.1px;line-height:0;color:#ffffff;opacity:0.01;height:0;overflow:hidden;user-select:all;">KBQDATA:${encodeQuotationPayloadBase64(buildCurrentQuotationPayload('second'))}:ENDKBQDATA</div>
+                <div style="position:fixed;bottom:0.5mm;left:2mm;right:2mm;font-size:1pt;line-height:1pt;color:#ffffff;pointer-events:none;word-break:break-all;z-index:-1;">KBQDATA:${encodeQuotationPayloadBase64(compactQuotationPayload(buildCurrentQuotationPayload('second')))}:ENDKBQDATA</div>
             </div>
         </div>
     </div>
@@ -2043,7 +2046,7 @@ const printQuotationPdf = (): void => {
             ${quoteForm.value.signerPhone.trim() ? `<p>HP: ${escapeHtml(quoteForm.value.signerPhone)}</p>` : ''}
             ${quoteForm.value.signerEmail.trim() ? `<p>Email : ${escapeHtml(quoteForm.value.signerEmail)}</p>` : ''}
         </div>
-        <div style="font-size:0.1px;line-height:0;color:#ffffff;opacity:0.01;height:0;overflow:hidden;user-select:all;">KBQDATA:${encodeQuotationPayloadBase64(buildCurrentQuotationPayload('ariston'))}:ENDKBQDATA</div>
+        <div style="position:fixed;bottom:0.5mm;left:2mm;right:2mm;font-size:1pt;line-height:1pt;color:#ffffff;pointer-events:none;word-break:break-all;z-index:-1;">KBQDATA:${encodeQuotationPayloadBase64(compactQuotationPayload(buildCurrentQuotationPayload('ariston')))}:ENDKBQDATA</div>
             </div>
         </div>
     </div>
@@ -3124,6 +3127,8 @@ const exportKflexQuotationExcel = async (): Promise<void> => {
 // QUOTATION DRAFTS & FILE IMPORT (ARISTON + K-FLEX)
 // =========================================================================
 const LOCAL_AUTOSAVE_KEY = 'kbuser_quotation_working_draft_v1';
+const LOCAL_SAVED_DRAFTS_KEY = 'kbuser_quotation_saved_drafts_v2';
+const draftsList = ref<QuotationDraftRecord[]>([...(props.quotationDrafts ?? [])]);
 const currentDraftId = ref<number | null>(null);
 const draftTitleInput = ref('');
 const showDraftsPanel = ref(false);
@@ -3132,6 +3137,25 @@ const isImportingFile = ref(false);
 const importFileInputRef = ref<HTMLInputElement | null>(null);
 const lastAutoSavedAt = ref<string>('');
 
+const syncDraftsListToLocal = (): void => {
+    try {
+        localStorage.setItem(LOCAL_SAVED_DRAFTS_KEY, JSON.stringify(draftsList.value.slice(0, 30)));
+    } catch {
+        // Ignore storage quota errors
+    }
+};
+
+watch(
+    () => props.quotationDrafts,
+    (newServerDrafts) => {
+        if (Array.isArray(newServerDrafts) && newServerDrafts.length > 0) {
+            draftsList.value = [...newServerDrafts];
+            syncDraftsListToLocal();
+        }
+    },
+    { deep: true },
+);
+
 const buildCurrentQuotationPayload = (
     forcedType?: 'ariston' | 'second',
 ): QuotationPayloadState => {
@@ -3139,6 +3163,7 @@ const buildCurrentQuotationPayload = (
     return {
         version: 1,
         quotationType: qType,
+        activeQuotationType: qType,
         quoteForm: { ...quoteForm.value },
         items: items.value.map((it) => ({ ...it })),
         kflexQuoteForm: { ...kflexQuoteForm.value },
@@ -3152,11 +3177,16 @@ const buildCurrentQuotationPayload = (
     };
 };
 
-const applyQuotationPayload = (payload: QuotationPayloadState): void => {
+const applyQuotationPayload = (rawPayload: Partial<QuotationPayloadState>): void => {
+    const payload = normalizeQuotationPayload(rawPayload);
+    if (!payload) {
+        return;
+    }
     isApplyingPayload = true;
     try {
-        if (payload.quotationType === 'ariston' || payload.quotationType === 'second') {
-            activeQuotationType.value = payload.quotationType;
+        const targetType = payload.quotationType || payload.activeQuotationType;
+        if (targetType === 'ariston' || targetType === 'second') {
+            activeQuotationType.value = targetType;
         }
 
         if (payload.quoteForm) {
@@ -3167,18 +3197,32 @@ const applyQuotationPayload = (payload: QuotationPayloadState): void => {
         }
 
         if (Array.isArray(payload.items) && payload.items.length > 0) {
-            items.value = payload.items.map((it) => ({
-                uid: it.uid || nextUid(),
-                productId: it.productId ?? null,
-                productLabel: it.productLabel ?? '',
-                modelCode: it.modelCode ?? '',
-                origin: it.origin ?? 'Ý-Việt Nam',
-                imageUrl: it.imageUrl ?? '',
-                unit: it.unit ?? 'Máy',
-                specifications: it.specifications ?? '',
-                unitPrice: Number(it.unitPrice) || 0,
-                quantity: Number(it.quantity) || 1,
-            }));
+            items.value = payload.items.map((it) => {
+                const matchedProd = props.aristonProducts.find(
+                    (p) =>
+                        (it.productId && p.id === it.productId) ||
+                        (it.modelCode &&
+                            p.name.trim().toLowerCase() === it.modelCode.trim().toLowerCase()),
+                );
+                const resolvedImg =
+                    it.imageUrl ||
+                    (matchedProd?.image?.[0] ? resolveProductImage(matchedProd.image[0]) : '');
+                return {
+                    uid: it.uid || nextUid(),
+                    productId: it.productId ?? matchedProd?.id ?? null,
+                    productLabel:
+                        it.productLabel ||
+                        matchedProd?.product_title ||
+                        'Máy nước nóng gián tiếp Ariston',
+                    modelCode: it.modelCode ?? matchedProd?.name ?? '',
+                    origin: it.origin ?? 'Ý-Việt Nam',
+                    imageUrl: resolvedImg,
+                    unit: it.unit ?? 'Máy',
+                    specifications: it.specifications ?? matchedProd?.description ?? '',
+                    unitPrice: Number(it.unitPrice) || 0,
+                    quantity: Number(it.quantity) || 1,
+                };
+            });
         }
 
         if (payload.kflexQuoteForm) {
@@ -3254,7 +3298,7 @@ const defaultSuggestedDraftTitle = computed(() => {
 
 const persistLocalWorkingDraft = (): void => {
     try {
-        const payload = buildCurrentQuotationPayload();
+        const payload = compactQuotationPayload(buildCurrentQuotationPayload());
         localStorage.setItem(
             LOCAL_AUTOSAVE_KEY,
             JSON.stringify({
@@ -3290,6 +3334,20 @@ watch(
 
 onMounted(() => {
     try {
+        const savedDraftsRaw = localStorage.getItem(LOCAL_SAVED_DRAFTS_KEY);
+        if (savedDraftsRaw && draftsList.value.length === 0) {
+            const parsedDrafts = JSON.parse(savedDraftsRaw) as QuotationDraftRecord[];
+            if (Array.isArray(parsedDrafts) && parsedDrafts.length > 0) {
+                draftsList.value = parsedDrafts;
+            }
+        } else if (draftsList.value.length > 0) {
+            syncDraftsListToLocal();
+        }
+    } catch {
+        // Ignore invalid local drafts list
+    }
+
+    try {
         const raw = localStorage.getItem(LOCAL_AUTOSAVE_KEY);
         if (!raw) {
             return;
@@ -3302,7 +3360,10 @@ onMounted(() => {
         };
         if (parsed?.payload) {
             applyQuotationPayload(parsed.payload);
-            if (parsed.draftId) {
+            if (
+                parsed.draftId &&
+                draftsList.value.some((d) => Number(d.id) === Number(parsed.draftId))
+            ) {
                 currentDraftId.value = parsed.draftId;
             }
             if (parsed.draftTitle) {
@@ -3320,7 +3381,7 @@ onMounted(() => {
     }
 });
 
-const saveQuotationDraft = (saveAsNew = false): void => {
+const saveQuotationDraft = async (saveAsNew = false): Promise<void> => {
     if (isSavingDraft.value) {
         return;
     }
@@ -3328,53 +3389,100 @@ const saveQuotationDraft = (saveAsNew = false): void => {
     const isKflex = activeQuotationType.value === 'second';
     const titleToSave =
         draftTitleInput.value.trim() || defaultSuggestedDraftTitle.value.slice(0, 180);
-    const payload = buildCurrentQuotationPayload();
+    const payload = compactQuotationPayload(buildCurrentQuotationPayload());
+    const targetDraftId = saveAsNew ? null : currentDraftId.value;
+    const projectName = isKflex ? kflexQuoteForm.value.projectName : quoteForm.value.projectName;
+    const recipientCompany = isKflex
+        ? kflexQuoteForm.value.recipientCompany
+        : quoteForm.value.recipientCompany;
+    const recipientPerson = isKflex
+        ? kflexQuoteForm.value.recipientPerson
+        : quoteForm.value.recipientPerson;
+    const itemsCount = isKflex ? kflexTotalItemsCount.value : items.value.length;
+    const grandTotalVal = isKflex ? kflexGrandTotal.value : grandTotal.value;
 
     isSavingDraft.value = true;
     persistLocalWorkingDraft();
 
-    router.post(
-        '/quotations/drafts',
-        {
-            draft_id: saveAsNew ? null : currentDraftId.value,
-            title: titleToSave,
-            quotation_type: activeQuotationType.value,
-            project_name: isKflex
-                ? kflexQuoteForm.value.projectName
-                : quoteForm.value.projectName,
-            recipient_company: isKflex
-                ? kflexQuoteForm.value.recipientCompany
-                : quoteForm.value.recipientCompany,
-            recipient_person: isKflex
-                ? kflexQuoteForm.value.recipientPerson
-                : quoteForm.value.recipientPerson,
-            items_count: isKflex ? kflexTotalItemsCount.value : items.value.length,
-            grand_total: isKflex ? kflexGrandTotal.value : grandTotal.value,
-            payload: payload as unknown as Record<string, any>,
-        },
-        {
-            preserveScroll: true,
-            preserveState: true,
-            onSuccess: () => {
-                draftTitleInput.value = titleToSave;
-                const matching = props.quotationDrafts?.[0];
-                if (saveAsNew && matching) {
-                    currentDraftId.value = matching.id;
-                } else if (!currentDraftId.value && matching) {
-                    currentDraftId.value = matching.id;
+    try {
+        const res = await fetch('/quotations/drafts', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                Accept: 'application/json',
+                ...getCsrfHeaders(),
+            },
+            credentials: 'same-origin',
+            body: JSON.stringify({
+                draft_id: targetDraftId,
+                title: titleToSave,
+                quotation_type: activeQuotationType.value,
+                project_name: projectName,
+                recipient_company: recipientCompany,
+                recipient_person: recipientPerson,
+                items_count: itemsCount,
+                grand_total: grandTotalVal,
+                payload,
+            }),
+        });
+
+        if (res.ok) {
+            const data = (await res.json()) as {
+                message?: string;
+                draft?: QuotationDraftRecord;
+                drafts?: QuotationDraftRecord[];
+            };
+            if (Array.isArray(data.drafts)) {
+                draftsList.value = data.drafts;
+            } else if (data.draft) {
+                const idx = draftsList.value.findIndex((d) => d.id === data.draft!.id);
+                if (idx >= 0) {
+                    draftsList.value.splice(idx, 1, data.draft);
+                } else {
+                    draftsList.value.unshift(data.draft);
                 }
-                showDraftsPanel.value = true;
-                persistLocalWorkingDraft();
-                notifyToast(`Đã lưu bản nháp "${titleToSave}" thành công.`);
-            },
-            onError: () => {
-                notifyToast('Không thể lưu bản nháp lên máy chủ. Đã lưu tạm trên trình duyệt.');
-            },
-            onFinish: () => {
-                isSavingDraft.value = false;
-            },
-        },
-    );
+            }
+            if (data.draft?.id) {
+                currentDraftId.value = data.draft.id;
+            }
+            draftTitleInput.value = titleToSave;
+            showDraftsPanel.value = true;
+            syncDraftsListToLocal();
+            persistLocalWorkingDraft();
+            notifyToast(`Đã lưu bản nháp "${titleToSave}" thành công.`);
+            return;
+        }
+    } catch {
+        // Fallback to local draft storage below
+    } finally {
+        isSavingDraft.value = false;
+    }
+
+    // Local fallback if server request failed
+    const localDraft: QuotationDraftRecord = {
+        id: targetDraftId ?? Date.now(),
+        title: titleToSave,
+        quotation_type: activeQuotationType.value,
+        project_name: projectName || null,
+        recipient_company: recipientCompany || null,
+        recipient_person: recipientPerson || null,
+        items_count: itemsCount,
+        grand_total: grandTotalVal,
+        payload,
+        updated_at: new Date().toISOString(),
+    };
+    const existingIdx = draftsList.value.findIndex((d) => d.id === localDraft.id);
+    if (existingIdx >= 0) {
+        draftsList.value.splice(existingIdx, 1, localDraft);
+    } else {
+        draftsList.value.unshift(localDraft);
+    }
+    currentDraftId.value = localDraft.id;
+    draftTitleInput.value = titleToSave;
+    showDraftsPanel.value = true;
+    syncDraftsListToLocal();
+    persistLocalWorkingDraft();
+    notifyToast(`Đã lưu bản nháp "${titleToSave}" thành công.`);
 };
 
 const loadQuotationDraft = (draft: QuotationDraftRecord): void => {
@@ -3394,20 +3502,43 @@ const overwriteQuotationDraft = (draft: QuotationDraftRecord): void => {
     if (!draftTitleInput.value.trim()) {
         draftTitleInput.value = draft.title;
     }
-    saveQuotationDraft(false);
+    void saveQuotationDraft(false);
 };
 
-const deleteQuotationDraft = (draft: QuotationDraftRecord): void => {
-    router.delete(`/quotations/drafts/${draft.id}`, {
-        preserveScroll: true,
-        preserveState: true,
-        onSuccess: () => {
-            if (currentDraftId.value === draft.id) {
-                currentDraftId.value = null;
+const deleteQuotationDraft = async (draft: QuotationDraftRecord): Promise<void> => {
+    const deletedId = draft.id;
+    const deletedTitle = draft.title;
+
+    draftsList.value = draftsList.value.filter((d) => Number(d.id) !== Number(deletedId));
+    syncDraftsListToLocal();
+
+    if (Number(currentDraftId.value) === Number(deletedId)) {
+        currentDraftId.value = null;
+        draftTitleInput.value = '';
+        persistLocalWorkingDraft();
+    }
+
+    try {
+        const res = await fetch(`/quotations/drafts/${deletedId}/delete`, {
+            method: 'POST',
+            headers: {
+                Accept: 'application/json',
+                ...getCsrfHeaders(),
+            },
+            credentials: 'same-origin',
+        });
+        if (res.ok) {
+            const data = (await res.json()) as { drafts?: QuotationDraftRecord[] };
+            if (Array.isArray(data.drafts)) {
+                draftsList.value = data.drafts;
+                syncDraftsListToLocal();
             }
-            notifyToast(`Đã xóa bản nháp "${draft.title}".`);
-        },
-    });
+        }
+    } catch {
+        // Already removed from local list
+    }
+
+    notifyToast(`Đã xóa bản nháp "${deletedTitle}".`);
 };
 
 const resetQuotationToDefault = (): void => {
@@ -3483,19 +3614,16 @@ const importQuotationFromFileObject = async (file: File): Promise<void> => {
                 todayIso,
             );
         } catch (clientErr) {
-            // Fallback to server-side importer if needed
             const formData = new FormData();
             formData.append('quotation_file', file);
-            const csrfToken =
-                document
-                    .querySelector('meta[name="csrf-token"]')
-                    ?.getAttribute('content') || '';
+            formData.append('file', file);
             const res = await fetch('/quotations/import', {
                 method: 'POST',
                 headers: {
                     Accept: 'application/json',
-                    ...(csrfToken ? { 'X-CSRF-TOKEN': csrfToken } : {}),
+                    ...getCsrfHeaders(),
                 },
+                credentials: 'same-origin',
                 body: formData,
             });
             if (res.ok) {
@@ -3508,22 +3636,20 @@ const importQuotationFromFileObject = async (file: File): Promise<void> => {
             }
         }
 
-        if (!importedPayload) {
+        const normalized = normalizeQuotationPayload(importedPayload);
+        if (!normalized) {
             throw new Error('Không đọc được dữ liệu báo giá từ file đã chọn.');
         }
 
-        const mergedPayload: QuotationPayloadState = {
-            ...buildCurrentQuotationPayload(),
-            ...importedPayload,
-        };
-
-        applyQuotationPayload(mergedPayload);
+        applyQuotationPayload(normalized);
         currentDraftId.value = null;
         draftTitleInput.value = `Sửa từ file: ${file.name.replace(/\.[^.]+$/, '')}`;
         persistLocalWorkingDraft();
 
         const typeLabel =
-            mergedPayload.quotationType === 'second' ? 'Bảo ôn K-Flex' : 'Bơm nhiệt / Bình nước nóng Ariston';
+            normalized.quotationType === 'second'
+                ? 'Bảo ôn K-Flex'
+                : 'Bơm nhiệt / Bình nước nóng Ariston';
         notifyToast(`Đã nhập file "${file.name}" (${typeLabel}) thành công để chỉnh sửa.`);
     } catch (err) {
         const msg =
@@ -3605,7 +3731,7 @@ const formatDraftTime = (iso?: string | null): string => {
                             class="q-btn"
                             @click="showDraftsPanel = !showDraftsPanel"
                         >
-                            📋 Bản nháp ({{ props.quotationDrafts.length }})
+                            📋 Bản nháp ({{ draftsList.length }})
                         </button>
                         <template v-if="activeQuotationType === 'ariston'">
                             <button
@@ -3691,7 +3817,7 @@ const formatDraftTime = (iso?: string | null): string => {
                                 class="q-btn"
                                 @click="showDraftsPanel = !showDraftsPanel"
                             >
-                                {{ showDraftsPanel ? '▲ Ẩn danh sách nháp' : `▼ Danh sách bản nháp (${props.quotationDrafts.length})` }}
+                                {{ showDraftsPanel ? '▲ Ẩn danh sách nháp' : `▼ Danh sách bản nháp (${draftsList.length})` }}
                             </button>
                             <button
                                 type="button"
@@ -3706,17 +3832,17 @@ const formatDraftTime = (iso?: string | null): string => {
 
                     <div v-if="showDraftsPanel" class="kb-quote-drafts-drawer">
                         <div class="kb-quote-drafts-drawer-head">
-                            <strong>Danh sách bản nháp báo giá đã lưu ({{ props.quotationDrafts.length }})</strong>
+                            <strong>Danh sách bản nháp báo giá đã lưu ({{ draftsList.length }})</strong>
                             <small>Bấm "Mở sửa tiếp" để nạp lại toàn bộ thông tin báo giá chưa xuất ra file.</small>
                         </div>
 
-                        <div v-if="props.quotationDrafts.length === 0" class="kb-quote-drafts-empty">
+                        <div v-if="draftsList.length === 0" class="kb-quote-drafts-empty">
                             Chưa có bản nháp nào được lưu. Bạn có thể bấm nút <strong>"💾 Lưu bản nháp"</strong> bất cứ lúc nào khi đang làm báo giá.
                         </div>
 
                         <div v-else class="kb-quote-drafts-grid">
                             <div
-                                v-for="draft in props.quotationDrafts"
+                                v-for="draft in draftsList"
                                 :key="draft.id"
                                 class="kb-quote-draft-item"
                                 :class="{ active: currentDraftId === draft.id }"

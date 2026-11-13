@@ -528,6 +528,7 @@
         })();
     </script>
 
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     @vite('Modules/KbUser/resources/js/kb-user.ts')
 
     @inertiaHead

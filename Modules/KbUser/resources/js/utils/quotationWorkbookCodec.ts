@@ -75,7 +75,9 @@ export type KflexQuotationGroupState = {
 
 export type QuotationPayloadState = {
     version?: number;
-    activeQuotationType: QuotationType;
+    quotationType?: QuotationType;
+    activeQuotationType?: QuotationType;
+    savedAt?: string;
     quoteForm?: Partial<AristonQuoteFormState>;
     items?: AristonQuotationItemState[];
     kflexQuoteForm?: Partial<KflexQuoteFormState>;
@@ -125,6 +127,79 @@ export type CatalogKflexPrice = {
 let codecUidSeed = 1;
 const makeUid = (prefix = 'imp'): string => `${prefix}-${Date.now()}-${codecUidSeed++}`;
 
+export function getCsrfHeaders(): Record<string, string> {
+    if (typeof document === 'undefined') {
+        return {};
+    }
+    const headers: Record<string, string> = {
+        'X-Requested-With': 'XMLHttpRequest',
+    };
+    const metaToken = document
+        .querySelector('meta[name="csrf-token"]')
+        ?.getAttribute('content')
+        ?.trim();
+    if (metaToken) {
+        headers['X-CSRF-TOKEN'] = metaToken;
+    }
+    const xsrfCookie = document.cookie
+        .split('; ')
+        .find((row) => row.startsWith('XSRF-TOKEN='))
+        ?.split('=')
+        .slice(1)
+        .join('=');
+    if (xsrfCookie) {
+        try {
+            headers['X-XSRF-TOKEN'] = decodeURIComponent(xsrfCookie);
+        } catch {
+            headers['X-XSRF-TOKEN'] = xsrfCookie;
+        }
+    }
+    return headers;
+}
+
+export function normalizeQuotationPayload(
+    raw: Partial<QuotationPayloadState> | null | undefined,
+): QuotationPayloadState | null {
+    if (!raw || typeof raw !== 'object') {
+        return null;
+    }
+    const resolvedType: QuotationType =
+        raw.quotationType === 'second' || raw.activeQuotationType === 'second'
+            ? 'second'
+            : raw.quotationType === 'ariston' || raw.activeQuotationType === 'ariston'
+              ? 'ariston'
+              : Array.isArray(raw.kflexGroups) && raw.kflexGroups.length > 0 && (!raw.items || raw.items.length === 0)
+                ? 'second'
+                : 'ariston';
+
+    return {
+        ...raw,
+        version: raw.version ?? 1,
+        quotationType: resolvedType,
+        activeQuotationType: resolvedType,
+    };
+}
+
+export function compactQuotationPayload(payload: QuotationPayloadState): QuotationPayloadState {
+    const normalized = normalizeQuotationPayload(payload) ?? {
+        version: 1,
+        quotationType: 'ariston',
+        activeQuotationType: 'ariston',
+    };
+    return {
+        ...normalized,
+        items: Array.isArray(normalized.items)
+            ? normalized.items.map((item) => ({
+                  ...item,
+                  imageUrl:
+                      typeof item.imageUrl === 'string' && item.imageUrl.startsWith('data:')
+                          ? ''
+                          : item.imageUrl,
+              }))
+            : undefined,
+    };
+}
+
 export function parseFormattedNumber(raw: unknown, fallback = 0): number {
     if (typeof raw === 'number' && Number.isFinite(raw)) {
         return raw;
@@ -133,19 +208,16 @@ export function parseFormattedNumber(raw: unknown, fallback = 0): number {
     if (!str) {
         return fallback;
     }
-    // Remove currency symbols and spaces
     const cleaned = str.replace(/[^\d.,-]/g, '');
     if (!cleaned) {
         return fallback;
     }
-    // Check if dots or commas are thousand separators (e.g. "2.386.000" or "165,127")
     if (/^-?\d{1,3}(\.\d{3})+$/.test(cleaned)) {
         return Number(cleaned.replace(/\./g, '')) || fallback;
     }
     if (/^-?\d{1,3}(,\d{3})+$/.test(cleaned)) {
         return Number(cleaned.replace(/,/g, '')) || fallback;
     }
-    // Multiple dots or commas -> thousand separators
     const dotCount = (cleaned.match(/\./g) || []).length;
     const commaCount = (cleaned.match(/,/g) || []).length;
     if (dotCount > 1 && commaCount === 0) {
@@ -208,65 +280,279 @@ function uint8ToBase64(bytes: Uint8Array): string {
 }
 
 export function encodeQuotationPayloadBase64(payload: QuotationPayloadState): string {
+    const normalized = normalizeQuotationPayload(payload) ?? payload;
     const encoder = new TextEncoder();
-    const bytes = encoder.encode(JSON.stringify(payload));
+    const bytes = encoder.encode(JSON.stringify(normalized));
     return uint8ToBase64(bytes);
 }
 
 export function decodeQuotationPayloadBase64(base64Str: string): QuotationPayloadState | null {
     try {
-        const clean = base64Str.replace(/\s+/g, '');
+        const clean = base64Str.replace(/[^A-Za-z0-9+/=]/g, '');
+        if (!clean) {
+            return null;
+        }
         const binary = atob(clean);
         const bytes = new Uint8Array(binary.length);
         for (let i = 0; i < binary.length; i++) {
             bytes[i] = binary.charCodeAt(i);
         }
         const decoder = new TextDecoder('utf-8');
-        const parsed = JSON.parse(decoder.decode(bytes)) as QuotationPayloadState;
-        if (
-            parsed &&
-            (parsed.activeQuotationType === 'ariston' || parsed.activeQuotationType === 'second')
-        ) {
-            return parsed;
-        }
-        return null;
+        const parsed = JSON.parse(decoder.decode(bytes)) as Partial<QuotationPayloadState>;
+        return normalizeQuotationPayload(parsed);
     } catch {
         return null;
     }
+}
+
+// ============================================================================
+// Pure-JS RFC 1951 INFLATE (Synchronous, zero stream backpressure deadlock)
+// ============================================================================
+const FIXED_LIT_LEN_TABLE = (() => {
+    const lengths = new Uint8Array(288);
+    for (let i = 0; i <= 143; i++) lengths[i] = 8;
+    for (let i = 144; i <= 255; i++) lengths[i] = 9;
+    for (let i = 256; i <= 279; i++) lengths[i] = 7;
+    for (let i = 280; i <= 287; i++) lengths[i] = 8;
+    return buildHuffmanTable(lengths);
+})();
+
+const FIXED_DIST_TABLE = (() => {
+    const lengths = new Uint8Array(32);
+    lengths.fill(5);
+    return buildHuffmanTable(lengths);
+})();
+
+const LEN_BASE = [
+    3, 4, 5, 6, 7, 8, 9, 10, 11, 13, 15, 17, 19, 23, 27, 31,
+    35, 43, 51, 59, 67, 83, 99, 115, 131, 163, 195, 227, 258,
+];
+const LEN_EXTRA = [
+    0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2,
+    3, 3, 3, 3, 4, 4, 4, 4, 5, 5, 5, 5, 0,
+];
+const DIST_BASE = [
+    1, 2, 3, 4, 5, 7, 9, 13, 17, 25, 33, 49, 65, 97, 129, 193,
+    257, 385, 513, 769, 1025, 1537, 2049, 3073, 4097, 6145, 8193, 12289, 16385, 24577,
+];
+const DIST_EXTRA = [
+    0, 0, 0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6,
+    7, 7, 8, 8, 9, 9, 10, 10, 11, 11, 12, 12, 13, 13,
+];
+const CL_ORDER = [16, 17, 18, 0, 8, 7, 9, 6, 10, 5, 11, 4, 12, 3, 13, 2, 14, 1, 15];
+
+type HuffmanTable = {
+    counts: Uint16Array;
+    symbols: Uint16Array;
+    maxBits: number;
+};
+
+function buildHuffmanTable(lengths: Uint8Array): HuffmanTable {
+    let maxBits = 0;
+    for (let i = 0; i < lengths.length; i++) {
+        if (lengths[i] > maxBits) {
+            maxBits = lengths[i];
+        }
+    }
+    if (maxBits === 0) {
+        return { counts: new Uint16Array(16), symbols: new Uint16Array(0), maxBits: 0 };
+    }
+    const counts = new Uint16Array(maxBits + 1);
+    for (let i = 0; i < lengths.length; i++) {
+        if (lengths[i] > 0) {
+            counts[lengths[i]]++;
+        }
+    }
+    const offsets = new Uint16Array(maxBits + 1);
+    let total = 0;
+    for (let bits = 1; bits <= maxBits; bits++) {
+        offsets[bits] = total;
+        total += counts[bits];
+    }
+    const symbols = new Uint16Array(total);
+    for (let i = 0; i < lengths.length; i++) {
+        const len = lengths[i];
+        if (len > 0) {
+            symbols[offsets[len]++] = i;
+        }
+    }
+    return { counts, symbols, maxBits };
+}
+
+function inflateRawSync(src: Uint8Array): Uint8Array {
+    let bitPos = 0;
+    const totalBits = src.length * 8;
+
+    const readBits = (n: number): number => {
+        let val = 0;
+        for (let i = 0; i < n; i++) {
+            if (bitPos >= totalBits) {
+                throw new Error('Unexpected EOF in deflate stream');
+            }
+            const byteIdx = bitPos >>> 3;
+            const bitIdx = bitPos & 7;
+            val |= ((src[byteIdx] >>> bitIdx) & 1) << i;
+            bitPos++;
+        }
+        return val;
+    };
+
+    const decodeSymbol = (table: HuffmanTable): number => {
+        let code = 0;
+        let first = 0;
+        let index = 0;
+        for (let len = 1; len <= table.maxBits; len++) {
+            code |= readBits(1);
+            const count = table.counts[len];
+            if (code - count < first) {
+                return table.symbols[index + (code - first)];
+            }
+            index += count;
+            first += count;
+            first <<= 1;
+            code <<= 1;
+        }
+        throw new Error('Invalid Huffman code');
+    };
+
+    let out = new Uint8Array(Math.max(4096, src.length * 3));
+    let outLen = 0;
+    const ensureCap = (extra: number) => {
+        if (outLen + extra <= out.length) {
+            return;
+        }
+        let nextCap = out.length * 2;
+        while (nextCap < outLen + extra) {
+            nextCap *= 2;
+        }
+        const grown = new Uint8Array(nextCap);
+        grown.set(out.subarray(0, outLen));
+        out = grown;
+    };
+
+    let bfinal = 0;
+    while (bfinal === 0) {
+        bfinal = readBits(1);
+        const btype = readBits(2);
+
+        if (btype === 0) {
+            // Uncompressed block: align to byte boundary
+            bitPos = (bitPos + 7) & ~7;
+            const bytePos = bitPos >>> 3;
+            if (bytePos + 4 > src.length) {
+                throw new Error('Truncated stored block');
+            }
+            const len = src[bytePos] | (src[bytePos + 1] << 8);
+            const start = bytePos + 4;
+            if (start + len > src.length) {
+                throw new Error('Truncated stored block data');
+            }
+            ensureCap(len);
+            out.set(src.subarray(start, start + len), outLen);
+            outLen += len;
+            bitPos = (start + len) * 8;
+        } else if (btype === 1 || btype === 2) {
+            let litLenTable = FIXED_LIT_LEN_TABLE;
+            let distTable = FIXED_DIST_TABLE;
+
+            if (btype === 2) {
+                const hlit = readBits(5) + 257;
+                const hdist = readBits(5) + 1;
+                const hclen = readBits(4) + 4;
+                const clLengths = new Uint8Array(19);
+                for (let i = 0; i < hclen; i++) {
+                    clLengths[CL_ORDER[i]] = readBits(3);
+                }
+                const clTable = buildHuffmanTable(clLengths);
+                const allLengths = new Uint8Array(hlit + hdist);
+                let idx = 0;
+                while (idx < hlit + hdist) {
+                    const sym = decodeSymbol(clTable);
+                    if (sym < 16) {
+                        allLengths[idx++] = sym;
+                    } else if (sym === 16) {
+                        const prev = idx > 0 ? allLengths[idx - 1] : 0;
+                        let repeat = readBits(2) + 3;
+                        while (repeat-- > 0 && idx < allLengths.length) {
+                            allLengths[idx++] = prev;
+                        }
+                    } else if (sym === 17) {
+                        let repeat = readBits(3) + 3;
+                        while (repeat-- > 0 && idx < allLengths.length) {
+                            allLengths[idx++] = 0;
+                        }
+                    } else if (sym === 18) {
+                        let repeat = readBits(7) + 11;
+                        while (repeat-- > 0 && idx < allLengths.length) {
+                            allLengths[idx++] = 0;
+                        }
+                    }
+                }
+                litLenTable = buildHuffmanTable(allLengths.subarray(0, hlit));
+                distTable = buildHuffmanTable(allLengths.subarray(hlit));
+            }
+
+            while (true) {
+                const sym = decodeSymbol(litLenTable);
+                if (sym < 256) {
+                    ensureCap(1);
+                    out[outLen++] = sym;
+                } else if (sym === 256) {
+                    break;
+                } else {
+                    const lenIdx = sym - 257;
+                    const length = LEN_BASE[lenIdx] + readBits(LEN_EXTRA[lenIdx]);
+                    const distSym = decodeSymbol(distTable);
+                    const dist = DIST_BASE[distSym] + readBits(DIST_EXTRA[distSym]);
+                    ensureCap(length);
+                    let srcIdx = outLen - dist;
+                    for (let i = 0; i < length; i++) {
+                        out[outLen++] = out[srcIdx++];
+                    }
+                }
+            }
+        } else {
+            throw new Error('Invalid deflate block type');
+        }
+    }
+
+    return out.subarray(0, outLen);
+}
+
+function inflateZlibSync(src: Uint8Array): Uint8Array {
+    if (src.length < 6) {
+        throw new Error('Zlib stream too short');
+    }
+    const cmf = src[0];
+    const flg = src[1];
+    if ((cmf & 0x0f) !== 8 || ((cmf << 8) + flg) % 31 !== 0) {
+        throw new Error('Invalid zlib header');
+    }
+    const fdict = (flg & 0x20) !== 0;
+    const startOffset = fdict ? 6 : 2;
+    return inflateRawSync(src.subarray(startOffset, src.length - 4));
 }
 
 async function inflateStreamBytes(
     compressed: Uint8Array,
     format: 'deflate' | 'deflate-raw',
 ): Promise<Uint8Array> {
-    if (typeof DecompressionStream === 'undefined') {
-        throw new Error('Trình duyệt không hỗ trợ giải nén file.');
-    }
-    const ds = new DecompressionStream(format);
-    const writer = ds.writable.getWriter();
-    await writer.write(compressed as unknown as BufferSource);
-    await writer.close();
-
-    const reader = ds.readable.getReader();
-    const chunks: Uint8Array[] = [];
-    let totalLen = 0;
-    while (true) {
-        const { done, value } = await reader.read();
-        if (done) {
-            break;
+    try {
+        return format === 'deflate' ? inflateZlibSync(compressed) : inflateRawSync(compressed);
+    } catch (syncErr) {
+        if (typeof DecompressionStream !== 'undefined' && typeof Response !== 'undefined') {
+            try {
+                const stream = new Blob([compressed as unknown as BlobPart])
+                    .stream()
+                    .pipeThrough(new DecompressionStream(format));
+                const ab = await new Response(stream).arrayBuffer();
+                return new Uint8Array(ab);
+            } catch {
+                // fall through
+            }
         }
-        if (value) {
-            chunks.push(value);
-            totalLen += value.length;
-        }
+        throw syncErr;
     }
-    const out = new Uint8Array(totalLen);
-    let offset = 0;
-    for (const c of chunks) {
-        out.set(c, offset);
-        offset += c.length;
-    }
-    return out;
 }
 
 async function inflateRawBytes(compressed: Uint8Array): Promise<Uint8Array> {
@@ -279,7 +565,6 @@ export async function readZipEntries(buffer: ArrayBuffer): Promise<Map<string, U
     const decoder = new TextDecoder('utf-8');
     const entries = new Map<string, Uint8Array>();
 
-    // Find End of Central Directory (0x06054b50)
     let eocdPos = -1;
     const minEocdSearch = Math.max(0, bytes.length - 65557);
     for (let i = bytes.length - 22; i >= minEocdSearch; i--) {
@@ -309,7 +594,10 @@ export async function readZipEntries(buffer: ArrayBuffer): Promise<Map<string, U
         const localHeaderOffset = view.getUint32(cdPos + 42, true);
 
         const nameBytes = bytes.subarray(cdPos + 46, cdPos + 46 + fileNameLen);
-        const fileName = decoder.decode(nameBytes).replace(/^\/+/, '');
+        const fileName = decoder
+            .decode(nameBytes)
+            .replace(/\\/g, '/')
+            .replace(/^\/+/, '');
 
         cdPos += 46 + fileNameLen + extraLen + commentLen;
 
@@ -332,6 +620,20 @@ export async function readZipEntries(buffer: ArrayBuffer): Promise<Map<string, U
     return entries;
 }
 
+function getZipEntry(entries: Map<string, Uint8Array>, targetPath: string): Uint8Array | undefined {
+    const exact = entries.get(targetPath);
+    if (exact) {
+        return exact;
+    }
+    const lowerTarget = targetPath.toLowerCase().replace(/^\/+/, '');
+    for (const [k, v] of entries.entries()) {
+        if (k.toLowerCase().replace(/^\/+/, '') === lowerTarget) {
+            return v;
+        }
+    }
+    return undefined;
+}
+
 function colLettersToIndex(colRef: string): number {
     const letters = colRef.replace(/[^A-Za-z]/g, '').toUpperCase();
     let col = 0;
@@ -352,12 +654,21 @@ function parseCellRef(ref: string): { row: number; col: number } {
     };
 }
 
+function getElementsByLocalName(root: Document | Element, localName: string): Element[] {
+    const direct = Array.from(root.getElementsByTagName(localName));
+    if (direct.length > 0) {
+        return direct;
+    }
+    const all = Array.from(root.getElementsByTagName('*'));
+    return all.filter((el) => el.localName === localName || el.tagName.endsWith(`:${localName}`));
+}
+
 function parseSharedStringsXml(xmlText: string): string[] {
     const parser = new DOMParser();
     const doc = parser.parseFromString(xmlText, 'application/xml');
-    const siNodes = Array.from(doc.getElementsByTagName('si'));
+    const siNodes = getElementsByLocalName(doc, 'si');
     return siNodes.map((si) => {
-        const tNodes = Array.from(si.getElementsByTagName('t'));
+        const tNodes = getElementsByLocalName(si, 't');
         return tNodes.map((t) => t.textContent ?? '').join('');
     });
 }
@@ -374,12 +685,15 @@ function parseWorksheetXml(xmlText: string, sharedStrings: string[]): ParsedWork
     const grid = new Map<number, Map<number, string>>();
     let maxRow = 0;
 
-    const rowNodes = Array.from(doc.getElementsByTagName('row'));
+    const rowNodes = getElementsByLocalName(doc, 'row');
+    let implicitRow = 0;
     for (const rowEl of rowNodes) {
-        const rAttr = Number(rowEl.getAttribute('r') || '0');
+        implicitRow++;
+        const rAttr = Number(rowEl.getAttribute('r') || String(implicitRow));
         if (!rAttr) {
             continue;
         }
+        implicitRow = rAttr;
         if (rAttr > maxRow) {
             maxRow = rAttr;
         }
@@ -389,20 +703,22 @@ function parseWorksheetXml(xmlText: string, sharedStrings: string[]): ParsedWork
             grid.set(rAttr, rowMap);
         }
 
-        const cellNodes = Array.from(rowEl.getElementsByTagName('c'));
+        const cellNodes = getElementsByLocalName(rowEl, 'c');
+        let implicitCol = 0;
         for (const cellEl of cellNodes) {
+            implicitCol++;
             const ref = cellEl.getAttribute('r') || '';
-            const { col } = parseCellRef(ref);
-            if (!col) {
-                continue;
-            }
+            const parsedRef = parseCellRef(ref);
+            const col = parsedRef.col || implicitCol;
+            implicitCol = col;
+
             const t = cellEl.getAttribute('t') || '';
             let val = '';
             if (t === 'inlineStr') {
-                const tEls = Array.from(cellEl.getElementsByTagName('t'));
+                const tEls = getElementsByLocalName(cellEl, 't');
                 val = tEls.map((el) => el.textContent ?? '').join('');
             } else {
-                const vEl = cellEl.getElementsByTagName('v')[0];
+                const vEl = getElementsByLocalName(cellEl, 'v')[0];
                 const rawV = vEl?.textContent ?? '';
                 if (t === 's') {
                     val = sharedStrings[Number(rawV)] ?? '';
@@ -415,7 +731,7 @@ function parseWorksheetXml(xmlText: string, sharedStrings: string[]): ParsedWork
     }
 
     const merges: Array<{ r1: number; c1: number; r2: number; c2: number }> = [];
-    const mergeNodes = Array.from(doc.getElementsByTagName('mergeCell'));
+    const mergeNodes = getElementsByLocalName(doc, 'mergeCell');
     for (const mEl of mergeNodes) {
         const ref = mEl.getAttribute('ref') || '';
         const parts = ref.split(':');
@@ -440,8 +756,8 @@ function extractRowImagesFromZip(entries: Map<string, Uint8Array>): Map<string, 
     const decoder = new TextDecoder('utf-8');
     const result = new Map<string, string>();
 
-    const drawingXmlBytes = entries.get('xl/drawings/drawing1.xml');
-    const drawingRelsBytes = entries.get('xl/drawings/_rels/drawing1.xml.rels');
+    const drawingXmlBytes = getZipEntry(entries, 'xl/drawings/drawing1.xml');
+    const drawingRelsBytes = getZipEntry(entries, 'xl/drawings/_rels/drawing1.xml.rels');
     if (!drawingXmlBytes || !drawingRelsBytes) {
         return result;
     }
@@ -449,7 +765,7 @@ function extractRowImagesFromZip(entries: Map<string, Uint8Array>): Map<string, 
     const parser = new DOMParser();
     const relsDoc = parser.parseFromString(decoder.decode(drawingRelsBytes), 'application/xml');
     const relMap = new Map<string, string>();
-    for (const relEl of Array.from(relsDoc.getElementsByTagName('Relationship'))) {
+    for (const relEl of getElementsByLocalName(relsDoc, 'Relationship')) {
         const id = relEl.getAttribute('Id') || '';
         const target = relEl.getAttribute('Target') || '';
         if (id && target) {
@@ -460,24 +776,18 @@ function extractRowImagesFromZip(entries: Map<string, Uint8Array>): Map<string, 
 
     const drawingDoc = parser.parseFromString(decoder.decode(drawingXmlBytes), 'application/xml');
     const anchors = [
-        ...Array.from(drawingDoc.getElementsByTagName('xdr:oneCellAnchor')),
-        ...Array.from(drawingDoc.getElementsByTagName('oneCellAnchor')),
-        ...Array.from(drawingDoc.getElementsByTagName('xdr:twoCellAnchor')),
-        ...Array.from(drawingDoc.getElementsByTagName('twoCellAnchor')),
+        ...getElementsByLocalName(drawingDoc, 'oneCellAnchor'),
+        ...getElementsByLocalName(drawingDoc, 'twoCellAnchor'),
     ];
 
     for (const anchor of anchors) {
-        const fromEl =
-            anchor.getElementsByTagName('xdr:from')[0] || anchor.getElementsByTagName('from')[0];
+        const fromEl = getElementsByLocalName(anchor, 'from')[0];
         if (!fromEl) {
             continue;
         }
-        const colEl =
-            fromEl.getElementsByTagName('xdr:col')[0] || fromEl.getElementsByTagName('col')[0];
-        const rowEl =
-            fromEl.getElementsByTagName('xdr:row')[0] || fromEl.getElementsByTagName('row')[0];
-        const blipEl =
-            anchor.getElementsByTagName('a:blip')[0] || anchor.getElementsByTagName('blip')[0];
+        const colEl = getElementsByLocalName(fromEl, 'col')[0];
+        const rowEl = getElementsByLocalName(fromEl, 'row')[0];
+        const blipEl = getElementsByLocalName(anchor, 'blip')[0];
         if (!colEl || !rowEl || !blipEl) {
             continue;
         }
@@ -489,13 +799,14 @@ function extractRowImagesFromZip(entries: Map<string, Uint8Array>): Map<string, 
         if (!mediaPath) {
             continue;
         }
-        const imgBytes = entries.get(mediaPath);
+        const imgBytes = getZipEntry(entries, mediaPath);
         if (!imgBytes) {
             continue;
         }
-        const ext = mediaPath.toLowerCase().endsWith('.jpg') || mediaPath.toLowerCase().endsWith('.jpeg')
-            ? 'image/jpeg'
-            : 'image/png';
+        const ext =
+            mediaPath.toLowerCase().endsWith('.jpg') || mediaPath.toLowerCase().endsWith('.jpeg')
+                ? 'image/jpeg'
+                : 'image/png';
         result.set(`${row1}:${col1}`, `data:${ext};base64,${uint8ToBase64(imgBytes)}`);
     }
 
@@ -527,8 +838,8 @@ export async function parseExportedQuotationFile(
 
     if (fileName.endsWith('.json')) {
         const text = await file.text();
-        const parsed = JSON.parse(text) as QuotationPayloadState;
-        if (parsed && (parsed.activeQuotationType === 'ariston' || parsed.activeQuotationType === 'second')) {
+        const parsed = normalizeQuotationPayload(JSON.parse(text) as Partial<QuotationPayloadState>);
+        if (parsed) {
             return parsed;
         }
         throw new Error('File JSON không đúng định dạng báo giá.');
@@ -554,20 +865,23 @@ export async function parseExportedQuotationFile(
     const entries = await readZipEntries(buffer);
     const decoder = new TextDecoder('utf-8');
 
-    // Check embedded customData state if available (used for fallback IDs/images)
     let embeddedState: QuotationPayloadState | null = null;
-    const embeddedBytes = entries.get('xl/customData/quotation.json');
+    const embeddedBytes = getZipEntry(entries, 'xl/customData/quotation.json');
     if (embeddedBytes) {
         try {
-            embeddedState = JSON.parse(decoder.decode(embeddedBytes)) as QuotationPayloadState;
+            embeddedState = normalizeQuotationPayload(
+                JSON.parse(decoder.decode(embeddedBytes)) as Partial<QuotationPayloadState>,
+            );
         } catch {
             embeddedState = null;
         }
     }
 
     const sheetBytes =
-        entries.get('xl/worksheets/sheet1.xml') ||
-        Array.from(entries.entries()).find(([k]) => k.startsWith('xl/worksheets/sheet'))?.[1];
+        getZipEntry(entries, 'xl/worksheets/sheet1.xml') ||
+        Array.from(entries.entries()).find(([k]) =>
+            k.toLowerCase().includes('xl/worksheets/sheet'),
+        )?.[1];
 
     if (!sheetBytes) {
         if (embeddedState) {
@@ -576,7 +890,7 @@ export async function parseExportedQuotationFile(
         throw new Error('Không tìm thấy trang tính dữ liệu trong file Excel.');
     }
 
-    const sharedStringsBytes = entries.get('xl/sharedStrings.xml');
+    const sharedStringsBytes = getZipEntry(entries, 'xl/sharedStrings.xml');
     const sharedStrings = sharedStringsBytes
         ? parseSharedStringsXml(decoder.decode(sharedStringsBytes))
         : [];
@@ -584,9 +898,8 @@ export async function parseExportedQuotationFile(
     const { grid, merges, maxRow } = parseWorksheetXml(decoder.decode(sheetBytes), sharedStrings);
     const rowImages = extractRowImagesFromZip(entries);
 
-    // Detect whether this sheet is K-Flex or Ariston
     let isKflex = false;
-    for (let r = 1; r <= Math.min(maxRow, 20); r++) {
+    for (let r = 1; r <= Math.min(maxRow, 25); r++) {
         const c1 = getCellText(grid, r, 1).toUpperCase();
         const c2 = getCellText(grid, r, 2).toUpperCase();
         if (
@@ -616,10 +929,11 @@ function parseAristonWorksheet(
 ): QuotationPayloadState {
     const baseForm = embeddedState?.quoteForm ?? {};
     const quoteForm: AristonQuoteFormState = {
-        documentTitle: baseForm.documentTitle || getCellText(grid, 5, 1) || 'BÁO GIÁ BƠM NHIỆT ARISTON',
+        documentTitle:
+            baseForm.documentTitle || getCellText(grid, 5, 1) || 'BÁO GIÁ BƠM NHIỆT ARISTON',
         recipientCompany: baseForm.recipientCompany || '',
         recipientPerson: baseForm.recipientPerson || '',
-        contactPhone: '',
+        contactPhone: baseForm.contactPhone || '',
         quoteDate: baseForm.quoteDate || todayIso,
         validUntilDate: baseForm.validUntilDate || todayIso,
         projectName: baseForm.projectName || '',
@@ -635,7 +949,7 @@ function parseAristonWorksheet(
     }
 
     let tableHeaderRow = 0;
-    for (let r = 5; r <= Math.min(maxRow, 20); r++) {
+    for (let r = 5; r <= Math.min(maxRow, 25); r++) {
         const c1 = getCellText(grid, r, 1);
         const c2 = getCellText(grid, r, 2) || getCellText(grid, r, 3);
         const c1Lower = c1.toLowerCase();
@@ -703,14 +1017,21 @@ function parseAristonWorksheet(
             items.push({
                 uid: makeUid('ariston-row'),
                 productId: matchedProd?.id ?? embeddedItem?.productId ?? null,
-                productLabel: c1 || embeddedItem?.productLabel || 'Máy nước nóng gián tiếp Ariston',
+                productLabel:
+                    c1 || embeddedItem?.productLabel || 'Máy nước nóng gián tiếp Ariston',
                 modelCode: c2,
                 origin: c3 || embeddedItem?.origin || 'Ý-Việt Nam',
                 imageUrl,
                 unit: c5 || embeddedItem?.unit || 'Máy',
                 specifications: c6,
-                unitPrice: Math.max(0, Math.round(parseFormattedNumber(c7, embeddedItem?.unitPrice ?? 0))),
-                quantity: Math.max(1, Math.round(parseFormattedNumber(c8, embeddedItem?.quantity ?? 1))),
+                unitPrice: Math.max(
+                    0,
+                    Math.round(parseFormattedNumber(c7, embeddedItem?.unitPrice ?? 0)),
+                ),
+                quantity: Math.max(
+                    1,
+                    Math.round(parseFormattedNumber(c8, embeddedItem?.quantity ?? 1)),
+                ),
             });
         }
     }
@@ -755,6 +1076,7 @@ function parseAristonWorksheet(
 
     return {
         version: 1,
+        quotationType: 'ariston',
         activeQuotationType: 'ariston',
         quoteForm,
         items: items.length > 0 ? items : embeddedState?.items ?? [],
@@ -769,7 +1091,6 @@ function parseKflexWorksheet(
     embeddedState: QuotationPayloadState | null,
     todayIso: string,
 ): QuotationPayloadState {
-    // Expand merged note cells in column 14 (N)
     for (const m of merges) {
         if (m.c1 === 14 && m.c2 === 14 && m.r2 > m.r1) {
             const topNote = getCellText(grid, m.r1, 14);
@@ -816,7 +1137,7 @@ function parseKflexWorksheet(
     }
 
     let tableHeaderStartRow = 0;
-    for (let r = 5; r <= Math.min(maxRow, 20); r++) {
+    for (let r = 5; r <= Math.min(maxRow, 25); r++) {
         const c1 = getCellText(grid, r, 1);
         const cVal = getCellText(grid, r, 3) || getCellText(grid, r, 2);
         const c1Lower = c1.toLowerCase();
@@ -964,7 +1285,10 @@ function parseKflexWorksheet(
                 lengthM: c9,
                 qtyM,
                 qtyM2,
-                unitPrice: Math.max(0, Math.round(parseFormattedNumber(c12, matchedPrice?.price ?? 0))),
+                unitPrice: Math.max(
+                    0,
+                    Math.round(parseFormattedNumber(c12, matchedPrice?.price ?? 0)),
+                ),
                 note: c14,
             });
         }
@@ -1018,6 +1342,7 @@ function parseKflexWorksheet(
 
     return {
         version: 1,
+        quotationType: 'second',
         activeQuotationType: 'second',
         kflexQuoteForm,
         kflexSelectedProductLines: selectedLines,
@@ -1058,6 +1383,21 @@ function parseToUnicodeCMap(cmapText: string, map: Map<string, string>): void {
 
     const bfRangeBlocks = cmapText.matchAll(/beginbfrange([\s\S]*?)endbfrange/g);
     for (const block of bfRangeBlocks) {
+        const arrayRanges = block[1].matchAll(/<([0-9A-Fa-f]+)>\s*<([0-9A-Fa-f]+)>\s*\[([\s\S]*?)\]/g);
+        for (const ar of arrayRanges) {
+            const start = parseInt(ar[1], 16);
+            const end = parseInt(ar[2], 16);
+            const padLen = ar[1].length;
+            const targets = Array.from(ar[3].matchAll(/<([0-9A-Fa-f]+)>/g)).map((m) => m[1]);
+            for (let code = start, idx = 0; code <= end && idx < targets.length; code++, idx++) {
+                const key = code.toString(16).toUpperCase().padStart(padLen, '0');
+                const dst = decodeHexToUnicode(targets[idx]);
+                if (dst) {
+                    map.set(key, dst);
+                }
+            }
+        }
+
         const ranges = block[1].matchAll(
             /<([0-9A-Fa-f]+)>\s*<([0-9A-Fa-f]+)>\s*<([0-9A-Fa-f]+)>/g,
         );
@@ -1075,6 +1415,45 @@ function parseToUnicodeCMap(cmapText: string, map: Map<string, string>): void {
             }
         }
     }
+}
+
+function decodePdfStringToken(token: string, activeCMap: Map<string, string>, fallbackCMap: Map<string, string>): string {
+    if (token.startsWith('<') && token.endsWith('>')) {
+        const hex = token.slice(1, -1).replace(/\s+/g, '').toUpperCase();
+        if (!hex) {
+            return '';
+        }
+        const map = activeCMap.size > 0 ? activeCMap : fallbackCMap;
+        const step = map.has(hex.slice(0, 4)) || hex.length % 4 === 0 ? 4 : 2;
+        let out = '';
+        for (let i = 0; i < hex.length; i += step) {
+            const code = hex.slice(i, i + step);
+            if (activeCMap.has(code)) {
+                out += activeCMap.get(code)!;
+            } else if (fallbackCMap.has(code)) {
+                out += fallbackCMap.get(code)!;
+            } else {
+                const charCode = parseInt(code, 16);
+                if (charCode >= 32 && charCode <= 126) {
+                    out += String.fromCharCode(charCode);
+                }
+            }
+        }
+        return out;
+    }
+
+    if (token.startsWith('(') && token.endsWith(')')) {
+        return token
+            .slice(1, -1)
+            .replace(/\\n/g, '\n')
+            .replace(/\\r/g, '\r')
+            .replace(/\\t/g, '\t')
+            .replace(/\\\(/g, '(')
+            .replace(/\\\)/g, ')')
+            .replace(/\\\\/g, '\\');
+    }
+
+    return '';
 }
 
 async function parseExportedQuotationPdf(
@@ -1098,38 +1477,59 @@ async function parseExportedQuotationPdf(
         }
     }
 
-    // 2. Decompress all PDF streams
-    const decompressedStreams: string[] = [];
-    const streamRegex = /stream\r?\n/g;
-    let match: RegExpExecArray | null;
-    while ((match = streamRegex.exec(rawPdfText)) !== null) {
-        const startOffset = match.index + match[0].length;
-        const endIdx = rawPdfText.indexOf('endstream', startOffset);
-        if (endIdx === -1) {
-            break;
+    // 2. Parse PDF indirect objects and decompress all streams
+    const objectStreams = new Map<number, string>();
+    const objectHeaders = new Map<number, string>();
+    const allDecompressedStreams: string[] = [];
+
+    const objRegex = /(\d+)\s+\d+\s+obj\b([\s\S]*?)endobj/g;
+    let objMatch: RegExpExecArray | null;
+    while ((objMatch = objRegex.exec(rawPdfText)) !== null) {
+        const objId = Number(objMatch[1]);
+        const objBody = objMatch[2];
+        const streamPos = objBody.search(/stream\r?\n/);
+        if (streamPos === -1) {
+            objectHeaders.set(objId, objBody);
+            continue;
         }
-        let streamEnd = endIdx;
+        objectHeaders.set(objId, objBody.slice(0, streamPos));
+
+        const absObjStart = objMatch.index + objMatch[0].indexOf(objBody);
+        const streamHeaderMatch = objBody.slice(streamPos).match(/^stream\r?\n/);
+        if (!streamHeaderMatch) {
+            continue;
+        }
+        const startOffset = absObjStart + streamPos + streamHeaderMatch[0].length;
+        const endStreamRel = objBody.indexOf('endstream', streamPos + streamHeaderMatch[0].length);
+        if (endStreamRel === -1) {
+            continue;
+        }
+        let streamEnd = absObjStart + endStreamRel;
         if (rawPdfText[streamEnd - 1] === '\n') {
             streamEnd--;
         }
         if (rawPdfText[streamEnd - 1] === '\r') {
             streamEnd--;
         }
+
         const slice = bytes.subarray(startOffset, streamEnd);
+        let decodedStream = '';
         try {
             const inflated = await inflateStreamBytes(slice, 'deflate');
-            decompressedStreams.push(utf8Decoder.decode(inflated));
+            decodedStream = utf8Decoder.decode(inflated);
         } catch {
             try {
                 const inflatedRaw = await inflateStreamBytes(slice, 'deflate-raw');
-                decompressedStreams.push(utf8Decoder.decode(inflatedRaw));
+                decodedStream = utf8Decoder.decode(inflatedRaw);
             } catch {
-                decompressedStreams.push(latin1Decoder.decode(slice));
+                decodedStream = latin1Decoder.decode(slice);
             }
         }
+        objectStreams.set(objId, decodedStream);
+        allDecompressedStreams.push(decodedStream);
     }
 
-    for (const s of decompressedStreams) {
+    for (const s of allDecompressedStreams) {
         const m = s.match(/KBQDATA:([A-Za-z0-9+/=\s]+):ENDKBQDATA/);
         if (m) {
             const decoded = decodeQuotationPayloadBase64(m[1]);
@@ -1139,60 +1539,125 @@ async function parseExportedQuotationPdf(
         }
     }
 
-    // 3. Build CMap and decode BT..ET text streams
-    const cmap = new Map<string, string>();
-    for (const s of decompressedStreams) {
-        if (s.includes('beginbfchar') || s.includes('beginbfrange')) {
-            parseToUnicodeCMap(s, cmap);
+    // 3. Build per-font ToUnicode CMaps so /F1, /F2, /F3 never collide on glyph <0001>
+    const cmapsByObjId = new Map<number, Map<string, string>>();
+    const fallbackCMap = new Map<string, string>();
+    for (const [objId, streamText] of objectStreams.entries()) {
+        if (streamText.includes('beginbfchar') || streamText.includes('beginbfrange')) {
+            const cmap = new Map<string, string>();
+            parseToUnicodeCMap(streamText, cmap);
+            cmapsByObjId.set(objId, cmap);
+            for (const [k, v] of cmap.entries()) {
+                if (!fallbackCMap.has(k)) {
+                    fallbackCMap.set(k, v);
+                }
+            }
         }
     }
 
+    // Map font object ID -> ToUnicode object ID
+    const fontObjToCMap = new Map<number, Map<string, string>>();
+    for (const [objId, header] of objectHeaders.entries()) {
+        const toUniMatch = header.match(/\/ToUnicode\s+(\d+)\s+\d+\s+R/);
+        if (toUniMatch) {
+            const cmapObjId = Number(toUniMatch[1]);
+            const cmap = cmapsByObjId.get(cmapObjId);
+            if (cmap) {
+                fontObjToCMap.set(objId, cmap);
+            }
+        }
+    }
+
+    // Map font resource name (/F1, /F2, ...) -> CMap
+    const fontNameToCMap = new Map<string, Map<string, string>>();
+    for (const header of objectHeaders.values()) {
+        const fontRefs = header.matchAll(/\/(F\d+)\s+(\d+)\s+\d+\s+R/g);
+        for (const ref of fontRefs) {
+            const fontName = ref[1];
+            const fontObjId = Number(ref[2]);
+            const cmap = fontObjToCMap.get(fontObjId);
+            if (cmap) {
+                fontNameToCMap.set(fontName, cmap);
+            }
+        }
+    }
+
+    // 4. Decode BT..ET blocks while tracking active font (/F1 Tf) and line breaks (Td/TD/Tm/T*)
     const decodedLines: string[] = [];
-    for (const s of decompressedStreams) {
+    for (const s of allDecompressedStreams) {
         if (!s.includes('BT') || !s.includes('ET')) {
             continue;
         }
+        let activeCMap = fallbackCMap;
         const btBlocks = s.matchAll(/BT([\s\S]*?)ET/g);
         for (const blk of btBlocks) {
-            let lineText = '';
-            const tokens = blk[1].matchAll(/<([0-9A-Fa-f]+)>|\((?:\\.|[^\\()])*\)/g);
-            for (const tok of tokens) {
-                if (tok[1]) {
-                    const hex = tok[1].toUpperCase();
-                    const step = cmap.has(hex.slice(0, 4)) ? 4 : 2;
-                    for (let i = 0; i < hex.length; i += step) {
-                        const code = hex.slice(i, i + step);
-                        if (cmap.has(code)) {
-                            lineText += cmap.get(code)!;
-                        } else {
-                            const charCode = parseInt(code, 16);
-                            if (charCode >= 32 && charCode <= 126) {
-                                lineText += String.fromCharCode(charCode);
+            const body = blk[1];
+            let currentLine = '';
+            const opRegex =
+                /\/(F\d+)\s+[\d.-]+\s+Tf|([\d.-]+)\s+([\d.-]+)\s+Td|([\d.-]+)\s+([\d.-]+)\s+TD|[\d.-]+\s+[\d.-]+\s+[\d.-]+\s+[\d.-]+\s+([\d.-]+)\s+([\d.-]+)\s+Tm|\bT\*|<[0-9A-Fa-f\s]+>|\((?:\\.|[^\\()])*\)|\[(?:<[0-9A-Fa-f\s]+>|\((?:\\.|[^\\()])*\)|[\s\d.-])*\]\s*TJ/g;
+            let opMatch: RegExpExecArray | null;
+            let lastTmY: number | null = null;
+
+            while ((opMatch = opRegex.exec(body)) !== null) {
+                const full = opMatch[0];
+                if (opMatch[1]) {
+                    // /F1 ... Tf
+                    activeCMap = fontNameToCMap.get(opMatch[1]) ?? fallbackCMap;
+                } else if (opMatch[2] !== undefined && opMatch[3] !== undefined) {
+                    // dx dy Td
+                    const dy = parseFloat(opMatch[3]);
+                    if (Math.abs(dy) > 1.5 && currentLine.trim()) {
+                        decodedLines.push(currentLine.trim());
+                        currentLine = '';
+                    }
+                } else if (opMatch[4] !== undefined && opMatch[5] !== undefined) {
+                    // dx dy TD
+                    const dy = parseFloat(opMatch[5]);
+                    if (Math.abs(dy) > 1.5 && currentLine.trim()) {
+                        decodedLines.push(currentLine.trim());
+                        currentLine = '';
+                    }
+                } else if (opMatch[6] !== undefined && opMatch[7] !== undefined) {
+                    // a b c d e f Tm
+                    const y = parseFloat(opMatch[7]);
+                    if (lastTmY !== null && Math.abs(y - lastTmY) > 1.5 && currentLine.trim()) {
+                        decodedLines.push(currentLine.trim());
+                        currentLine = '';
+                    }
+                    lastTmY = y;
+                } else if (full === 'T*') {
+                    if (currentLine.trim()) {
+                        decodedLines.push(currentLine.trim());
+                        currentLine = '';
+                    }
+                } else if (full.startsWith('[')) {
+                    // [...] TJ array
+                    const innerTokens = full.matchAll(/<[0-9A-Fa-f\s]+>|\((?:\\.|[^\\()])*\)|(-?\d+(?:\.\d+)?)/g);
+                    for (const it of innerTokens) {
+                        if (it[1] !== undefined) {
+                            const kern = parseFloat(it[1]);
+                            if (kern < -180 && !currentLine.endsWith(' ')) {
+                                currentLine += ' ';
                             }
+                        } else {
+                            currentLine += decodePdfStringToken(it[0], activeCMap, fallbackCMap);
                         }
                     }
                 } else {
-                    const lit = tok[0]
-                        .slice(1, -1)
-                        .replace(/\\n/g, '\n')
-                        .replace(/\\r/g, '\r')
-                        .replace(/\\\(/g, '(')
-                        .replace(/\\\)/g, ')')
-                        .replace(/\\\\/g, '\\');
-                    lineText += lit;
+                    currentLine += decodePdfStringToken(full, activeCMap, fallbackCMap);
                 }
             }
-            if (lineText.trim()) {
-                decodedLines.push(lineText.trim());
+            if (currentLine.trim()) {
+                decodedLines.push(currentLine.trim());
             }
         }
     }
 
     const combinedText = decodedLines.join('\n');
-    const compactText = decodedLines.join('');
+    const compactText = decodedLines.join('').replace(/\s+/g, '');
     const embeddedInText =
         combinedText.match(/KBQDATA:([A-Za-z0-9+/=\s]+):ENDKBQDATA/) ||
-        compactText.match(/KBQDATA:([A-Za-z0-9+/=\s]+):ENDKBQDATA/);
+        compactText.match(/KBQDATA:([A-Za-z0-9+/=]+):ENDKBQDATA/);
     if (embeddedInText) {
         const decoded = decodeQuotationPayloadBase64(embeddedInText[1]);
         if (decoded) {
@@ -1206,104 +1671,40 @@ async function parseExportedQuotationPdf(
         );
     }
 
-    // 4. Fallback heuristic parsing from extracted PDF text lines
+    // 5. Structured parsing of extracted PDF lines for Ariston & K-Flex
     const upperAll = combinedText.toUpperCase();
     const isKflex = upperAll.includes('K-FLEX') || upperAll.includes('BẢO ÔN');
 
     if (isKflex) {
-        const kflexQuoteForm: KflexQuoteFormState = {
-            documentTitle: 'BÁO GIÁ BẢO ÔN K-FLEX',
-            recipientCompany: '',
-            recipientPerson: '',
-            projectName: '',
-            quoteDate: todayIso,
-            validUntilDate: todayIso,
-            vatPercent: 8,
-            introText: 'Công ty Star Light là đơn vị phân phối mảng dự án sản phẩm bảo ôn K-FLEX',
-            paymentTerms: 'Thỏa thuận',
-            deliveryMethod: 'Giao hàng tại chân công trình',
-            deliveryTime:
-                'tối thiểu 40 ngày (đối với hàng nhập khẩu) kể từ ngày đơn đặt hàng được xác nhận, Hiện đơn hàng đang có sẵn',
-            contactName: 'Mr.Kiệt',
-            contactHp: '0979.807.234',
-            contactEmail: 'tuankiet@starlightgroup.vn',
-        };
-
-        for (let i = 0; i < decodedLines.length; i++) {
-            const line = decodedLines[i];
-            const lower = line.toLowerCase();
-            if (lower.startsWith('báo giá')) {
-                kflexQuoteForm.documentTitle = line;
-            } else if (lower.startsWith('kính gửi')) {
-                kflexQuoteForm.recipientCompany =
-                    line.replace(/^kính gửi\s*:?\s*/i, '').trim() || decodedLines[i + 1] || '';
-            } else if (lower.startsWith('người nhận')) {
-                kflexQuoteForm.recipientPerson =
-                    line.replace(/^người nhận\s*:?\s*/i, '').trim() || decodedLines[i + 1] || '';
-            } else if (lower.startsWith('project')) {
-                kflexQuoteForm.projectName =
-                    line.replace(/^project\s*:?\s*/i, '').trim() || decodedLines[i + 1] || '';
-            } else if (lower.startsWith('thời gian') && !lower.includes('giao hàng')) {
-                const dStr =
-                    line.replace(/^thời gian\s*:?\s*/i, '').trim() || decodedLines[i + 1] || '';
-                kflexQuoteForm.quoteDate = parseSlashDateToIso(dStr, todayIso);
-            } else if (lower.includes('thuế vat')) {
-                const vm = line.match(/(\d+(?:\.\d+)?)\s*%/);
-                if (vm) {
-                    kflexQuoteForm.vatPercent = Number(vm[1]);
-                }
-            }
-        }
-
-        const matchedItems: KflexQuotationItemState[] = [];
-        for (const p of kflexPrices) {
-            if (p.product_name && combinedText.includes(p.product_name)) {
-                matchedItems.push({
-                    uid: makeUid('kf-pdf'),
-                    kflexPriceId: p.id,
-                    itemName: p.product_name,
-                    brandLabel:
-                        p.product_line === 'k_protect'
-                            ? 'K-Flex K-Protect'
-                            : p.product_line === 'm_flex'
-                              ? 'K-Flex M-Flex'
-                              : 'K-Flex ST',
-                    originLabel: `${p.brand || 'Ý'} - ${p.origin || 'Malaysia'}`,
-                    productTypeLabel: p.variant_type === 'alu' ? 'Có nhôm' : 'Chỉ Foam',
-                    productLine: p.product_line,
-                    formType: p.form_type,
-                    variantType: p.variant_type,
-                    thickness: p.thickness,
-                    innerDiameter: p.diameter || '',
-                    widthM: p.form_type === 'sheet' ? '1.2' : '',
-                    lengthM: p.form_type === 'tube' ? '2' : '8',
-                    qtyM: p.form_type === 'tube' ? 1 : null,
-                    qtyM2: p.form_type === 'sheet' ? 1 : null,
-                    unitPrice: p.price,
-                    note: '',
-                });
-            }
-        }
-
-        return {
-            version: 1,
-            activeQuotationType: 'second',
-            kflexQuoteForm,
-            kflexSelectedProductLines: ['st'],
-            kflexGroups:
-                matchedItems.length > 0
-                    ? [
-                          {
-                              uid: makeUid('kf-grp-pdf'),
-                              hasTitle: true,
-                              title: 'BẢO ÔN CHO ĐƯỜNG THÉP',
-                              items: matchedItems,
-                          },
-                      ]
-                    : [],
-        };
+        return parseKflexPdfLines(decodedLines, combinedText, kflexPrices, todayIso);
     }
 
+    return parseAristonPdfLines(decodedLines, combinedText, aristonProducts, todayIso);
+}
+
+function readNextFieldValue(lines: string[], index: number, prefixRegex: RegExp): string {
+    const inline = lines[index].replace(prefixRegex, '').trim();
+    if (inline) {
+        return inline;
+    }
+    const next = (lines[index + 1] ?? '').trim();
+    if (
+        !next ||
+        /^(kính gửi|người nhận|thông tin liên lạc|thời gian|project|sản phẩm|tt\b|công ty)/i.test(
+            next,
+        )
+    ) {
+        return '';
+    }
+    return next;
+}
+
+function parseAristonPdfLines(
+    decodedLines: string[],
+    combinedText: string,
+    aristonProducts: CatalogAristonProduct[],
+    todayIso: string,
+): QuotationPayloadState {
     const quoteForm: AristonQuoteFormState = {
         documentTitle: 'BÁO GIÁ BƠM NHIỆT ARISTON',
         recipientCompany: '',
@@ -1318,60 +1719,298 @@ async function parseExportedQuotationPdf(
         signerEmail: 'tuankiet@starlightgroup.vn',
     };
 
+    let afterThanks = false;
+    let signerFound = false;
+
     for (let i = 0; i < decodedLines.length; i++) {
-        const line = decodedLines[i];
+        const line = decodedLines[i].trim();
         const lower = line.toLowerCase();
+
         if (lower.startsWith('báo giá') && !lower.includes('có hiệu lực')) {
             quoteForm.documentTitle = line;
         } else if (lower.startsWith('kính gửi')) {
-            quoteForm.recipientCompany =
-                line.replace(/^kính gửi\s*:?\s*/i, '').trim() || decodedLines[i + 1] || '';
+            quoteForm.recipientCompany = readNextFieldValue(
+                decodedLines,
+                i,
+                /^kính gửi\s*:?\s*/i,
+            );
         } else if (lower.startsWith('người nhận')) {
-            quoteForm.recipientPerson =
-                line.replace(/^người nhận\s*:?\s*/i, '').trim() || decodedLines[i + 1] || '';
+            quoteForm.recipientPerson = readNextFieldValue(
+                decodedLines,
+                i,
+                /^người nhận\s*:?\s*/i,
+            );
         } else if (lower.startsWith('thông tin liên lạc')) {
-            quoteForm.contactPhone =
-                line.replace(/^thông tin liên lạc\s*:?\s*/i, '').trim() ||
-                decodedLines[i + 1] ||
-                '';
+            quoteForm.contactPhone = readNextFieldValue(
+                decodedLines,
+                i,
+                /^thông tin liên lạc\s*:?\s*/i,
+            );
         } else if (lower.startsWith('thời gian') && !lower.includes('giao hàng')) {
-            const dStr =
-                line.replace(/^thời gian\s*:?\s*/i, '').trim() || decodedLines[i + 1] || '';
-            quoteForm.quoteDate = parseSlashDateToIso(dStr, todayIso);
+            const dStr = readNextFieldValue(decodedLines, i, /^thời gian\s*:?\s*/i);
+            if (dStr) {
+                quoteForm.quoteDate = parseSlashDateToIso(dStr, todayIso);
+            }
         } else if (lower.startsWith('project')) {
-            quoteForm.projectName =
-                line.replace(/^project\s*:?\s*/i, '').trim() || decodedLines[i + 1] || '';
+            quoteForm.projectName = readNextFieldValue(decodedLines, i, /^project\s*:?\s*/i);
         } else if (lower.includes('thuế vat')) {
             const vm = line.match(/(\d+(?:\.\d+)?)\s*%/);
             if (vm) {
                 quoteForm.vatPercent = Number(vm[1]);
             }
+        } else if (lower.includes('báo giá có hiệu lực đến ngày')) {
+            const dateMatch = line.match(/(\d{1,2}[/-]\d{1,2}[/-]\d{4}|\d{4}-\d{2}-\d{2})/);
+            if (dateMatch) {
+                quoteForm.validUntilDate = parseSlashDateToIso(
+                    dateMatch[1],
+                    quoteForm.validUntilDate,
+                );
+            }
+        } else if (lower.includes('many thanks')) {
+            afterThanks = true;
+        } else if (afterThanks) {
+            if (/^hp\s*:/i.test(line)) {
+                quoteForm.signerPhone = line.replace(/^hp\s*:\s*/i, '').trim();
+            } else if (/^email\s*:/i.test(line)) {
+                quoteForm.signerEmail = line.replace(/^email\s*:\s*/i, '').trim();
+            } else if (!signerFound && line.length > 1 && !line.includes(':')) {
+                quoteForm.signerName = line;
+                signerFound = true;
+            }
         }
     }
 
+    // Extract products appearing in the PDF table section
     const items: AristonQuotationItemState[] = [];
-    for (const prod of aristonProducts) {
-        if (prod.name && combinedText.includes(prod.name)) {
-            items.push({
-                uid: makeUid('ariston-pdf'),
-                productId: prod.id,
-                productLabel: prod.product_title || 'Máy nước nóng gián tiếp Ariston',
-                modelCode: prod.name,
-                origin: prod.origin ? `Ý-${prod.origin}` : 'Ý-Việt Nam',
-                imageUrl: resolveProductImageUrl(prod.image?.[0]),
-                unit: 'Máy',
-                specifications: prod.description || '',
-                unitPrice: prod.price > 0 ? prod.price : 2386000,
-                quantity: 1,
-            });
+    const sortedProducts = [...aristonProducts].sort(
+        (a, b) => (b.name?.length ?? 0) - (a.name?.length ?? 0),
+    );
+    const usedProductIds = new Set<number>();
+
+    for (let i = 0; i < decodedLines.length; i++) {
+        const line = decodedLines[i].trim();
+        if (line.toUpperCase().startsWith('TỔNG CỘNG')) {
+            break;
+        }
+        const matchedProd = sortedProducts.find(
+            (p) =>
+                p.name &&
+                !usedProductIds.has(p.id) &&
+                (line === p.name.trim() || line.includes(p.name.trim())),
+        );
+        if (!matchedProd) {
+            continue;
+        }
+        usedProductIds.add(matchedProd.id);
+
+        // Look around line i for unitPrice and quantity
+        let unitPrice = matchedProd.price > 0 ? matchedProd.price : 2386000;
+        let quantity = 1;
+        const windowLines = decodedLines.slice(i, Math.min(decodedLines.length, i + 25));
+        const priceCandidates: number[] = [];
+        for (const wl of windowLines) {
+            if (wl.toUpperCase().startsWith('TỔNG CỘNG')) {
+                break;
+            }
+            const formattedMatches = wl.match(/\b\d{1,3}(?:[.,]\d{3})+\b/g);
+            if (formattedMatches) {
+                for (const fm of formattedMatches) {
+                    const num = parseFormattedNumber(fm, 0);
+                    if (num >= 10000) {
+                        priceCandidates.push(num);
+                    }
+                }
+            }
+            if (/^\d{1,3}$/.test(wl.trim())) {
+                const q = Number(wl.trim());
+                if (q >= 1 && q <= 500) {
+                    quantity = q;
+                }
+            }
+        }
+        if (priceCandidates.length >= 1) {
+            unitPrice = priceCandidates[0];
+            if (priceCandidates.length >= 2 && unitPrice > 0) {
+                const ratio = Math.round(priceCandidates[1] / unitPrice);
+                if (ratio >= 1 && ratio <= 500 && Math.abs(ratio * unitPrice - priceCandidates[1]) < 100) {
+                    quantity = ratio;
+                }
+            }
+        }
+
+        items.push({
+            uid: makeUid('ariston-pdf'),
+            productId: matchedProd.id,
+            productLabel: matchedProd.product_title || 'Máy nước nóng gián tiếp Ariston',
+            modelCode: matchedProd.name,
+            origin: matchedProd.origin ? `Ý-${matchedProd.origin}` : 'Ý-Việt Nam',
+            imageUrl: resolveProductImageUrl(matchedProd.image?.[0]),
+            unit: 'Máy',
+            specifications: matchedProd.description || '',
+            unitPrice,
+            quantity,
+        });
+    }
+
+    if (items.length === 0) {
+        for (const prod of sortedProducts) {
+            if (prod.name && combinedText.includes(prod.name)) {
+                items.push({
+                    uid: makeUid('ariston-pdf'),
+                    productId: prod.id,
+                    productLabel: prod.product_title || 'Máy nước nóng gián tiếp Ariston',
+                    modelCode: prod.name,
+                    origin: prod.origin ? `Ý-${prod.origin}` : 'Ý-Việt Nam',
+                    imageUrl: resolveProductImageUrl(prod.image?.[0]),
+                    unit: 'Máy',
+                    specifications: prod.description || '',
+                    unitPrice: prod.price > 0 ? prod.price : 2386000,
+                    quantity: 1,
+                });
+            }
         }
     }
 
     return {
         version: 1,
+        quotationType: 'ariston',
         activeQuotationType: 'ariston',
         quoteForm,
         items,
     };
 }
 
+function parseKflexPdfLines(
+    decodedLines: string[],
+    combinedText: string,
+    kflexPrices: CatalogKflexPrice[],
+    todayIso: string,
+): QuotationPayloadState {
+    const kflexQuoteForm: KflexQuoteFormState = {
+        documentTitle: 'BÁO GIÁ BẢO ÔN K-FLEX',
+        recipientCompany: '',
+        recipientPerson: '',
+        projectName: '',
+        quoteDate: todayIso,
+        validUntilDate: todayIso,
+        vatPercent: 8,
+        introText: 'Công ty Star Light là đơn vị phân phối mảng dự án sản phẩm bảo ôn K-FLEX',
+        paymentTerms: 'Thỏa thuận',
+        deliveryMethod: 'Giao hàng tại chân công trình',
+        deliveryTime:
+            'tối thiểu 40 ngày (đối với hàng nhập khẩu) kể từ ngày đơn đặt hàng được xác nhận, Hiện đơn hàng đang có sẵn',
+        contactName: 'Mr.Kiệt',
+        contactHp: '0979.807.234',
+        contactEmail: 'tuankiet@starlightgroup.vn',
+    };
+
+    for (let i = 0; i < decodedLines.length; i++) {
+        const line = decodedLines[i].trim();
+        const lower = line.toLowerCase();
+        if (lower.startsWith('báo giá') && !lower.includes('có hiệu lực')) {
+            kflexQuoteForm.documentTitle = line;
+        } else if (lower.startsWith('kính gửi')) {
+            kflexQuoteForm.recipientCompany = readNextFieldValue(
+                decodedLines,
+                i,
+                /^kính gửi\s*:?\s*/i,
+            );
+        } else if (lower.startsWith('người nhận')) {
+            kflexQuoteForm.recipientPerson = readNextFieldValue(
+                decodedLines,
+                i,
+                /^người nhận\s*:?\s*/i,
+            );
+        } else if (lower.startsWith('project')) {
+            kflexQuoteForm.projectName = readNextFieldValue(decodedLines, i, /^project\s*:?\s*/i);
+        } else if (lower.startsWith('thời gian') && !lower.includes('giao hàng')) {
+            const dStr = readNextFieldValue(decodedLines, i, /^thời gian\s*:?\s*/i);
+            if (dStr) {
+                kflexQuoteForm.quoteDate = parseSlashDateToIso(dStr, todayIso);
+            }
+        } else if (lower.includes('thuế vat')) {
+            const vm = line.match(/(\d+(?:\.\d+)?)\s*%/);
+            if (vm) {
+                kflexQuoteForm.vatPercent = Number(vm[1]);
+            }
+        } else if (lower.includes('1. báo giá có hiệu lực đến ngày')) {
+            const dateMatch = line.match(/(\d{1,2}[/-]\d{1,2}[/-]\d{4}|\d{4}-\d{2}-\d{2})/);
+            if (dateMatch) {
+                kflexQuoteForm.validUntilDate = parseSlashDateToIso(
+                    dateMatch[1],
+                    kflexQuoteForm.validUntilDate,
+                );
+            }
+        } else if (lower.includes('2. phương thức thanh toán')) {
+            const val = line.split(':').slice(1).join(':').trim();
+            if (val) {
+                kflexQuoteForm.paymentTerms = val;
+            }
+        } else if (lower.includes('3. phương thức giao hàng')) {
+            const val = line.split(':').slice(1).join(':').trim();
+            if (val) {
+                kflexQuoteForm.deliveryMethod = val;
+            }
+        } else if (lower.includes('4. thời gian giao hàng')) {
+            const val = line.split(':').slice(1).join(':').trim();
+            if (val) {
+                kflexQuoteForm.deliveryTime = val;
+            }
+        }
+    }
+
+    const matchedItems: KflexQuotationItemState[] = [];
+    const detectedLines = new Set<KflexProductLineKey>();
+    const sortedPrices = [...kflexPrices].sort(
+        (a, b) => (b.product_name?.length ?? 0) - (a.product_name?.length ?? 0),
+    );
+
+    for (const p of sortedPrices) {
+        if (p.product_name && combinedText.includes(p.product_name)) {
+            detectedLines.add(p.product_line);
+            matchedItems.push({
+                uid: makeUid('kf-pdf'),
+                kflexPriceId: p.id,
+                itemName: p.product_name,
+                brandLabel:
+                    p.product_line === 'k_protect'
+                        ? 'K-Flex K-Protect'
+                        : p.product_line === 'm_flex'
+                          ? 'K-Flex M-Flex'
+                          : 'K-Flex ST',
+                originLabel: `${p.brand || 'Ý'} - ${p.origin || 'Malaysia'}`,
+                productTypeLabel: p.variant_type === 'alu' ? 'Có nhôm' : 'Chỉ Foam',
+                productLine: p.product_line,
+                formType: p.form_type,
+                variantType: p.variant_type,
+                thickness: p.thickness,
+                innerDiameter: p.diameter || '',
+                widthM: p.form_type === 'sheet' ? '1.2' : '',
+                lengthM: p.form_type === 'tube' ? '2' : '8',
+                qtyM: p.form_type === 'tube' ? 1 : null,
+                qtyM2: p.form_type === 'sheet' ? 1 : null,
+                unitPrice: p.price,
+                note: '',
+            });
+        }
+    }
+
+    return {
+        version: 1,
+        quotationType: 'second',
+        activeQuotationType: 'second',
+        kflexQuoteForm,
+        kflexSelectedProductLines: detectedLines.size > 0 ? Array.from(detectedLines) : ['st'],
+        kflexGroups:
+            matchedItems.length > 0
+                ? [
+                      {
+                          uid: makeUid('kf-grp-pdf'),
+                          hasTitle: true,
+                          title: 'BẢO ÔN CHO ĐƯỜNG THÉP',
+                          items: matchedItems,
+                      },
+                  ]
+                : [],
+    };
+}
