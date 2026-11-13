@@ -548,15 +548,36 @@ type KflexProductLineKey = 'st' | 'k_protect' | 'm_flex';
 
 const kflexAllProductLineOptions: Array<{
     key: KflexProductLineKey;
+    code: string;
     brandLabel: string;
     originLabel: string;
+    desc: string;
 }> = [
-    { key: 'st', brandLabel: 'K-Flex ST', originLabel: 'Ý - Malaysia' },
-    { key: 'k_protect', brandLabel: 'K-Flex K-Protect', originLabel: 'Ý - Malaysia' },
-    { key: 'm_flex', brandLabel: 'K-Flex M-Flex', originLabel: 'Ý - VN' },
+    {
+        key: 'st',
+        code: 'ST',
+        brandLabel: 'K-Flex ST',
+        originLabel: 'Ý - Malaysia',
+        desc: 'Bảo ôn ống & tấm tiêu chuẩn',
+    },
+    {
+        key: 'k_protect',
+        code: 'K-PROTECT',
+        brandLabel: 'K-Flex K-Protect',
+        originLabel: 'Ý - Malaysia',
+        desc: 'Bảo ôn chuyên dụng ống gió & vách',
+    },
+    {
+        key: 'm_flex',
+        code: 'M-FLEX',
+        brandLabel: 'K-Flex M-Flex',
+        originLabel: 'Ý - VN',
+        desc: 'Dòng kinh tế sản xuất tại Việt Nam',
+    },
 ];
 
 const kflexSelectedProductLines = ref<KflexProductLineKey[]>(['st']);
+const isKflexGeneralCollapsed = ref(false);
 
 const getDefaultSheetDimensions = (
     productLine: 'st' | 'k_protect' | 'm_flex',
@@ -4516,160 +4537,249 @@ const formatDraftTime = (iso?: string | null): string => {
 
         <template v-else>
             <!-- 1. Thông tin chung & Điều kiện thương mại của Báo giá Bảo ôn K-Flex -->
-            <div class="kb-quote-builder-card">
-                <div class="kb-quote-section-title">
-                    1. Thông tin chung &amp; Điều kiện thương mại (Báo giá Bảo ôn K-Flex)
+            <div
+                class="kb-quote-builder-card kb-kflex-general-card"
+                :class="{ 'is-collapsed': isKflexGeneralCollapsed }"
+            >
+                <div class="kb-quote-collapsible-header">
+                    <div class="kb-quote-section-title">
+                        1. Thông tin chung &amp; Điều kiện thương mại (Báo giá Bảo ôn K-Flex)
+                    </div>
+
+                    <div v-if="isKflexGeneralCollapsed" class="kb-quote-collapsed-summary">
+                        <span v-if="kflexQuoteForm.projectName" class="kb-quote-summary-chip">
+                            <b>Dự án:</b> {{ kflexQuoteForm.projectName }}
+                        </span>
+                        <span
+                            v-if="kflexQuoteForm.recipientPerson || kflexQuoteForm.recipientCompany"
+                            class="kb-quote-summary-chip"
+                        >
+                            <b>Kính gửi:</b> {{ kflexQuoteForm.recipientPerson || kflexQuoteForm.recipientCompany }}
+                        </span>
+                        <span class="kb-quote-summary-chip highlight">
+                            <b>Dòng SP:</b>
+                            {{
+                                kflexAllProductLineOptions
+                                    .filter((o) => kflexSelectedProductLines.includes(o.key))
+                                    .map((o) => o.brandLabel)
+                                    .join(', ')
+                            }}
+                        </span>
+                    </div>
                 </div>
-                <div class="kb-quote-form-grid">
-                    <label class="kb-quote-field">
-                        <span>Tiêu đề báo giá</span>
-                        <input
-                            v-model="kflexQuoteForm.documentTitle"
-                            type="text"
-                            placeholder="BÁO GIÁ BẢO ÔN K-FLEX"
-                        />
-                    </label>
-                    <label class="kb-quote-field">
-                        <span>Kính gửi</span>
-                        <input
-                            v-model="kflexQuoteForm.recipientCompany"
-                            type="text"
-                            placeholder="VD: Quý đối tác Công ty Cổ phần Kỹ thuật Thăng Tiến"
-                        />
-                    </label>
-                    <label class="kb-quote-field">
-                        <span>Người nhận</span>
-                        <input
-                            v-model="kflexQuoteForm.recipientPerson"
-                            type="text"
-                            placeholder="VD: Mr.Phương"
-                        />
-                    </label>
-                    <label class="kb-quote-field">
-                        <span>Project (Dự án)</span>
-                        <input
-                            v-model="kflexQuoteForm.projectName"
-                            type="text"
-                            placeholder="VD: Detech Tower"
-                        />
-                    </label>
-                    <label class="kb-quote-field">
-                        <span>Thời gian báo giá</span>
-                        <input v-model="kflexQuoteForm.quoteDate" type="date" />
-                    </label>
-                    <label class="kb-quote-field">
-                        <span>Hiệu lực đến ngày</span>
-                        <input v-model="kflexQuoteForm.validUntilDate" type="date" />
-                    </label>
-                    <label class="kb-quote-field">
-                        <span>Thuế VAT (%)</span>
-                        <input
-                            v-model.number="kflexQuoteForm.vatPercent"
-                            type="number"
-                            min="0"
-                            max="100"
-                            step="1"
-                        />
-                    </label>
-                    <label class="kb-quote-field">
-                        <span>Người liên hệ (Ký tên)</span>
-                        <input
-                            v-model="kflexQuoteForm.contactName"
-                            type="text"
-                            placeholder="Mr.Kiệt"
-                        />
-                    </label>
-                    <label class="kb-quote-field">
-                        <span>Số điện thoại (HP)</span>
-                        <input
-                            v-model="kflexQuoteForm.contactHp"
-                            type="text"
-                            placeholder="0979.807.234"
-                        />
-                    </label>
-                    <label class="kb-quote-field">
-                        <span>Email liên hệ</span>
-                        <input
-                            v-model="kflexQuoteForm.contactEmail"
-                            type="text"
-                            placeholder="tuankiet@starlightgroup.vn"
-                        />
-                    </label>
-                    <label class="kb-quote-field kb-quote-span-2">
-                        <span>Dòng giới thiệu (In nghiêng xanh dưới thông tin dự án)</span>
-                        <input
-                            v-model="kflexQuoteForm.introText"
-                            type="text"
-                        />
-                    </label>
-                    <label class="kb-quote-field kb-quote-span-2">
-                        <span>2. Phương thức thanh toán</span>
-                        <input
-                            v-model="kflexQuoteForm.paymentTerms"
-                            type="text"
-                        />
-                    </label>
-                    <label class="kb-quote-field kb-quote-span-2">
-                        <span>3. Phương thức giao hàng</span>
-                        <input
-                            v-model="kflexQuoteForm.deliveryMethod"
-                            type="text"
-                        />
-                    </label>
-                    <label class="kb-quote-field kb-quote-span-full">
-                        <span>4. Thời gian giao hàng</span>
-                        <input
-                            v-model="kflexQuoteForm.deliveryTime"
-                            type="text"
-                        />
-                    </label>
 
-                    <!-- Chọn chung Nhãn hiệu & Xuất xứ cho cả file báo giá (Hỗ trợ chọn 1 loại hoặc tích chọn 2-3 loại) -->
-                    <div class="kb-quote-field kb-quote-span-full kflex-global-brand-box">
-                        <div class="kflex-global-brand-head">
-                            <div>
-                                <strong>Nhãn hiệu (Dòng sản phẩm) &amp; Xuất xứ áp dụng cho báo giá</strong>
-                                <p>
-                                    Thường chỉ chọn 1 loại cho toàn bộ file báo giá (Xuất xứ tự động đi theo Nhãn hiệu). Nếu khách yêu cầu báo giá kết hợp 2 hoặc 3 loại, hãy tích chọn thêm bên dưới.
-                                </p>
-                            </div>
-                            <div class="kflex-global-brand-quick">
-                                <button
-                                    v-for="opt in kflexAllProductLineOptions"
-                                    :key="`single-${opt.key}`"
-                                    type="button"
-                                    class="kflex-quick-line-btn"
-                                    :class="{
-                                        active:
-                                            kflexSelectedProductLines.length === 1 &&
-                                            kflexSelectedProductLines[0] === opt.key,
-                                    }"
-                                    @click="selectSingleKflexProductLine(opt.key)"
-                                >
-                                    Chỉ dùng {{ opt.brandLabel }} ({{ opt.originLabel }})
-                                </button>
-                            </div>
-                        </div>
-
-                        <div class="kflex-global-brand-pills">
-                            <label
-                                v-for="opt in kflexAllProductLineOptions"
-                                :key="opt.key"
-                                class="kflex-brand-pill"
-                                :class="{ checked: kflexSelectedProductLines.includes(opt.key) }"
-                            >
+                <div
+                    class="kb-quote-collapsible-body"
+                    :class="{ 'is-collapsed': isKflexGeneralCollapsed }"
+                    :aria-hidden="isKflexGeneralCollapsed"
+                >
+                    <div class="kb-quote-collapsible-inner">
+                        <div class="kb-quote-form-grid">
+                            <label class="kb-quote-field">
+                                <span>Tiêu đề báo giá</span>
                                 <input
-                                    type="checkbox"
-                                    :checked="kflexSelectedProductLines.includes(opt.key)"
-                                    @change="toggleKflexProductLine(opt.key)"
+                                    v-model="kflexQuoteForm.documentTitle"
+                                    type="text"
+                                    placeholder="BÁO GIÁ BẢO ÔN K-FLEX"
                                 />
-                                <div class="kflex-brand-pill-info">
-                                    <strong>{{ opt.brandLabel }}</strong>
-                                    <small>Thương hiệu - Xuất xứ: {{ opt.originLabel }}</small>
-                                </div>
                             </label>
+                            <label class="kb-quote-field">
+                                <span>Kính gửi</span>
+                                <input
+                                    v-model="kflexQuoteForm.recipientCompany"
+                                    type="text"
+                                    placeholder="VD: Quý đối tác Công ty Cổ phần Kỹ thuật Thăng Tiến"
+                                />
+                            </label>
+                            <label class="kb-quote-field">
+                                <span>Người nhận</span>
+                                <input
+                                    v-model="kflexQuoteForm.recipientPerson"
+                                    type="text"
+                                    placeholder="VD: Mr.Phương"
+                                />
+                            </label>
+                            <label class="kb-quote-field">
+                                <span>Project (Dự án)</span>
+                                <input
+                                    v-model="kflexQuoteForm.projectName"
+                                    type="text"
+                                    placeholder="VD: Detech Tower"
+                                />
+                            </label>
+                            <label class="kb-quote-field">
+                                <span>Thời gian báo giá</span>
+                                <input v-model="kflexQuoteForm.quoteDate" type="date" />
+                            </label>
+                            <label class="kb-quote-field">
+                                <span>Hiệu lực đến ngày</span>
+                                <input v-model="kflexQuoteForm.validUntilDate" type="date" />
+                            </label>
+                            <label class="kb-quote-field">
+                                <span>Thuế VAT (%)</span>
+                                <input
+                                    v-model.number="kflexQuoteForm.vatPercent"
+                                    type="number"
+                                    min="0"
+                                    max="100"
+                                    step="1"
+                                />
+                            </label>
+                            <label class="kb-quote-field">
+                                <span>Người liên hệ (Ký tên)</span>
+                                <input
+                                    v-model="kflexQuoteForm.contactName"
+                                    type="text"
+                                    placeholder="Mr.Kiệt"
+                                />
+                            </label>
+                            <label class="kb-quote-field">
+                                <span>Số điện thoại (HP)</span>
+                                <input
+                                    v-model="kflexQuoteForm.contactHp"
+                                    type="text"
+                                    placeholder="0979.807.234"
+                                />
+                            </label>
+                            <label class="kb-quote-field">
+                                <span>Email liên hệ</span>
+                                <input
+                                    v-model="kflexQuoteForm.contactEmail"
+                                    type="text"
+                                    placeholder="tuankiet@starlightgroup.vn"
+                                />
+                            </label>
+                            <label class="kb-quote-field kb-quote-span-2">
+                                <span>Dòng giới thiệu (In nghiêng xanh dưới thông tin dự án)</span>
+                                <input
+                                    v-model="kflexQuoteForm.introText"
+                                    type="text"
+                                />
+                            </label>
+                            <label class="kb-quote-field kb-quote-span-2">
+                                <span>2. Phương thức thanh toán</span>
+                                <input
+                                    v-model="kflexQuoteForm.paymentTerms"
+                                    type="text"
+                                />
+                            </label>
+                            <label class="kb-quote-field kb-quote-span-2">
+                                <span>3. Phương thức giao hàng</span>
+                                <input
+                                    v-model="kflexQuoteForm.deliveryMethod"
+                                    type="text"
+                                />
+                            </label>
+                            <label class="kb-quote-field kb-quote-span-full">
+                                <span>4. Thời gian giao hàng</span>
+                                <input
+                                    v-model="kflexQuoteForm.deliveryTime"
+                                    type="text"
+                                />
+                            </label>
+
+                            <!-- Chọn chung Nhãn hiệu & Xuất xứ cho cả file báo giá (Hỗ trợ chọn 1 loại hoặc tích chọn 2-3 loại) -->
+                            <div class="kb-quote-field kb-quote-span-full kflex-global-brand-box">
+                                <div class="kflex-global-brand-head">
+                                    <div>
+                                        <strong>Nhãn hiệu (Dòng sản phẩm) &amp; Xuất xứ áp dụng cho báo giá</strong>
+                                        <p>
+                                            Thường chỉ chọn 1 loại cho toàn bộ file báo giá (Xuất xứ tự động đi theo Nhãn hiệu). Nếu khách yêu cầu báo giá kết hợp 2 hoặc 3 loại, hãy tích chọn thêm bên dưới.
+                                        </p>
+                                    </div>
+                                    <div class="kflex-global-brand-quick">
+                                        <button
+                                            v-for="opt in kflexAllProductLineOptions"
+                                            :key="`single-${opt.key}`"
+                                            type="button"
+                                            class="kflex-quick-line-btn"
+                                            :class="{
+                                                active:
+                                                    kflexSelectedProductLines.length === 1 &&
+                                                    kflexSelectedProductLines[0] === opt.key,
+                                            }"
+                                            @click="selectSingleKflexProductLine(opt.key)"
+                                        >
+                                            Chỉ dùng {{ opt.brandLabel }} ({{ opt.originLabel }})
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div class="kflex-global-brand-pills">
+                                    <label
+                                        v-for="opt in kflexAllProductLineOptions"
+                                        :key="opt.key"
+                                        class="kflex-brand-pill"
+                                        :class="[
+                                            `line-${opt.key}`,
+                                            { checked: kflexSelectedProductLines.includes(opt.key) },
+                                        ]"
+                                    >
+                                        <input
+                                            type="checkbox"
+                                            class="kflex-brand-pill-input"
+                                            :checked="kflexSelectedProductLines.includes(opt.key)"
+                                            @change="toggleKflexProductLine(opt.key)"
+                                        />
+                                        <span class="kflex-brand-pill-check" aria-hidden="true">
+                                            <svg viewBox="0 0 16 16" fill="none">
+                                                <path
+                                                    d="M3.5 8.2L6.6 11.3L12.6 4.8"
+                                                    stroke="currentColor"
+                                                    stroke-width="2.2"
+                                                    stroke-linecap="round"
+                                                    stroke-linejoin="round"
+                                                />
+                                            </svg>
+                                        </span>
+                                        <div class="kflex-brand-pill-info">
+                                            <div class="kflex-brand-pill-top">
+                                                <strong>{{ opt.brandLabel }}</strong>
+                                                <span class="kflex-brand-pill-code">{{ opt.code }}</span>
+                                            </div>
+                                            <small class="kflex-brand-pill-origin">
+                                                <span class="kflex-origin-dot"></span>
+                                                Thương hiệu - Xuất xứ: <b>{{ opt.originLabel }}</b>
+                                            </small>
+                                            <span class="kflex-brand-pill-desc">{{ opt.desc }}</span>
+                                        </div>
+                                    </label>
+                                </div>
+                            </div>
                         </div>
                     </div>
+                </div>
+
+                <div class="kb-quote-card-collapse-footer">
+                    <button
+                        type="button"
+                        class="kb-quote-collapse-toggle-btn"
+                        :aria-expanded="!isKflexGeneralCollapsed"
+                        @click="isKflexGeneralCollapsed = !isKflexGeneralCollapsed"
+                    >
+                        <span>
+                            {{
+                                isKflexGeneralCollapsed
+                                    ? 'Mở rộng thông tin chung & điều kiện thương mại'
+                                    : 'Thu gọn thông tin chung & điều kiện thương mại'
+                            }}
+                        </span>
+                        <span
+                            class="kb-quote-collapse-chevron"
+                            :class="{ rotated: isKflexGeneralCollapsed }"
+                            aria-hidden="true"
+                        >
+                            <svg viewBox="0 0 16 16" fill="none">
+                                <path
+                                    d="M4 10L8 6L12 10"
+                                    stroke="currentColor"
+                                    stroke-width="2"
+                                    stroke-linecap="round"
+                                    stroke-linejoin="round"
+                                />
+                            </svg>
+                        </span>
+                    </button>
                 </div>
             </div>
 
@@ -5214,12 +5324,169 @@ const formatDraftTime = (iso?: string | null): string => {
 </template>
 
 <style scoped>
-.kflex-global-brand-box {
-    margin-top: 4px;
-    padding: 14px 16px;
-    border-radius: 10px;
+.kb-kflex-general-card {
+    transition: padding 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
+}
+
+.kb-kflex-general-card.is-collapsed {
+    padding-bottom: 14px;
+}
+
+.kb-quote-collapsible-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.kb-quote-collapsible-header .kb-quote-section-title {
+    margin-bottom: 0;
+}
+
+.kb-quote-collapsed-summary {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    animation: kbSummaryFadeIn 0.28s ease;
+}
+
+@keyframes kbSummaryFadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-3px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.kb-quote-summary-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: #f5f1e7;
+    border: 1px solid #e2d8c3;
+    font-size: 12px;
+    color: #4a4333;
+    max-width: 280px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.kb-quote-summary-chip.highlight {
+    background: #eef4f1;
+    border-color: #bfd3ca;
+    color: #18352e;
+}
+
+.kb-quote-collapsible-body {
+    display: grid;
+    grid-template-rows: 1fr;
+    opacity: 1;
+    margin-top: 14px;
+    transition:
+        grid-template-rows 0.38s cubic-bezier(0.22, 1, 0.36, 1),
+        opacity 0.28s ease,
+        margin-top 0.34s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.kb-quote-collapsible-body.is-collapsed {
+    grid-template-rows: 0fr;
+    opacity: 0;
+    margin-top: 0;
+    pointer-events: none;
+}
+
+.kb-quote-collapsible-inner {
+    overflow: hidden;
+    min-height: 0;
+}
+
+.kb-quote-card-collapse-footer {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-top: 16px;
+    padding-top: 12px;
+    border-top: 1px dashed #dfd6c3;
+    transition: margin-top 0.32s ease, padding-top 0.32s ease;
+}
+
+.kb-kflex-general-card.is-collapsed .kb-quote-card-collapse-footer {
+    margin-top: 12px;
+    padding-top: 10px;
+}
+
+.kb-quote-collapse-toggle-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 7px 18px;
+    border-radius: 999px;
     border: 1px solid #d5c7ad;
-    background: #fcfaf5;
+    background: linear-gradient(180deg, #ffffff 0%, #f8f3e8 100%);
+    color: #463d2b;
+    font-size: 12.5px;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+    cursor: pointer;
+    box-shadow: 0 2px 8px rgba(41, 39, 31, 0.06);
+    transition:
+        background 0.2s ease,
+        border-color 0.2s ease,
+        color 0.2s ease,
+        transform 0.2s ease,
+        box-shadow 0.2s ease;
+}
+
+.kb-quote-collapse-toggle-btn:hover {
+    border-color: #18352e;
+    background: #18352e;
+    color: #f5f1e8;
+    transform: translateY(-1px);
+    box-shadow: 0 6px 14px rgba(24, 53, 46, 0.16);
+}
+
+.kb-quote-collapse-chevron {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: rgba(181, 154, 101, 0.18);
+    color: currentColor;
+    transition: transform 0.36s cubic-bezier(0.22, 1, 0.36, 1), background 0.2s ease;
+}
+
+.kb-quote-collapse-toggle-btn:hover .kb-quote-collapse-chevron {
+    background: rgba(255, 255, 255, 0.18);
+}
+
+.kb-quote-collapse-chevron svg {
+    width: 13px;
+    height: 13px;
+}
+
+.kb-quote-collapse-chevron.rotated {
+    transform: rotate(180deg);
+}
+
+.kflex-global-brand-box {
+    margin-top: 6px;
+    padding: 16px 18px;
+    border-radius: 12px;
+    border: 1px solid #d5c7ad;
+    background: linear-gradient(180deg, #fcfaf5 0%, #f7f2e7 100%);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.75);
 }
 
 .kflex-global-brand-head {
@@ -5228,20 +5495,21 @@ const formatDraftTime = (iso?: string | null): string => {
     justify-content: space-between;
     flex-wrap: wrap;
     gap: 12px;
-    margin-bottom: 12px;
+    margin-bottom: 14px;
 }
 
 .kflex-global-brand-head strong {
     display: block;
-    font-size: 13.5px;
+    font-size: 13.8px;
     color: #0f172a;
-    margin-bottom: 2px;
+    margin-bottom: 3px;
 }
 
 .kflex-global-brand-head p {
     margin: 0;
     font-size: 12px;
     color: #475569;
+    line-height: 1.45;
 }
 
 .kflex-global-brand-quick {
@@ -5251,67 +5519,201 @@ const formatDraftTime = (iso?: string | null): string => {
 }
 
 .kflex-quick-line-btn {
-    border: 1px solid #cbd5e1;
-    border-radius: 7px;
-    padding: 6px 11px;
+    border: 1px solid #d2c6ae;
+    border-radius: 999px;
+    padding: 6px 13px;
     font-size: 12px;
-    font-weight: 600;
+    font-weight: 700;
     background: #ffffff;
-    color: #1e293b;
+    color: #334155;
     cursor: pointer;
-    transition: all 0.15s ease;
+    transition: all 0.18s ease;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
 }
 
 .kflex-quick-line-btn:hover {
-    border-color: #2563eb;
-    color: #2563eb;
+    border-color: #18352e;
+    color: #18352e;
+    background: #f3f7f5;
+    transform: translateY(-1px);
 }
 
 .kflex-quick-line-btn.active {
-    background: #1e293b;
-    border-color: #1e293b;
-    color: #ffffff;
+    background: linear-gradient(135deg, #18352e 0%, #23473b 100%);
+    border-color: #18352e;
+    color: #f5f1e8;
+    box-shadow: 0 4px 12px rgba(24, 53, 46, 0.18);
 }
 
 .kflex-global-brand-pills {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 10px;
+    gap: 12px;
 }
 
 .kflex-brand-pill {
+    position: relative;
     display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 10px 12px;
-    border-radius: 8px;
-    border: 1px solid #cbd5e1;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 13px 15px;
+    border-radius: 12px;
+    border: 1.5px solid #ddd3bf;
     background: #ffffff;
     cursor: pointer;
     user-select: none;
-    transition: all 0.15s ease;
+    transition:
+        border-color 0.2s ease,
+        background 0.2s ease,
+        box-shadow 0.22s ease,
+        transform 0.2s ease;
+    box-shadow: 0 2px 6px rgba(15, 23, 42, 0.03);
+}
+
+.kflex-brand-pill:hover {
+    border-color: #b59a65;
+    background: #fffdf9;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 18px rgba(41, 39, 31, 0.08);
 }
 
 .kflex-brand-pill.checked {
-    border-color: #2563eb;
-    background: #eff6ff;
-    box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.2);
+    border-color: #18352e;
+    background: linear-gradient(135deg, #f3f8f5 0%, #ffffff 65%, #fbf7ee 100%);
+    box-shadow:
+        0 0 0 1px rgba(24, 53, 46, 0.16),
+        0 8px 20px rgba(24, 53, 46, 0.1);
+}
+
+.kflex-brand-pill-input {
+    position: absolute;
+    opacity: 0;
+    width: 0 !important;
+    height: 0 !important;
+    margin: 0;
+    padding: 0 !important;
+    pointer-events: none;
+}
+
+.kflex-brand-pill-check {
+    width: 24px;
+    height: 24px;
+    margin-top: 2px;
+    border-radius: 7px;
+    border: 1.5px solid #cbd5e1;
+    background: #f8fafc;
+    color: transparent;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition:
+        background 0.2s ease,
+        border-color 0.2s ease,
+        color 0.2s ease,
+        transform 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.kflex-brand-pill-check svg {
+    width: 14px;
+    height: 14px;
+    transform: scale(0.6);
+    transition: transform 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.kflex-brand-pill:hover .kflex-brand-pill-check {
+    border-color: #b59a65;
+}
+
+.kflex-brand-pill.checked .kflex-brand-pill-check {
+    background: linear-gradient(135deg, #18352e 0%, #265344 100%);
+    border-color: #18352e;
+    color: #f5f1e8;
+    box-shadow: 0 3px 8px rgba(24, 53, 46, 0.22);
+}
+
+.kflex-brand-pill.checked .kflex-brand-pill-check svg {
+    transform: scale(1);
 }
 
 .kflex-brand-pill-info {
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: 4px;
+    min-width: 0;
+    flex: 1;
+}
+
+.kflex-brand-pill-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
 }
 
 .kflex-brand-pill-info strong {
-    font-size: 13px;
+    font-size: 14px;
+    font-weight: 800;
     color: #0f172a;
+    letter-spacing: -0.01em;
 }
 
-.kflex-brand-pill-info small {
-    font-size: 11.5px;
+.kflex-brand-pill.checked .kflex-brand-pill-info strong {
+    color: #18352e;
+}
+
+.kflex-brand-pill-code {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 10.5px;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    background: #f1ede4;
+    color: #6b5b3e;
+    border: 1px solid #dfd5c0;
+    flex-shrink: 0;
+    transition: all 0.2s ease;
+}
+
+.kflex-brand-pill.checked .kflex-brand-pill-code {
+    background: #b59a65;
+    border-color: #b59a65;
+    color: #ffffff;
+}
+
+.kflex-brand-pill-origin {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
     color: #475569;
+}
+
+.kflex-brand-pill-origin b {
+    color: #1e293b;
+    font-weight: 700;
+}
+
+.kflex-origin-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #cbd5e1;
+    flex-shrink: 0;
+    transition: background 0.2s ease;
+}
+
+.kflex-brand-pill.checked .kflex-origin-dot {
+    background: #16a34a;
+    box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.16);
+}
+
+.kflex-brand-pill-desc {
+    font-size: 11.5px;
+    color: #64748b;
+    line-height: 1.3;
 }
 
 .kflex-readonly-chip {
