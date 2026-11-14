@@ -27,7 +27,8 @@ test('visitors and regular authenticated users are redirected to quotation login
         ->assertSee('<meta name="robots" content="noindex, nofollow">', false)
         ->assertInertia(fn (Assert $page) => $page
             ->component('quotations/Login')
-            ->where('auth.hasQuoteSession', false),
+            ->where('auth.hasQuoteSession', false)
+            ->where('recaptchaSiteKey', '6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI'),
         );
 
     $this->get(route('kbuser.sitemap'))

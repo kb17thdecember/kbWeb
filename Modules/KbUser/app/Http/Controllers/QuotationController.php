@@ -29,6 +29,10 @@ class QuotationController extends Controller
 
     public const PUBLIC_QUOTE_EMAIL = 'publicquote@gmail.com';
 
+    private const LOCAL_TEST_RECAPTCHA_SITE_KEY = '6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI';
+
+    private const LOCAL_TEST_RECAPTCHA_SECRET_KEY = '6LeIxAcTAAAAAGG-vFI1TnRWxMZNFuojJ4WifJWe';
+
     public function showLogin(Request $request): Response|\Symfony\Component\HttpFoundation\Response
     {
         if ($this->resolveAuthenticatedQuoteUser($request) !== null) {
@@ -38,7 +42,7 @@ class QuotationController extends Controller
 
         return Inertia::render('quotations/Login', [
             'status' => $request->session()->get('status'),
-            'recaptchaSiteKey' => (string) config('services.recaptcha.site_key'),
+            'recaptchaSiteKey' => $this->resolveRecaptchaSiteKey($request),
         ])->toResponse($request)->header('X-Robots-Tag', 'noindex, nofollow');
     }
 
@@ -55,7 +59,7 @@ class QuotationController extends Controller
             'recaptcha_token.required' => 'Vui lòng tích xác nhận "Tôi không phải là người máy" (Google reCAPTCHA).',
         ]);
 
-        if (! $this->verifyGoogleRecaptcha((string) $credentials['recaptcha_token'], $request->ip())) {
+        if (! $this->verifyGoogleRecaptcha($request, (string) $credentials['recaptcha_token'])) {
             throw ValidationException::withMessages([
                 'recaptcha_token' => 'Xác thực Google reCAPTCHA không hợp lệ hoặc đã hết hạn. Vui lòng tích chọn lại.',
             ]);
@@ -386,7 +390,31 @@ class QuotationController extends Controller
         return $user;
     }
 
-    private function verifyGoogleRecaptcha(string $token, ?string $ip = null): bool
+    private function isLocalHostRequest(Request $request): bool
+    {
+        return app()->environment('local', 'testing')
+            || in_array(Str::lower($request->getHost()), ['127.0.0.1', 'localhost', '::1'], true);
+    }
+
+    private function resolveRecaptchaSiteKey(Request $request): string
+    {
+        if ($this->isLocalHostRequest($request)) {
+            return self::LOCAL_TEST_RECAPTCHA_SITE_KEY;
+        }
+
+        return (string) config('services.recaptcha.site_key');
+    }
+
+    private function resolveRecaptchaSecretKey(Request $request): string
+    {
+        if ($this->isLocalHostRequest($request)) {
+            return self::LOCAL_TEST_RECAPTCHA_SECRET_KEY;
+        }
+
+        return trim((string) config('services.recaptcha.secret_key'));
+    }
+
+    private function verifyGoogleRecaptcha(Request $request, string $token): bool
     {
         if (trim($token) === '') {
             return false;
@@ -396,21 +424,21 @@ class QuotationController extends Controller
             return $token !== 'invalid-token';
         }
 
-        $secretKey = trim((string) config('services.recaptcha.secret_key'));
+        $secretKey = $this->resolveRecaptchaSecretKey($request);
         if ($secretKey === '') {
             return true;
         }
 
         try {
-            $request = Http::asForm()->timeout(8);
-            if (app()->environment('local')) {
-                $request = $request->withoutVerifying();
+            $httpRequest = Http::asForm()->timeout(8);
+            if ($this->isLocalHostRequest($request)) {
+                $httpRequest = $httpRequest->withoutVerifying();
             }
 
-            $response = $request->post('https://www.google.com/recaptcha/api/siteverify', array_filter([
+            $response = $httpRequest->post('https://www.google.com/recaptcha/api/siteverify', array_filter([
                 'secret' => $secretKey,
                 'response' => $token,
-                'remoteip' => $ip,
+                'remoteip' => $request->ip(),
             ]));
 
             if (! $response->successful()) {

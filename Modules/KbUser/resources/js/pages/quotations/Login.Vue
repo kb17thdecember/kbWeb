@@ -1,4 +1,12 @@
 <script setup lang="ts">
+import {
+    faArrowLeft,
+    faArrowRight,
+    faEye,
+    faEyeSlash,
+    faSpinner,
+} from '@fortawesome/free-solid-svg-icons';
+import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome';
 import { Head, Link, useForm } from '@inertiajs/vue3';
 import { onBeforeUnmount, onMounted, ref } from 'vue';
 import UserLayout from '../../layout/UserLayout.Vue';
@@ -142,84 +150,84 @@ onBeforeUnmount(() => {
         <section class="kb-quote-login-section">
             <div class="wrap kb-quote-login-wrap">
                 <form class="kb-quote-login-card" @submit.prevent="submit">
-                    <div class="kb-quote-login-brand">
-                        <span class="kb-quote-login-mark">HM</span>
+                    <div class="kb-auth-modal-head kb-quote-login-head">
                         <div>
-                            <strong>HVAC Mart · Star Light</strong>
-                            <small>QUOTATION BUILDER PORTAL</small>
+                            <span class="eyebrow"><span class="dot"></span> QUOTATION BUILDER PORTAL</span>
+                            <h1>Đăng nhập Tạo Báo Giá PDF</h1>
                         </div>
+                        <span class="brandmark kb-quote-login-mark" aria-hidden="true">HM</span>
                     </div>
 
-                    <h1>Đăng nhập Tạo Báo Giá PDF</h1>
                     <p class="kb-quote-login-desc">
                         Vui lòng đăng nhập tài khoản cấp quyền để sử dụng công cụ lập báo giá dự án Ariston &amp; Bảo ôn K-Flex chuẩn mẫu Star Light.
                     </p>
 
-                    <p v-if="props.status" class="kb-quote-login-error">{{ props.status }}</p>
+                    <p v-if="props.status" class="kb-auth-alert is-error" role="alert">{{ props.status }}</p>
 
-                    <div class="kb-quote-login-field">
-                        <label for="quoteEmail">Email tài khoản báo giá</label>
+                    <div class="field">
+                        <label for="quoteEmail">EMAIL TÀI KHOẢN BÁO GIÁ *</label>
                         <input
                             id="quoteEmail"
                             v-model="form.email"
                             type="email"
                             maxlength="255"
-                            placeholder="Nhập địa chỉ email..."
+                            placeholder="ban@congty.vn"
                             autocomplete="username"
+                            :aria-invalid="Boolean(form.errors.email)"
                             required
                             autofocus
                         />
-                        <span v-if="form.errors.email" class="kb-quote-login-error">{{ form.errors.email }}</span>
+                        <span v-if="form.errors.email" class="field-error">{{ form.errors.email }}</span>
                     </div>
 
-                    <div class="kb-quote-login-field">
-                        <label for="quotePassword">Mật khẩu</label>
-                        <div class="kb-quote-password-wrap">
+                    <div class="field">
+                        <label for="quotePassword">MẬT KHẨU *</label>
+                        <div class="kb-password-wrap">
                             <input
                                 id="quotePassword"
                                 v-model="form.password"
                                 :type="showPassword ? 'text' : 'password'"
-                                placeholder="Nhập mật khẩu..."
+                                placeholder="Nhập mật khẩu của bạn"
                                 autocomplete="current-password"
+                                :aria-invalid="Boolean(form.errors.password)"
                                 required
                             />
                             <button
                                 type="button"
-                                class="kb-quote-password-toggle"
+                                class="kb-password-toggle"
                                 :aria-label="showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'"
                                 :title="showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'"
                                 @click="showPassword = !showPassword"
                             >
-                                <svg v-if="showPassword" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
-                                    <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-10-8-10-8a18.45 18.45 0 0 1 5.06-5.94" />
-                                    <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 10 8 10 8a18.5 18.5 0 0 1-2.16 3.19" />
-                                    <path d="M14.12 14.12a3 3 0 1 1-4.24-4.24" />
-                                    <line x1="1" y1="1" x2="23" y2="23" />
-                                </svg>
-                                <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
-                                    <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />
-                                    <circle cx="12" cy="12" r="3" />
-                                </svg>
+                                <FontAwesomeIcon :icon="showPassword ? faEyeSlash : faEye" aria-hidden="true" />
                             </button>
                         </div>
-                        <span v-if="form.errors.password" class="kb-quote-login-error">{{ form.errors.password }}</span>
+                        <span v-if="form.errors.password" class="field-error">{{ form.errors.password }}</span>
                     </div>
 
                     <div class="kb-quote-recaptcha-field">
                         <div class="kb-quote-recaptcha-wrap">
                             <div ref="recaptchaContainer" class="kb-quote-recaptcha-widget"></div>
                         </div>
-                        <span v-if="recaptchaLocalError || form.errors.recaptcha_token" class="kb-quote-login-error">
+                        <span v-if="recaptchaLocalError || form.errors.recaptcha_token" class="field-error">
                             {{ recaptchaLocalError || form.errors.recaptcha_token }}
                         </span>
                     </div>
 
-                    <button type="submit" class="kb-quote-login-submit" :disabled="form.processing">
-                        {{ form.processing ? 'Đang xác thực...' : 'Đăng nhập vào trang Báo Giá' }}
+                    <button type="submit" class="btn btn-primary kb-auth-submit kb-quote-login-submit" :disabled="form.processing">
+                        <span>{{ form.processing ? 'Đang xác thực...' : 'Đăng nhập vào trang Báo Giá' }}</span>
+                        <FontAwesomeIcon
+                            :icon="form.processing ? faSpinner : faArrowRight"
+                            :spin="form.processing"
+                            aria-hidden="true"
+                        />
                     </button>
 
                     <div class="kb-quote-login-foot">
-                        <Link href="/">← Quay lại trang chủ</Link>
+                        <Link href="/">
+                            <FontAwesomeIcon :icon="faArrowLeft" aria-hidden="true" />
+                            <span>Quay lại trang chủ</span>
+                        </Link>
                     </div>
                 </form>
             </div>
@@ -243,140 +251,51 @@ onBeforeUnmount(() => {
 
 .kb-quote-login-card {
     width: 100%;
-    max-width: 460px;
-    background: #fffdf8;
-    color: #29271f;
-    border: 1px solid #e6dfd1;
-    border-radius: 16px;
-    padding: 32px 28px;
-    box-shadow: 0 18px 42px rgba(24, 53, 46, 0.1);
+    max-width: 500px;
+    background: var(--surface);
+    color: var(--ink);
+    border: 1px solid var(--line);
+    border-radius: 0;
+    padding: 30px 30px 28px;
+    box-shadow: var(--shadow);
 }
 
-.kb-quote-login-brand {
-    display: flex;
-    align-items: center;
-    gap: 12px;
+.kb-quote-login-head {
     padding-bottom: 16px;
-    margin-bottom: 18px;
-    border-bottom: 1px solid #e6dfd1;
+    margin-bottom: 14px;
+    border-bottom: 1px solid var(--line);
+    align-items: center;
+}
+
+.kb-quote-login-head h1 {
+    margin: 6px 0 0;
+    font-family: var(--serif);
+    font-size: 24px;
+    font-weight: 500;
+    line-height: 1.25;
+    color: var(--ink);
 }
 
 .kb-quote-login-mark {
-    width: 42px;
-    height: 42px;
-    border-radius: 8px;
-    background: #18352e;
-    color: #e4d0a0;
-    border: 1px solid #b59a65;
-    display: grid;
-    place-items: center;
-    font-weight: 700;
-    font-size: 18px;
+    width: 38px;
+    height: 38px;
     flex-shrink: 0;
-}
-
-.kb-quote-login-brand strong {
-    display: block;
-    font-size: 16px;
-    color: #18352e;
-}
-
-.kb-quote-login-brand small {
-    display: block;
-    font-size: 10.5px;
-    letter-spacing: 0.12em;
-    color: #888272;
-    margin-top: 2px;
-}
-
-.kb-quote-login-card h1 {
-    margin: 0 0 8px;
-    font-size: 24px;
-    font-weight: 700;
-    color: #18352e;
 }
 
 .kb-quote-login-desc {
     margin: 0 0 20px;
-    font-size: 13.5px;
-    line-height: 1.55;
-    color: #625d50;
+    font-size: 13px;
+    line-height: 1.6;
+    color: var(--muted);
 }
 
-.kb-quote-login-field {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
+.kb-quote-login-card .field {
     margin-bottom: 16px;
 }
 
-.kb-quote-login-field label {
-    font-size: 12px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    color: #5f5641;
-}
-
-.kb-quote-login-field input {
-    width: 100%;
-    border: 1px solid #d8cfbd;
-    border-radius: 10px;
-    background: #ffffff;
-    color: #29271f;
-    padding: 11px 14px;
-    font-size: 14px;
-    outline: none;
-    transition: border-color 0.2s ease, box-shadow 0.2s ease;
-}
-
-.kb-quote-login-field input:focus {
-    border-color: #18352e;
-    box-shadow: 0 0 0 3px rgba(24, 53, 46, 0.12);
-}
-
-.kb-quote-password-wrap {
-    position: relative;
-    display: flex;
-    align-items: center;
-}
-
-.kb-quote-password-wrap input {
-    padding-right: 44px;
-}
-
-.kb-quote-password-toggle {
-    position: absolute;
-    right: 10px;
-    border: 0;
-    background: transparent;
-    color: #77766e;
-    border-radius: 6px;
-    width: 32px;
-    height: 32px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    padding: 0;
-    cursor: pointer;
-    transition: color 0.18s ease, background 0.18s ease;
-}
-
-.kb-quote-password-toggle:hover {
-    color: #18352e;
-    background: #f1e8d6;
-}
-
-.kb-quote-password-toggle svg {
-    width: 18px;
-    height: 18px;
-}
-
-.kb-quote-login-error {
-    color: #b91c1c;
-    font-size: 12.5px;
-    font-weight: 600;
-    margin: 2px 0 0;
+.kb-quote-login-card .field input:focus {
+    border-color: var(--brass);
+    box-shadow: 0 0 0 3px rgba(183, 154, 99, 0.16);
 }
 
 .kb-quote-recaptcha-field {
@@ -384,7 +303,7 @@ onBeforeUnmount(() => {
     flex-direction: column;
     align-items: center;
     gap: 6px;
-    margin-bottom: 16px;
+    margin: 4px 0 18px;
 }
 
 .kb-quote-recaptcha-wrap {
@@ -393,25 +312,18 @@ onBeforeUnmount(() => {
     display: flex;
     align-items: center;
     justify-content: center;
-    overflow-x: auto;
+    overflow: visible;
 }
 
 .kb-quote-login-submit {
-    width: 100%;
-    margin-top: 6px;
-    padding: 12px 18px;
-    border: 0;
-    border-radius: 10px;
-    background: linear-gradient(135deg, #18352e 0%, #23473b 100%);
-    color: #f5f1e8;
-    font-size: 14px;
-    font-weight: 700;
-    cursor: pointer;
-    transition: opacity 0.2s ease, transform 0.15s ease;
+    justify-content: center;
+    background: var(--brass);
+    color: var(--dark);
 }
 
 .kb-quote-login-submit:hover:not(:disabled) {
-    opacity: 0.95;
+    background: var(--champ);
+    color: var(--dark);
 }
 
 .kb-quote-login-submit:disabled {
@@ -420,20 +332,38 @@ onBeforeUnmount(() => {
 }
 
 .kb-quote-login-foot {
-    margin-top: 18px;
-    padding-top: 14px;
-    border-top: 1px dashed #e6dfd1;
+    margin-top: 20px;
+    padding-top: 16px;
+    border-top: 1px solid var(--line);
     text-align: center;
 }
 
 .kb-quote-login-foot a {
-    font-size: 13px;
-    font-weight: 600;
-    color: #18352e;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12.5px;
+    font-weight: 700;
+    color: var(--muted);
     text-decoration: none;
+    transition: color 0.2s ease;
 }
 
 .kb-quote-login-foot a:hover {
-    text-decoration: underline;
+    color: var(--brass);
+}
+
+@media (max-width: 640px) {
+    .kb-quote-login-section {
+        padding: 32px 0 48px;
+    }
+
+    .kb-quote-login-card {
+        padding: 22px 18px 20px;
+    }
+
+    .kb-quote-login-head h1 {
+        font-size: 20px;
+    }
 }
 </style>

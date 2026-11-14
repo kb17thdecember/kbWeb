@@ -1,4 +1,33 @@
 <script setup lang="ts">
+import {
+    faArrowLeft,
+    faCheck,
+    faCheckDouble,
+    faChevronDown,
+    faChevronUp,
+    faCircleCheck,
+    faCopy,
+    faFileArrowUp,
+    faFileCirclePlus,
+    faFileExcel,
+    faFileLines,
+    faFilterCircleXmark,
+    faFloppyDisk,
+    faFolderOpen,
+    faFolderPlus,
+    faImage,
+    faPaperPlane,
+    faPenToSquare,
+    faPlus,
+    faPrint,
+    faRotateLeft,
+    faScrewdriverWrench,
+    faSliders,
+    faSpinner,
+    faTrashCan,
+    faXmark,
+} from '@fortawesome/free-solid-svg-icons';
+import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome';
 import { router } from '@inertiajs/vue3';
 import { computed, onMounted, ref, watch } from 'vue';
 import aristonLogoAsset from '../../../assets/images/ariston_quote_logo.png';
@@ -577,7 +606,89 @@ const kflexAllProductLineOptions: Array<{
 ];
 
 const kflexSelectedProductLines = ref<KflexProductLineKey[]>(['st']);
+const isAristonGeneralCollapsed = ref(false);
 const isKflexGeneralCollapsed = ref(false);
+
+const COLLAPSE_DURATION_MS = 300;
+const COLLAPSE_EASING = 'cubic-bezier(0.25, 1, 0.5, 1)';
+const collapseTimers = new WeakMap<HTMLElement, number>();
+
+const clearCollapseTimer = (el: HTMLElement): void => {
+    const prev = collapseTimers.get(el);
+    if (prev !== undefined) {
+        window.clearTimeout(prev);
+        collapseTimers.delete(el);
+    }
+};
+
+const onCollapseBeforeEnter = (node: Element): void => {
+    const el = node as HTMLElement;
+    clearCollapseTimer(el);
+    el.style.overflow = 'hidden';
+    el.style.height = '0px';
+    el.style.opacity = '0';
+    el.style.transform = 'translate3d(0, -4px, 0)';
+};
+
+const onCollapseEnter = (node: Element, done: () => void): void => {
+    const el = node as HTMLElement;
+    const targetHeight = el.scrollHeight;
+    void el.offsetHeight;
+    el.style.transition = `height ${COLLAPSE_DURATION_MS}ms ${COLLAPSE_EASING}, opacity ${COLLAPSE_DURATION_MS - 40}ms ease, transform ${COLLAPSE_DURATION_MS}ms ${COLLAPSE_EASING}`;
+    el.style.height = `${targetHeight}px`;
+    el.style.opacity = '1';
+    el.style.transform = 'translate3d(0, 0, 0)';
+
+    const timer = window.setTimeout(() => {
+        collapseTimers.delete(el);
+        done();
+    }, COLLAPSE_DURATION_MS + 20);
+    collapseTimers.set(el, timer);
+};
+
+const onCollapseAfterEnter = (node: Element): void => {
+    const el = node as HTMLElement;
+    clearCollapseTimer(el);
+    el.style.height = '';
+    el.style.opacity = '';
+    el.style.transform = '';
+    el.style.transition = '';
+    el.style.overflow = '';
+};
+
+const onCollapseBeforeLeave = (node: Element): void => {
+    const el = node as HTMLElement;
+    clearCollapseTimer(el);
+    el.style.overflow = 'hidden';
+    el.style.height = `${el.scrollHeight}px`;
+    el.style.opacity = '1';
+    el.style.transform = 'translate3d(0, 0, 0)';
+};
+
+const onCollapseLeave = (node: Element, done: () => void): void => {
+    const el = node as HTMLElement;
+    void el.offsetHeight;
+    el.style.transition = `height ${COLLAPSE_DURATION_MS}ms ${COLLAPSE_EASING}, opacity ${Math.max(180, COLLAPSE_DURATION_MS - 80)}ms ease, transform ${COLLAPSE_DURATION_MS}ms ${COLLAPSE_EASING}`;
+    el.style.height = '0px';
+    el.style.opacity = '0';
+    el.style.transform = 'translate3d(0, -4px, 0)';
+
+    const timer = window.setTimeout(() => {
+        collapseTimers.delete(el);
+        done();
+    }, COLLAPSE_DURATION_MS + 20);
+    collapseTimers.set(el, timer);
+};
+
+const onCollapseAfterLeave = (node: Element): void => {
+    const el = node as HTMLElement;
+    clearCollapseTimer(el);
+    el.style.height = '';
+    el.style.opacity = '';
+    el.style.transform = '';
+    el.style.transition = '';
+    el.style.overflow = '';
+};
 
 const getDefaultSheetDimensions = (
     productLine: 'st' | 'k_protect' | 'm_flex',
@@ -3839,82 +3950,30 @@ const formatDraftTime = (iso?: string | null): string => {
         :support-projects-count="props.supportProjectsCount"
     >
         <div class="page-head">
-            <div>
+            <div class="page-head-copy">
                 <h2>Tạo Báo Giá &amp; Xuất PDF / Excel</h2>
                 <p>Lập bảng báo giá dự án chuẩn mẫu Star Light và xuất file PDF khổ A4 hoặc file Excel.</p>
-            </div>
-            <div class="actions">
-                <input
-                    ref="importFileInputRef"
-                    type="file"
-                    accept=".xlsx,.pdf,.json,.html,.htm"
-                    class="kb-hidden-file-input"
-                    @change="onImportQuotationFileChange"
-                />
-                <button
-                    type="button"
-                    class="btn kb-import-btn"
-                    :disabled="isImportingFile"
-                    @click="triggerImportQuotationFile"
-                >
-                    {{ isImportingFile ? '⏳ Đang đọc file...' : '📂 Nhập file báo giá để sửa' }}
-                </button>
-                <button
-                    type="button"
-                    class="btn kb-draft-save-btn"
-                    :disabled="isSavingDraft"
-                    @click="saveQuotationDraft(false)"
-                >
-                    {{ isSavingDraft ? '⏳ Đang lưu...' : '💾 Lưu bản nháp' }}
-                </button>
-                <button
-                    type="button"
-                    class="btn"
-                    @click="showDraftsPanel = !showDraftsPanel"
-                >
-                    📋 Bản nháp ({{ draftsList.length }})
-                </button>
-                <template v-if="activeQuotationType === 'ariston'">
-                    <button
-                        class="btn kflex-excel-btn"
-                        type="button"
-                        @click="exportQuotationExcel"
-                    >
-                        📊 Xuất Excel Báo Giá Ariston
-                    </button>
-                    <button
-                        class="btn primary"
-                        type="button"
-                        @click="printQuotationPdf"
-                    >
-                        🖨️ In / Xuất PDF Báo Giá Ariston
-                    </button>
-                </template>
-                <template v-else>
-                    <button
-                        class="btn kflex-excel-btn"
-                        type="button"
-                        @click="exportKflexQuotationExcel"
-                    >
-                        📊 Xuất Excel Báo Giá K-Flex
-                    </button>
-                    <button
-                        class="btn primary"
-                        type="button"
-                        @click="printKflexQuotationPdf"
-                    >
-                        🖨️ In / Xuất PDF Báo Giá K-Flex
-                    </button>
-                </template>
             </div>
         </div>
 
         <!-- Thanh công cụ Lưu Bản Nháp & Nhập File Báo Giá Để Sửa Chữa -->
         <div class="kb-quote-draft-bar-card">
+            <input
+                ref="importFileInputRef"
+                type="file"
+                accept=".xlsx,.pdf,.json,.html,.htm"
+                class="kb-hidden-file-input"
+                @change="onImportQuotationFileChange"
+            />
+
             <div class="kb-quote-draft-bar-top">
                 <div class="kb-quote-draft-input-group">
-                    <span class="kb-quote-draft-badge">
-                        {{ currentDraftId ? `Đang sửa nháp #${currentDraftId}` : 'Bản đang soạn' }}
+                    <span class="kb-quote-draft-badge" :class="{ editing: Boolean(currentDraftId) }">
+                        <FontAwesomeIcon
+                            :icon="currentDraftId ? faPenToSquare : faFileLines"
+                            class="kb-fa-icon"
+                        />
+                        <span>{{ currentDraftId ? `Đang sửa nháp #${currentDraftId}` : 'Bản đang soạn' }}</span>
                     </span>
                     <input
                         v-model="draftTitleInput"
@@ -3922,119 +3981,168 @@ const formatDraftTime = (iso?: string | null): string => {
                         class="kb-quote-draft-title-input"
                         :placeholder="defaultSuggestedDraftTitle"
                     />
-                    <button
-                        type="button"
-                        class="btn kb-draft-save-btn"
-                        :disabled="isSavingDraft"
-                        @click="saveQuotationDraft(false)"
-                    >
-                        💾 {{ currentDraftId ? 'Cập nhật bản nháp' : 'Lưu bản nháp' }}
-                    </button>
-                    <button
-                        v-if="currentDraftId"
-                        type="button"
-                        class="btn"
-                        :disabled="isSavingDraft"
-                        @click="saveQuotationDraft(true)"
-                    >
-                        ＋ Lưu thành nháp mới
-                    </button>
+                    <div class="kb-quote-draft-save-group">
+                        <button
+                            type="button"
+                            class="btn kb-draft-save-btn"
+                            :disabled="isSavingDraft"
+                            @click="saveQuotationDraft(false)"
+                        >
+                            <FontAwesomeIcon
+                                :icon="isSavingDraft ? faSpinner : faFloppyDisk"
+                                :spin="isSavingDraft"
+                                class="kb-fa-icon"
+                            />
+                            <span>
+                                {{
+                                    isSavingDraft
+                                        ? 'Đang lưu...'
+                                        : currentDraftId
+                                          ? 'Cập nhật nháp'
+                                          : 'Lưu bản nháp'
+                                }}
+                            </span>
+                        </button>
+                        <button
+                            v-if="currentDraftId"
+                            type="button"
+                            class="btn kb-draft-new-btn"
+                            :disabled="isSavingDraft"
+                            title="Lưu thành một bản nháp mới riêng biệt"
+                            @click="saveQuotationDraft(true)"
+                        >
+                            <FontAwesomeIcon :icon="faFileCirclePlus" class="kb-fa-icon" />
+                            <span>Lưu nháp mới</span>
+                        </button>
+                    </div>
                 </div>
 
                 <div class="kb-quote-draft-right-actions">
                     <span v-if="lastAutoSavedAt" class="kb-quote-autosave-hint">
-                        ✓ Đã tự lưu tạm lúc {{ lastAutoSavedAt }}
+                        <FontAwesomeIcon :icon="faCircleCheck" class="kb-fa-icon" />
+                        <span>Đã tự lưu lúc {{ lastAutoSavedAt }}</span>
                     </span>
                     <button
                         type="button"
                         class="btn kb-import-btn"
                         :disabled="isImportingFile"
+                        title="Tải file báo giá Excel (.xlsx) hoặc PDF (.pdf) đã xuất từ hệ thống để chỉnh sửa tiếp"
                         @click="triggerImportQuotationFile"
                     >
-                        📥 Nhập file báo giá đã xuất (.xlsx / .pdf)
+                        <FontAwesomeIcon
+                            :icon="isImportingFile ? faSpinner : faFileArrowUp"
+                            :spin="isImportingFile"
+                            class="kb-fa-icon"
+                        />
+                        <span>{{ isImportingFile ? 'Đang đọc file...' : 'Nhập file (.xlsx / .pdf)' }}</span>
                     </button>
                     <button
                         type="button"
-                        class="btn"
+                        class="btn kb-draft-list-toggle-btn"
+                        :class="{ active: showDraftsPanel }"
                         @click="showDraftsPanel = !showDraftsPanel"
                     >
-                        {{ showDraftsPanel ? '▲ Ẩn danh sách nháp' : `▼ Danh sách bản nháp (${draftsList.length})` }}
+                        <FontAwesomeIcon :icon="faFolderOpen" class="kb-fa-icon" />
+                        <span>Bản nháp ({{ draftsList.length }})</span>
+                        <FontAwesomeIcon
+                            :icon="showDraftsPanel ? faChevronUp : faChevronDown"
+                            class="kb-fa-icon kb-chevron-mini"
+                        />
                     </button>
                     <button
                         type="button"
-                        class="btn danger"
+                        class="btn danger kb-reset-default-btn"
                         title="Đặt lại toàn bộ thông tin về mẫu mặc định ban đầu"
                         @click="resetQuotationToDefault"
                     >
-                        ↺ Đặt lại mặc định
+                        <FontAwesomeIcon :icon="faRotateLeft" class="kb-fa-icon" />
+                        <span>Đặt lại mặc định</span>
                     </button>
                 </div>
             </div>
 
-            <div v-if="showDraftsPanel" class="kb-quote-drafts-drawer">
-                <div class="kb-quote-drafts-drawer-head">
-                    <strong>Danh sách bản nháp báo giá đã lưu ({{ draftsList.length }})</strong>
-                    <small>Bấm "Mở sửa tiếp" để nạp lại toàn bộ thông tin báo giá chưa xuất ra file.</small>
-                </div>
-
-                <div v-if="draftsList.length === 0" class="kb-quote-drafts-empty">
-                    Chưa có bản nháp nào được lưu. Bạn có thể bấm nút <strong>"💾 Lưu bản nháp"</strong> bất cứ lúc nào khi đang làm báo giá.
-                </div>
-
-                <div v-else class="kb-quote-drafts-grid">
-                    <div
-                        v-for="draft in draftsList"
-                        :key="draft.id"
-                        class="kb-quote-draft-item"
-                        :class="{ active: currentDraftId === draft.id }"
-                    >
-                        <div class="kb-quote-draft-item-main">
-                            <div class="kb-quote-draft-item-title-row">
-                                <span
-                                    class="kb-quote-draft-type-tag"
-                                    :class="draft.quotation_type === 'second' ? 'kflex' : 'ariston'"
-                                >
-                                    {{ draft.quotation_type === 'second' ? 'K-Flex' : 'Ariston' }}
-                                </span>
-                                <strong>{{ draft.title }}</strong>
-                            </div>
-                            <div class="kb-quote-draft-item-meta">
-                                <span v-if="draft.project_name">Dự án: <b>{{ draft.project_name }}</b></span>
-                                <span v-if="draft.recipient_person || draft.recipient_company">
-                                    · Kính gửi: {{ draft.recipient_person || draft.recipient_company }}
-                                </span>
-                                <span>· {{ draft.items_count }} dòng SP</span>
-                                <span>· Tổng: <b>{{ formatVnd(draft.grand_total) }} đ</b></span>
-                                <span v-if="draft.updated_at">· Cập nhật: {{ formatDraftTime(draft.updated_at) }}</span>
-                            </div>
+            <Transition
+                :css="false"
+                @before-enter="onCollapseBeforeEnter"
+                @enter="onCollapseEnter"
+                @after-enter="onCollapseAfterEnter"
+                @before-leave="onCollapseBeforeLeave"
+                @leave="onCollapseLeave"
+                @after-leave="onCollapseAfterLeave"
+            >
+                <div v-if="showDraftsPanel" class="kb-quote-drafts-drawer">
+                    <div class="kb-quote-drafts-drawer-inner">
+                        <div class="kb-quote-drafts-drawer-head">
+                            <strong>
+                                <FontAwesomeIcon :icon="faFolderOpen" class="kb-fa-icon" />
+                                Danh sách bản nháp báo giá đã lưu ({{ draftsList.length }})
+                            </strong>
+                            <small>Bấm "Mở sửa tiếp" để nạp lại toàn bộ thông tin báo giá chưa xuất ra file.</small>
                         </div>
-                        <div class="kb-quote-draft-item-actions">
-                            <button
-                                type="button"
-                                class="btn primary"
-                                @click="loadQuotationDraft(draft)"
+
+                        <div v-if="draftsList.length === 0" class="kb-quote-drafts-empty">
+                            Chưa có bản nháp nào được lưu. Bạn có thể bấm nút <strong>"Lưu bản nháp"</strong> bất cứ lúc nào khi đang làm báo giá.
+                        </div>
+
+                        <div v-else class="kb-quote-drafts-grid">
+                            <div
+                                v-for="draft in draftsList"
+                                :key="draft.id"
+                                class="kb-quote-draft-item"
+                                :class="{ active: currentDraftId === draft.id }"
                             >
-                                ✏️ Mở sửa tiếp
-                            </button>
-                            <button
-                                type="button"
-                                class="btn"
-                                title="Ghi đè dữ liệu đang soạn hiện tại vào bản nháp này"
-                                @click="overwriteQuotationDraft(draft)"
-                            >
-                                💾 Ghi đè
-                            </button>
-                            <button
-                                type="button"
-                                class="btn danger"
-                                @click="deleteQuotationDraft(draft)"
-                            >
-                                🗑️ Xóa
-                            </button>
+                                <div class="kb-quote-draft-item-main">
+                                    <div class="kb-quote-draft-item-title-row">
+                                        <span
+                                            class="kb-quote-draft-type-tag"
+                                            :class="draft.quotation_type === 'second' ? 'kflex' : 'ariston'"
+                                        >
+                                            {{ draft.quotation_type === 'second' ? 'K-Flex' : 'Ariston' }}
+                                        </span>
+                                        <strong>{{ draft.title }}</strong>
+                                    </div>
+                                    <div class="kb-quote-draft-item-meta">
+                                        <span v-if="draft.project_name">Dự án: <b>{{ draft.project_name }}</b></span>
+                                        <span v-if="draft.recipient_person || draft.recipient_company">
+                                            · Kính gửi: {{ draft.recipient_person || draft.recipient_company }}
+                                        </span>
+                                        <span>· {{ draft.items_count }} dòng SP</span>
+                                        <span>· Tổng: <b>{{ formatVnd(draft.grand_total) }} đ</b></span>
+                                        <span v-if="draft.updated_at">· Cập nhật: {{ formatDraftTime(draft.updated_at) }}</span>
+                                    </div>
+                                </div>
+                                <div class="kb-quote-draft-item-actions">
+                                    <button
+                                        type="button"
+                                        class="btn primary"
+                                        @click="loadQuotationDraft(draft)"
+                                    >
+                                        <FontAwesomeIcon :icon="faPenToSquare" class="kb-fa-icon" />
+                                        <span>Mở sửa tiếp</span>
+                                    </button>
+                                    <button
+                                        type="button"
+                                        class="btn"
+                                        title="Ghi đè dữ liệu đang soạn hiện tại vào bản nháp này"
+                                        @click="overwriteQuotationDraft(draft)"
+                                    >
+                                        <FontAwesomeIcon :icon="faFloppyDisk" class="kb-fa-icon" />
+                                        <span>Ghi đè</span>
+                                    </button>
+                                    <button
+                                        type="button"
+                                        class="btn danger"
+                                        @click="deleteQuotationDraft(draft)"
+                                    >
+                                        <FontAwesomeIcon :icon="faTrashCan" class="kb-fa-icon" />
+                                        <span>Xóa</span>
+                                    </button>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
-            </div>
+            </Transition>
         </div>
 
         <div
@@ -4047,13 +4155,13 @@ const formatDraftTime = (iso?: string | null): string => {
                     <span style="font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #8b6b3e;">
                         Đang lập báo giá cho Yêu cầu tư vấn #{{ props.initialContact.id }}
                     </span>
-                    <h3 style="margin: 4px 0; font-size: 16px; color: #171a1f;">
+                    <h3 style="margin: 4px 0; font-size: 16px; color: #29271f;">
                         {{ props.initialContact.name }} · {{ props.initialContact.phone }}
-                        <small v-if="props.initialContact.project_name" style="font-weight: 500; color: #5b616e;">
+                        <small v-if="props.initialContact.project_name" style="font-weight: 500; color: #6b6352;">
                             — Dự án: {{ props.initialContact.project_name }}
                         </small>
                     </h3>
-                    <p v-if="props.initialContact.product" style="margin: 2px 0 0; font-size: 12.5px; color: #4b5563; white-space: pre-line;">
+                    <p v-if="props.initialContact.product" style="margin: 2px 0 0; font-size: 12.5px; color: #4a4333; white-space: pre-line;">
                         <b>Sản phẩm khách yêu cầu:</b> {{ props.initialContact.product }}
                     </p>
                 </div>
@@ -4062,7 +4170,8 @@ const formatDraftTime = (iso?: string | null): string => {
                     class="btn"
                     @click="router.visit(`/admin/consultations?contact_id=${props.initialContact.id}`)"
                 >
-                    ← Quay lại Yêu cầu tư vấn
+                    <FontAwesomeIcon :icon="faArrowLeft" class="kb-fa-icon" />
+                    <span>Quay lại Yêu cầu tư vấn</span>
                 </button>
             </div>
 
@@ -4071,7 +4180,7 @@ const formatDraftTime = (iso?: string | null): string => {
                 @submit.prevent="submitLinkedQuotationResponse"
             >
                 <div>
-                    <label style="display: block; font-size: 11.5px; font-weight: 600; margin-bottom: 4px; color: #4b5563;">
+                    <label style="display: block; font-size: 11.5px; font-weight: 600; margin-bottom: 4px; color: #4a4333;">
                         1. Đính kèm file PDF báo giá vừa xuất cho khách
                     </label>
                     <input
@@ -4083,7 +4192,7 @@ const formatDraftTime = (iso?: string | null): string => {
                     >
                 </div>
                 <div>
-                    <label style="display: block; font-size: 11.5px; font-weight: 600; margin-bottom: 4px; color: #4b5563;">
+                    <label style="display: block; font-size: 11.5px; font-weight: 600; margin-bottom: 4px; color: #4a4333;">
                         2. Ghi chú phản hồi báo giá (hiển thị trong tài khoản khách)
                     </label>
                     <input
@@ -4100,7 +4209,8 @@ const formatDraftTime = (iso?: string | null): string => {
                         class="btn primary"
                         :disabled="isSendingLinkedQuotation"
                     >
-                        {{ isSendingLinkedQuotation ? 'Đang gửi...' : '📤 Gửi phản hồi Báo giá cho khách' }}
+                        <FontAwesomeIcon :icon="isSendingLinkedQuotation ? faSpinner : faPaperPlane" :spin="isSendingLinkedQuotation" class="kb-fa-icon" />
+                        <span>{{ isSendingLinkedQuotation ? 'Đang gửi...' : 'Gửi phản hồi Báo giá cho khách' }}</span>
                     </button>
                 </div>
             </form>
@@ -4134,69 +4244,133 @@ const formatDraftTime = (iso?: string | null): string => {
         </div>
 
         <template v-if="activeQuotationType === 'ariston'">
-            <div class="kb-quote-builder-card">
-                <div class="kb-quote-section-title">1. Thông tin chung của Báo giá</div>
-                <div class="kb-quote-form-grid">
-                    <label class="kb-quote-field">
-                        <span>Tiêu đề báo giá</span>
-                        <input v-model="quoteForm.documentTitle" type="text" placeholder="BÁO GIÁ BƠM NHIỆT ARISTON" />
-                    </label>
-                    <label class="kb-quote-field">
-                        <span>Kính gửi</span>
-                        <input
-                            v-model="quoteForm.recipientCompany"
-                            type="text"
-                            placeholder="QUÝ ĐỐI TÁC CÔNG TY CỔ PHẦN..."
-                        />
-                    </label>
-                    <label class="kb-quote-field">
-                        <span>Người nhận</span>
-                        <input v-model="quoteForm.recipientPerson" type="text" placeholder="VD: Ms.Vân Chi" />
-                    </label>
-                    <label class="kb-quote-field">
-                        <span>Thông tin liên lạc (SĐT)</span>
-                        <input v-model="quoteForm.contactPhone" type="text" placeholder="VD: 0963.015.966" />
-                    </label>
-                    <label class="kb-quote-field">
-                        <span>Project (Dự án)</span>
-                        <input v-model="quoteForm.projectName" type="text" placeholder="VD: Chung cư cao cấp Vạn Xuân" />
-                    </label>
-                    <label class="kb-quote-field">
-                        <span>Thời gian (Mặc định hôm nay)</span>
-                        <input v-model="quoteForm.quoteDate" type="date" />
-                    </label>
-                    <label class="kb-quote-field">
-                        <span>Hiệu lực đến ngày (Hiện tại + 2 tháng)</span>
-                        <input v-model="quoteForm.validUntilDate" type="date" />
-                    </label>
-                    <label class="kb-quote-field">
-                        <span>Thuế VAT (%)</span>
-                        <input v-model.number="quoteForm.vatPercent" type="number" min="0" max="100" step="1" />
-                    </label>
-                    <label class="kb-quote-field">
-                        <span>Người báo giá (Ký tên)</span>
-                        <input
-                            v-model="quoteForm.signerName"
-                            type="text"
-                            placeholder="VD: Nguyễn Tuấn Kiệt"
-                        />
-                    </label>
-                    <label class="kb-quote-field">
-                        <span>Số điện thoại người báo giá (HP)</span>
-                        <input
-                            v-model="quoteForm.signerPhone"
-                            type="text"
-                            placeholder="VD: 0979 807 234"
-                        />
-                    </label>
-                    <label class="kb-quote-field">
-                        <span>Email người báo giá</span>
-                        <input
-                            v-model="quoteForm.signerEmail"
-                            type="text"
-                            placeholder="VD: tuankiet@starlightgroup.vn"
-                        />
-                    </label>
+            <div
+                class="kb-quote-builder-card kb-kflex-general-card"
+                :class="{ 'is-collapsed': isAristonGeneralCollapsed }"
+            >
+                <div class="kb-quote-collapsible-header">
+                    <div class="kb-quote-section-title">1. Thông tin chung của Báo giá</div>
+
+                    <Transition name="kb-summary-fade">
+                        <div v-if="isAristonGeneralCollapsed" class="kb-quote-collapsed-summary">
+                            <span v-if="quoteForm.projectName" class="kb-quote-summary-chip">
+                                <b>Dự án:</b> {{ quoteForm.projectName }}
+                            </span>
+                            <span
+                                v-if="quoteForm.recipientPerson || quoteForm.recipientCompany"
+                                class="kb-quote-summary-chip"
+                            >
+                                <b>Kính gửi:</b> {{ quoteForm.recipientPerson || quoteForm.recipientCompany }}
+                            </span>
+                            <span class="kb-quote-summary-chip highlight">
+                                <b>VAT:</b> {{ quoteForm.vatPercent }}%
+                            </span>
+                        </div>
+                    </Transition>
+                </div>
+
+                <Transition
+                    :css="false"
+                    @before-enter="onCollapseBeforeEnter"
+                    @enter="onCollapseEnter"
+                    @after-enter="onCollapseAfterEnter"
+                    @before-leave="onCollapseBeforeLeave"
+                    @leave="onCollapseLeave"
+                    @after-leave="onCollapseAfterLeave"
+                >
+                    <div
+                        v-show="!isAristonGeneralCollapsed"
+                        class="kb-quote-collapsible-body"
+                    >
+                        <div class="kb-quote-collapsible-inner">
+                            <div class="kb-quote-form-grid">
+                                <label class="kb-quote-field">
+                                    <span>Tiêu đề báo giá</span>
+                                    <input v-model="quoteForm.documentTitle" type="text" placeholder="BÁO GIÁ BƠM NHIỆT ARISTON" />
+                                </label>
+                                <label class="kb-quote-field">
+                                    <span>Kính gửi</span>
+                                    <input
+                                        v-model="quoteForm.recipientCompany"
+                                        type="text"
+                                        placeholder="QUÝ ĐỐI TÁC CÔNG TY CỔ PHẦN..."
+                                    />
+                                </label>
+                                <label class="kb-quote-field">
+                                    <span>Người nhận</span>
+                                    <input v-model="quoteForm.recipientPerson" type="text" placeholder="VD: Ms.Vân Chi" />
+                                </label>
+                                <label class="kb-quote-field">
+                                    <span>Thông tin liên lạc (SĐT)</span>
+                                    <input v-model="quoteForm.contactPhone" type="text" placeholder="VD: 0963.015.966" />
+                                </label>
+                                <label class="kb-quote-field">
+                                    <span>Project (Dự án)</span>
+                                    <input v-model="quoteForm.projectName" type="text" placeholder="VD: Chung cư cao cấp Vạn Xuân" />
+                                </label>
+                                <label class="kb-quote-field">
+                                    <span>Thời gian (Mặc định hôm nay)</span>
+                                    <input v-model="quoteForm.quoteDate" type="date" />
+                                </label>
+                                <label class="kb-quote-field">
+                                    <span>Hiệu lực đến ngày (Hiện tại + 2 tháng)</span>
+                                    <input v-model="quoteForm.validUntilDate" type="date" />
+                                </label>
+                                <label class="kb-quote-field">
+                                    <span>Thuế VAT (%)</span>
+                                    <input v-model.number="quoteForm.vatPercent" type="number" min="0" max="100" step="1" />
+                                </label>
+                                <label class="kb-quote-field">
+                                    <span>Người báo giá (Ký tên)</span>
+                                    <input
+                                        v-model="quoteForm.signerName"
+                                        type="text"
+                                        placeholder="VD: Nguyễn Tuấn Kiệt"
+                                    />
+                                </label>
+                                <label class="kb-quote-field">
+                                    <span>Số điện thoại người báo giá (HP)</span>
+                                    <input
+                                        v-model="quoteForm.signerPhone"
+                                        type="text"
+                                        placeholder="VD: 0979 807 234"
+                                    />
+                                </label>
+                                <label class="kb-quote-field">
+                                    <span>Email người báo giá</span>
+                                    <input
+                                        v-model="quoteForm.signerEmail"
+                                        type="text"
+                                        placeholder="VD: tuankiet@starlightgroup.vn"
+                                    />
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </Transition>
+
+                <div class="kb-quote-card-collapse-footer">
+                    <button
+                        type="button"
+                        class="kb-quote-collapse-toggle-btn"
+                        :aria-expanded="!isAristonGeneralCollapsed"
+                        @click="isAristonGeneralCollapsed = !isAristonGeneralCollapsed"
+                    >
+                        <span>
+                            {{
+                                isAristonGeneralCollapsed
+                                    ? 'Mở rộng thông tin chung của báo giá'
+                                    : 'Thu gọn thông tin chung của báo giá'
+                            }}
+                        </span>
+                        <span
+                            class="kb-quote-collapse-chevron"
+                            :class="{ rotated: isAristonGeneralCollapsed }"
+                            aria-hidden="true"
+                        >
+                            <FontAwesomeIcon :icon="faChevronUp" class="kb-fa-icon" />
+                        </span>
+                    </button>
                 </div>
             </div>
 
@@ -4218,16 +4392,20 @@ const formatDraftTime = (iso?: string | null): string => {
                             placeholder="Tìm nhanh model Ariston..."
                         />
                         <button type="button" class="btn" @click="selectAllFilteredProducts">
-                            ✓ Chọn tất cả
+                            <FontAwesomeIcon :icon="faCheckDouble" class="kb-fa-icon" />
+                            <span>Chọn tất cả</span>
                         </button>
                         <button v-if="items.length > 1" type="button" class="btn" @click="clearToFirstProduct">
-                            Giữ lại 1 dòng
+                            <FontAwesomeIcon :icon="faFilterCircleXmark" class="kb-fa-icon" />
+                            <span>Giữ lại 1 dòng</span>
                         </button>
                         <button type="button" class="btn primary" @click="addAristonRow">
-                            ＋ Thêm dòng sản phẩm
+                            <FontAwesomeIcon :icon="faPlus" class="kb-fa-icon" />
+                            <span>Thêm dòng sản phẩm</span>
                         </button>
                         <button type="button" class="btn" @click="addAccessoryRow">
-                            ＋ Thêm phụ kiện (Dây cấp...)
+                            <FontAwesomeIcon :icon="faScrewdriverWrench" class="kb-fa-icon" />
+                            <span>Thêm phụ kiện (Dây cấp...)</span>
                         </button>
                     </div>
                 </div>
@@ -4243,7 +4421,7 @@ const formatDraftTime = (iso?: string | null): string => {
                         @click="toggleProductSelection(prod)"
                     >
                         <span class="kb-quote-catalog-check">
-                            {{ isProductSelected(prod.id) ? '✓' : '+' }}
+                            <FontAwesomeIcon :icon="isProductSelected(prod.id) ? faCheck : faPlus" />
                         </span>
                         <img
                             v-if="prod.image?.[0]"
@@ -4328,7 +4506,8 @@ const formatDraftTime = (iso?: string | null): string => {
                                     class="mini"
                                     @click="toggleExpandRow(item.uid)"
                                 >
-                                    {{ expandedUid === item.uid ? 'Thu gọn' : 'Sửa chi tiết' }}
+                                    <FontAwesomeIcon :icon="expandedUid === item.uid ? faChevronUp : faSliders" class="kb-fa-icon" />
+                                    <span>{{ expandedUid === item.uid ? 'Thu gọn' : 'Sửa chi tiết' }}</span>
                                 </button>
                                 <button
                                     v-if="items.length > 1"
@@ -4336,50 +4515,65 @@ const formatDraftTime = (iso?: string | null): string => {
                                     class="mini danger"
                                     @click="removeRow(idx)"
                                 >
-                                    Xóa
+                                    <FontAwesomeIcon :icon="faTrashCan" class="kb-fa-icon" />
+                                    <span>Xóa</span>
                                 </button>
                             </div>
                         </div>
 
-                        <div v-if="expandedUid === item.uid" class="kb-quote-item-grid kb-quote-item-expanded">
-                            <label class="kb-quote-field">
-                                <span>Mã sản phẩm (Cột 2 - Model)</span>
-                                <input v-model="item.modelCode" type="text" placeholder="SLIM3 20 B VN" />
-                            </label>
-
-                            <label class="kb-quote-field">
-                                <span>Xuất xứ (Cột 3 - Origin)</span>
-                                <input v-model="item.origin" type="text" placeholder="Ý-Việt Nam" />
-                            </label>
-
-                            <label class="kb-quote-field">
-                                <span>Đơn vị (Cột 5)</span>
-                                <input v-model="item.unit" type="text" placeholder="Máy / Dây / Bộ" />
-                            </label>
-
-                            <div class="kb-quote-field">
-                                <span>Hình ảnh sản phẩm</span>
-                                <div class="kb-quote-img-picker">
-                                    <label class="mini kb-quote-upload-btn">
-                                        Đổi ảnh
-                                        <input type="file" accept="image/*" hidden @change="onUploadCustomImage(item, $event)" />
+                        <Transition
+                            :css="false"
+                            @before-enter="onCollapseBeforeEnter"
+                            @enter="onCollapseEnter"
+                            @after-enter="onCollapseAfterEnter"
+                            @before-leave="onCollapseBeforeLeave"
+                            @leave="onCollapseLeave"
+                            @after-leave="onCollapseAfterLeave"
+                        >
+                            <div v-if="expandedUid === item.uid" class="kb-quote-item-expanded-wrap">
+                                <div class="kb-quote-item-grid kb-quote-item-expanded">
+                                    <label class="kb-quote-field">
+                                        <span>Mã sản phẩm (Cột 2 - Model)</span>
+                                        <input v-model="item.modelCode" type="text" placeholder="SLIM3 20 B VN" />
                                     </label>
-                                    <button
-                                        v-if="item.imageUrl"
-                                        type="button"
-                                        class="mini"
-                                        @click="item.imageUrl = ''"
-                                    >
-                                        Bỏ ảnh
-                                    </button>
+
+                                    <label class="kb-quote-field">
+                                        <span>Xuất xứ (Cột 3 - Origin)</span>
+                                        <input v-model="item.origin" type="text" placeholder="Ý-Việt Nam" />
+                                    </label>
+
+                                    <label class="kb-quote-field">
+                                        <span>Đơn vị (Cột 5)</span>
+                                        <input v-model="item.unit" type="text" placeholder="Máy / Dây / Bộ" />
+                                    </label>
+
+                                    <div class="kb-quote-field">
+                                        <span>Hình ảnh sản phẩm</span>
+                                        <div class="kb-quote-img-picker">
+                                            <label class="mini kb-quote-upload-btn">
+                                                <FontAwesomeIcon :icon="faImage" class="kb-fa-icon" />
+                                                <span>Đổi ảnh</span>
+                                                <input type="file" accept="image/*" hidden @change="onUploadCustomImage(item, $event)" />
+                                            </label>
+                                            <button
+                                                v-if="item.imageUrl"
+                                                type="button"
+                                                class="mini"
+                                                @click="item.imageUrl = ''"
+                                            >
+                                                <FontAwesomeIcon :icon="faXmark" class="kb-fa-icon" />
+                                                <span>Bỏ ảnh</span>
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <label class="kb-quote-field kb-quote-span-full">
+                                        <span>Đặc tính kỹ thuật (Specifications)</span>
+                                        <textarea v-model="item.specifications" rows="5"></textarea>
+                                    </label>
                                 </div>
                             </div>
-
-                            <label class="kb-quote-field kb-quote-span-full">
-                                <span>Đặc tính kỹ thuật (Specifications)</span>
-                                <textarea v-model="item.specifications" rows="5"></textarea>
-                            </label>
-                        </div>
+                        </Transition>
                     </div>
                 </div>
             </div>
@@ -4396,10 +4590,12 @@ const formatDraftTime = (iso?: string | null): string => {
                     </strong>
                     <div class="kb-quote-preview-actions">
                         <button class="btn kflex-excel-btn" type="button" @click="exportQuotationExcel">
-                            📊 Xuất Excel
+                            <FontAwesomeIcon :icon="faFileExcel" class="kb-fa-icon" />
+                            <span>Xuất Excel</span>
                         </button>
                         <button class="btn primary" type="button" @click="printQuotationPdf">
-                            🖨️ In / Xuất PDF ({{ isPortraitMode ? 'A4 Đứng' : 'A4 Ngang' }})
+                            <FontAwesomeIcon :icon="faPrint" class="kb-fa-icon" />
+                            <span>In / Xuất PDF ({{ isPortraitMode ? 'A4 Đứng' : 'A4 Ngang' }})</span>
                         </button>
                     </div>
                 </div>
@@ -4546,209 +4742,213 @@ const formatDraftTime = (iso?: string | null): string => {
                         1. Thông tin chung &amp; Điều kiện thương mại (Báo giá Bảo ôn K-Flex)
                     </div>
 
-                    <div v-if="isKflexGeneralCollapsed" class="kb-quote-collapsed-summary">
-                        <span v-if="kflexQuoteForm.projectName" class="kb-quote-summary-chip">
-                            <b>Dự án:</b> {{ kflexQuoteForm.projectName }}
-                        </span>
-                        <span
-                            v-if="kflexQuoteForm.recipientPerson || kflexQuoteForm.recipientCompany"
-                            class="kb-quote-summary-chip"
-                        >
-                            <b>Kính gửi:</b> {{ kflexQuoteForm.recipientPerson || kflexQuoteForm.recipientCompany }}
-                        </span>
-                        <span class="kb-quote-summary-chip highlight">
-                            <b>Dòng SP:</b>
-                            {{
-                                kflexAllProductLineOptions
-                                    .filter((o) => kflexSelectedProductLines.includes(o.key))
-                                    .map((o) => o.brandLabel)
-                                    .join(', ')
-                            }}
-                        </span>
-                    </div>
+                    <Transition name="kb-summary-fade">
+                        <div v-if="isKflexGeneralCollapsed" class="kb-quote-collapsed-summary">
+                            <span v-if="kflexQuoteForm.projectName" class="kb-quote-summary-chip">
+                                <b>Dự án:</b> {{ kflexQuoteForm.projectName }}
+                            </span>
+                            <span
+                                v-if="kflexQuoteForm.recipientPerson || kflexQuoteForm.recipientCompany"
+                                class="kb-quote-summary-chip"
+                            >
+                                <b>Kính gửi:</b> {{ kflexQuoteForm.recipientPerson || kflexQuoteForm.recipientCompany }}
+                            </span>
+                            <span class="kb-quote-summary-chip highlight">
+                                <b>Dòng SP:</b>
+                                {{
+                                    kflexAllProductLineOptions
+                                        .filter((o) => kflexSelectedProductLines.includes(o.key))
+                                        .map((o) => o.brandLabel)
+                                        .join(', ')
+                                }}
+                            </span>
+                        </div>
+                    </Transition>
                 </div>
 
-                <div
-                    class="kb-quote-collapsible-body"
-                    :class="{ 'is-collapsed': isKflexGeneralCollapsed }"
-                    :aria-hidden="isKflexGeneralCollapsed"
+                <Transition
+                    :css="false"
+                    @before-enter="onCollapseBeforeEnter"
+                    @enter="onCollapseEnter"
+                    @after-enter="onCollapseAfterEnter"
+                    @before-leave="onCollapseBeforeLeave"
+                    @leave="onCollapseLeave"
+                    @after-leave="onCollapseAfterLeave"
                 >
-                    <div class="kb-quote-collapsible-inner">
-                        <div class="kb-quote-form-grid">
-                            <label class="kb-quote-field">
-                                <span>Tiêu đề báo giá</span>
-                                <input
-                                    v-model="kflexQuoteForm.documentTitle"
-                                    type="text"
-                                    placeholder="BÁO GIÁ BẢO ÔN K-FLEX"
-                                />
-                            </label>
-                            <label class="kb-quote-field">
-                                <span>Kính gửi</span>
-                                <input
-                                    v-model="kflexQuoteForm.recipientCompany"
-                                    type="text"
-                                    placeholder="VD: Quý đối tác Công ty Cổ phần Kỹ thuật Thăng Tiến"
-                                />
-                            </label>
-                            <label class="kb-quote-field">
-                                <span>Người nhận</span>
-                                <input
-                                    v-model="kflexQuoteForm.recipientPerson"
-                                    type="text"
-                                    placeholder="VD: Mr.Phương"
-                                />
-                            </label>
-                            <label class="kb-quote-field">
-                                <span>Project (Dự án)</span>
-                                <input
-                                    v-model="kflexQuoteForm.projectName"
-                                    type="text"
-                                    placeholder="VD: Detech Tower"
-                                />
-                            </label>
-                            <label class="kb-quote-field">
-                                <span>Thời gian báo giá</span>
-                                <input v-model="kflexQuoteForm.quoteDate" type="date" />
-                            </label>
-                            <label class="kb-quote-field">
-                                <span>Hiệu lực đến ngày</span>
-                                <input v-model="kflexQuoteForm.validUntilDate" type="date" />
-                            </label>
-                            <label class="kb-quote-field">
-                                <span>Thuế VAT (%)</span>
-                                <input
-                                    v-model.number="kflexQuoteForm.vatPercent"
-                                    type="number"
-                                    min="0"
-                                    max="100"
-                                    step="1"
-                                />
-                            </label>
-                            <label class="kb-quote-field">
-                                <span>Người liên hệ (Ký tên)</span>
-                                <input
-                                    v-model="kflexQuoteForm.contactName"
-                                    type="text"
-                                    placeholder="Mr.Kiệt"
-                                />
-                            </label>
-                            <label class="kb-quote-field">
-                                <span>Số điện thoại (HP)</span>
-                                <input
-                                    v-model="kflexQuoteForm.contactHp"
-                                    type="text"
-                                    placeholder="0979.807.234"
-                                />
-                            </label>
-                            <label class="kb-quote-field">
-                                <span>Email liên hệ</span>
-                                <input
-                                    v-model="kflexQuoteForm.contactEmail"
-                                    type="text"
-                                    placeholder="tuankiet@starlightgroup.vn"
-                                />
-                            </label>
-                            <label class="kb-quote-field kb-quote-span-2">
-                                <span>Dòng giới thiệu (In nghiêng xanh dưới thông tin dự án)</span>
-                                <input
-                                    v-model="kflexQuoteForm.introText"
-                                    type="text"
-                                />
-                            </label>
-                            <label class="kb-quote-field kb-quote-span-2">
-                                <span>2. Phương thức thanh toán</span>
-                                <input
-                                    v-model="kflexQuoteForm.paymentTerms"
-                                    type="text"
-                                />
-                            </label>
-                            <label class="kb-quote-field kb-quote-span-2">
-                                <span>3. Phương thức giao hàng</span>
-                                <input
-                                    v-model="kflexQuoteForm.deliveryMethod"
-                                    type="text"
-                                />
-                            </label>
-                            <label class="kb-quote-field kb-quote-span-full">
-                                <span>4. Thời gian giao hàng</span>
-                                <input
-                                    v-model="kflexQuoteForm.deliveryTime"
-                                    type="text"
-                                />
-                            </label>
+                    <div
+                        v-show="!isKflexGeneralCollapsed"
+                        class="kb-quote-collapsible-body"
+                        :aria-hidden="isKflexGeneralCollapsed"
+                    >
+                        <div class="kb-quote-collapsible-inner">
+                            <div class="kb-quote-form-grid">
+                                <label class="kb-quote-field">
+                                    <span>Tiêu đề báo giá</span>
+                                    <input
+                                        v-model="kflexQuoteForm.documentTitle"
+                                        type="text"
+                                        placeholder="BÁO GIÁ BẢO ÔN K-FLEX"
+                                    />
+                                </label>
+                                <label class="kb-quote-field">
+                                    <span>Kính gửi</span>
+                                    <input
+                                        v-model="kflexQuoteForm.recipientCompany"
+                                        type="text"
+                                        placeholder="VD: Quý đối tác Công ty Cổ phần Kỹ thuật Thăng Tiến"
+                                    />
+                                </label>
+                                <label class="kb-quote-field">
+                                    <span>Người nhận</span>
+                                    <input
+                                        v-model="kflexQuoteForm.recipientPerson"
+                                        type="text"
+                                        placeholder="VD: Mr.Phương"
+                                    />
+                                </label>
+                                <label class="kb-quote-field">
+                                    <span>Project (Dự án)</span>
+                                    <input
+                                        v-model="kflexQuoteForm.projectName"
+                                        type="text"
+                                        placeholder="VD: Detech Tower"
+                                    />
+                                </label>
+                                <label class="kb-quote-field">
+                                    <span>Thời gian báo giá</span>
+                                    <input v-model="kflexQuoteForm.quoteDate" type="date" />
+                                </label>
+                                <label class="kb-quote-field">
+                                    <span>Hiệu lực đến ngày</span>
+                                    <input v-model="kflexQuoteForm.validUntilDate" type="date" />
+                                </label>
+                                <label class="kb-quote-field">
+                                    <span>Thuế VAT (%)</span>
+                                    <input
+                                        v-model.number="kflexQuoteForm.vatPercent"
+                                        type="number"
+                                        min="0"
+                                        max="100"
+                                        step="1"
+                                    />
+                                </label>
+                                <label class="kb-quote-field">
+                                    <span>Người liên hệ (Ký tên)</span>
+                                    <input
+                                        v-model="kflexQuoteForm.contactName"
+                                        type="text"
+                                        placeholder="Mr.Kiệt"
+                                    />
+                                </label>
+                                <label class="kb-quote-field">
+                                    <span>Số điện thoại (HP)</span>
+                                    <input
+                                        v-model="kflexQuoteForm.contactHp"
+                                        type="text"
+                                        placeholder="0979.807.234"
+                                    />
+                                </label>
+                                <label class="kb-quote-field">
+                                    <span>Email liên hệ</span>
+                                    <input
+                                        v-model="kflexQuoteForm.contactEmail"
+                                        type="text"
+                                        placeholder="tuankiet@starlightgroup.vn"
+                                    />
+                                </label>
+                                <label class="kb-quote-field kb-quote-span-2">
+                                    <span>Dòng giới thiệu (In nghiêng xanh dưới thông tin dự án)</span>
+                                    <input
+                                        v-model="kflexQuoteForm.introText"
+                                        type="text"
+                                    />
+                                </label>
+                                <label class="kb-quote-field kb-quote-span-2">
+                                    <span>2. Phương thức thanh toán</span>
+                                    <input
+                                        v-model="kflexQuoteForm.paymentTerms"
+                                        type="text"
+                                    />
+                                </label>
+                                <label class="kb-quote-field kb-quote-span-2">
+                                    <span>3. Phương thức giao hàng</span>
+                                    <input
+                                        v-model="kflexQuoteForm.deliveryMethod"
+                                        type="text"
+                                    />
+                                </label>
+                                <label class="kb-quote-field kb-quote-span-full">
+                                    <span>4. Thời gian giao hàng</span>
+                                    <input
+                                        v-model="kflexQuoteForm.deliveryTime"
+                                        type="text"
+                                    />
+                                </label>
 
-                            <!-- Chọn chung Nhãn hiệu & Xuất xứ cho cả file báo giá (Hỗ trợ chọn 1 loại hoặc tích chọn 2-3 loại) -->
-                            <div class="kb-quote-field kb-quote-span-full kflex-global-brand-box">
-                                <div class="kflex-global-brand-head">
-                                    <div>
-                                        <strong>Nhãn hiệu (Dòng sản phẩm) &amp; Xuất xứ áp dụng cho báo giá</strong>
-                                        <p>
-                                            Thường chỉ chọn 1 loại cho toàn bộ file báo giá (Xuất xứ tự động đi theo Nhãn hiệu). Nếu khách yêu cầu báo giá kết hợp 2 hoặc 3 loại, hãy tích chọn thêm bên dưới.
-                                        </p>
-                                    </div>
-                                    <div class="kflex-global-brand-quick">
-                                        <button
-                                            v-for="opt in kflexAllProductLineOptions"
-                                            :key="`single-${opt.key}`"
-                                            type="button"
-                                            class="kflex-quick-line-btn"
-                                            :class="{
-                                                active:
-                                                    kflexSelectedProductLines.length === 1 &&
-                                                    kflexSelectedProductLines[0] === opt.key,
-                                            }"
-                                            @click="selectSingleKflexProductLine(opt.key)"
-                                        >
-                                            Chỉ dùng {{ opt.brandLabel }} ({{ opt.originLabel }})
-                                        </button>
-                                    </div>
-                                </div>
-
-                                <div class="kflex-global-brand-pills">
-                                    <label
-                                        v-for="opt in kflexAllProductLineOptions"
-                                        :key="opt.key"
-                                        class="kflex-brand-pill"
-                                        :class="[
-                                            `line-${opt.key}`,
-                                            { checked: kflexSelectedProductLines.includes(opt.key) },
-                                        ]"
-                                    >
-                                        <input
-                                            type="checkbox"
-                                            class="kflex-brand-pill-input"
-                                            :checked="kflexSelectedProductLines.includes(opt.key)"
-                                            @change="toggleKflexProductLine(opt.key)"
-                                        />
-                                        <span class="kflex-brand-pill-check" aria-hidden="true">
-                                            <svg viewBox="0 0 16 16" fill="none">
-                                                <path
-                                                    d="M3.5 8.2L6.6 11.3L12.6 4.8"
-                                                    stroke="currentColor"
-                                                    stroke-width="2.2"
-                                                    stroke-linecap="round"
-                                                    stroke-linejoin="round"
-                                                />
-                                            </svg>
-                                        </span>
-                                        <div class="kflex-brand-pill-info">
-                                            <div class="kflex-brand-pill-top">
-                                                <strong>{{ opt.brandLabel }}</strong>
-                                                <span class="kflex-brand-pill-code">{{ opt.code }}</span>
-                                            </div>
-                                            <small class="kflex-brand-pill-origin">
-                                                <span class="kflex-origin-dot"></span>
-                                                Thương hiệu - Xuất xứ: <b>{{ opt.originLabel }}</b>
-                                            </small>
-                                            <span class="kflex-brand-pill-desc">{{ opt.desc }}</span>
+                                <!-- Chọn chung Nhãn hiệu & Xuất xứ cho cả file báo giá (Hỗ trợ chọn 1 loại hoặc tích chọn 2-3 loại) -->
+                                <div class="kb-quote-field kb-quote-span-full kflex-global-brand-box">
+                                    <div class="kflex-global-brand-head">
+                                        <div>
+                                            <strong>Nhãn hiệu (Dòng sản phẩm) &amp; Xuất xứ áp dụng cho báo giá</strong>
+                                            <p>
+                                                Thường chỉ chọn 1 loại cho toàn bộ file báo giá (Xuất xứ tự động đi theo Nhãn hiệu). Nếu khách yêu cầu báo giá kết hợp 2 hoặc 3 loại, hãy tích chọn thêm bên dưới.
+                                            </p>
                                         </div>
-                                    </label>
+                                        <div class="kflex-global-brand-quick">
+                                            <button
+                                                v-for="opt in kflexAllProductLineOptions"
+                                                :key="`single-${opt.key}`"
+                                                type="button"
+                                                class="kflex-quick-line-btn"
+                                                :class="{
+                                                    active:
+                                                        kflexSelectedProductLines.length === 1 &&
+                                                        kflexSelectedProductLines[0] === opt.key,
+                                                }"
+                                                @click="selectSingleKflexProductLine(opt.key)"
+                                            >
+                                                Chỉ dùng {{ opt.brandLabel }} ({{ opt.originLabel }})
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <div class="kflex-global-brand-pills">
+                                        <label
+                                            v-for="opt in kflexAllProductLineOptions"
+                                            :key="opt.key"
+                                            class="kflex-brand-pill"
+                                            :class="[
+                                                `line-${opt.key}`,
+                                                { checked: kflexSelectedProductLines.includes(opt.key) },
+                                            ]"
+                                        >
+                                            <input
+                                                type="checkbox"
+                                                class="kflex-brand-pill-input"
+                                                :checked="kflexSelectedProductLines.includes(opt.key)"
+                                                @change="toggleKflexProductLine(opt.key)"
+                                            />
+                                            <span class="kflex-brand-pill-check" aria-hidden="true">
+                                                <FontAwesomeIcon :icon="faCheck" />
+                                            </span>
+                                            <div class="kflex-brand-pill-info">
+                                                <div class="kflex-brand-pill-top">
+                                                    <strong>{{ opt.brandLabel }}</strong>
+                                                    <span class="kflex-brand-pill-code">{{ opt.code }}</span>
+                                                </div>
+                                                <small class="kflex-brand-pill-origin">
+                                                    <span class="kflex-origin-dot"></span>
+                                                    Thương hiệu - Xuất xứ: <b>{{ opt.originLabel }}</b>
+                                                </small>
+                                                <span class="kflex-brand-pill-desc">{{ opt.desc }}</span>
+                                            </div>
+                                        </label>
+                                    </div>
                                 </div>
                             </div>
                         </div>
                     </div>
-                </div>
+                </Transition>
 
                 <div class="kb-quote-card-collapse-footer">
                     <button
@@ -4769,15 +4969,7 @@ const formatDraftTime = (iso?: string | null): string => {
                             :class="{ rotated: isKflexGeneralCollapsed }"
                             aria-hidden="true"
                         >
-                            <svg viewBox="0 0 16 16" fill="none">
-                                <path
-                                    d="M4 10L8 6L12 10"
-                                    stroke="currentColor"
-                                    stroke-width="2"
-                                    stroke-linecap="round"
-                                    stroke-linejoin="round"
-                                />
-                            </svg>
+                            <FontAwesomeIcon :icon="faChevronUp" />
                         </span>
                     </button>
                 </div>
@@ -4802,21 +4994,24 @@ const formatDraftTime = (iso?: string | null): string => {
                             class="btn"
                             @click="addKflexGroup(preset)"
                         >
-                            ＋ {{ preset }}
+                            <FontAwesomeIcon :icon="faPlus" class="kb-fa-icon" />
+                            <span>{{ preset }}</span>
                         </button>
                         <button
                             type="button"
                             class="btn"
                             @click="addKflexGroup('')"
                         >
-                            ＋ Nhóm không tiêu đề
+                            <FontAwesomeIcon :icon="faPlus" class="kb-fa-icon" />
+                            <span>Nhóm không tiêu đề</span>
                         </button>
                         <button
                             type="button"
                             class="btn primary"
                             @click="addKflexGroup('BẢO ÔN CHO ĐƯỜNG THÉP')"
                         >
-                            ＋ Thêm Nhóm hạng mục
+                            <FontAwesomeIcon :icon="faFolderPlus" class="kb-fa-icon" />
+                            <span>Thêm Nhóm hạng mục</span>
                         </button>
                     </div>
                 </div>
@@ -4860,7 +5055,8 @@ const formatDraftTime = (iso?: string | null): string => {
                                     class="btn primary kflex-btn-sm"
                                     @click="addKflexItemToGroup(group)"
                                 >
-                                    ＋ Thêm loại bảo ôn vào nhóm
+                                    <FontAwesomeIcon :icon="faPlus" class="kb-fa-icon" />
+                                    <span>Thêm loại bảo ôn vào nhóm</span>
                                 </button>
                                 <button
                                     v-if="kflexGroups.length > 1"
@@ -4868,7 +5064,8 @@ const formatDraftTime = (iso?: string | null): string => {
                                     class="btn danger kflex-btn-sm"
                                     @click="removeKflexGroup(gIdx)"
                                 >
-                                    Xóa nhóm
+                                    <FontAwesomeIcon :icon="faTrashCan" class="kb-fa-icon" />
+                                    <span>Xóa nhóm</span>
                                 </button>
                             </div>
                         </div>
@@ -5115,7 +5312,7 @@ const formatDraftTime = (iso?: string | null): string => {
                                                 title="Nhân bản dòng này"
                                                 @click="duplicateKflexItemInGroup(group, idx)"
                                             >
-                                                +
+                                                <FontAwesomeIcon :icon="faCopy" />
                                             </button>
                                             <button
                                                 v-if="group.items.length > 1 || kflexGroups.length > 1"
@@ -5124,7 +5321,7 @@ const formatDraftTime = (iso?: string | null): string => {
                                                 title="Xóa dòng này"
                                                 @click="removeKflexItemFromGroup(group, idx)"
                                             >
-                                                ×
+                                                <FontAwesomeIcon :icon="faXmark" />
                                             </button>
                                         </td>
                                     </tr>
@@ -5143,10 +5340,12 @@ const formatDraftTime = (iso?: string | null): string => {
                     </strong>
                     <div class="kb-quote-preview-actions">
                         <button class="btn kflex-excel-btn" type="button" @click="exportKflexQuotationExcel">
-                            📊 Xuất Excel Báo Giá K-Flex
+                            <FontAwesomeIcon :icon="faFileExcel" class="kb-fa-icon" />
+                            <span>Xuất Excel Báo Giá K-Flex</span>
                         </button>
                         <button class="btn primary" type="button" @click="printKflexQuotationPdf">
-                            🖨️ In / Xuất PDF Báo Giá K-Flex (A4)
+                            <FontAwesomeIcon :icon="faPrint" class="kb-fa-icon" />
+                            <span>In / Xuất PDF Báo Giá K-Flex (A4)</span>
                         </button>
                     </div>
                 </div>
@@ -5324,12 +5523,9 @@ const formatDraftTime = (iso?: string | null): string => {
 </template>
 
 <style scoped>
-.kb-kflex-general-card {
-    transition: padding 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
-}
-
-.kb-kflex-general-card.is-collapsed {
-    padding-bottom: 14px;
+.kb-kflex-general-card,
+.kb-ariston-general-card {
+    transition: box-shadow 0.25s ease, border-color 0.25s ease;
 }
 
 .kb-quote-collapsible-header {
@@ -5338,6 +5534,7 @@ const formatDraftTime = (iso?: string | null): string => {
     justify-content: space-between;
     gap: 12px;
     flex-wrap: wrap;
+    min-height: 28px;
 }
 
 .kb-quote-collapsible-header .kb-quote-section-title {
@@ -5349,18 +5546,19 @@ const formatDraftTime = (iso?: string | null): string => {
     align-items: center;
     flex-wrap: wrap;
     gap: 8px;
-    animation: kbSummaryFadeIn 0.28s ease;
 }
 
-@keyframes kbSummaryFadeIn {
-    from {
-        opacity: 0;
-        transform: translateY(-3px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
+.kb-summary-fade-enter-active,
+.kb-summary-fade-leave-active {
+    transition:
+        opacity 0.22s cubic-bezier(0.25, 1, 0.5, 1),
+        transform 0.22s cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+.kb-summary-fade-enter-from,
+.kb-summary-fade-leave-to {
+    opacity: 0;
+    transform: translateY(-4px);
 }
 
 .kb-quote-summary-chip {
@@ -5386,26 +5584,20 @@ const formatDraftTime = (iso?: string | null): string => {
 }
 
 .kb-quote-collapsible-body {
-    display: grid;
-    grid-template-rows: 1fr;
-    opacity: 1;
-    margin-top: 14px;
-    transition:
-        grid-template-rows 0.38s cubic-bezier(0.22, 1, 0.36, 1),
-        opacity 0.28s ease,
-        margin-top 0.34s cubic-bezier(0.22, 1, 0.36, 1);
-}
-
-.kb-quote-collapsible-body.is-collapsed {
-    grid-template-rows: 0fr;
-    opacity: 0;
-    margin-top: 0;
-    pointer-events: none;
+    will-change: height, opacity, transform;
 }
 
 .kb-quote-collapsible-inner {
-    overflow: hidden;
-    min-height: 0;
+    padding-top: 14px;
+    padding-bottom: 4px;
+}
+
+.kb-quote-item-expanded-wrap {
+    will-change: height, opacity, transform;
+}
+
+.kb-quote-item-expanded {
+    padding-top: 10px;
 }
 
 .kb-quote-card-collapse-footer {
@@ -5413,15 +5605,9 @@ const formatDraftTime = (iso?: string | null): string => {
     display: flex;
     align-items: center;
     justify-content: center;
-    margin-top: 16px;
+    margin-top: 12px;
     padding-top: 12px;
     border-top: 1px dashed #dfd6c3;
-    transition: margin-top 0.32s ease, padding-top 0.32s ease;
-}
-
-.kb-kflex-general-card.is-collapsed .kb-quote-card-collapse-footer {
-    margin-top: 12px;
-    padding-top: 10px;
 }
 
 .kb-quote-collapse-toggle-btn {
@@ -5464,6 +5650,7 @@ const formatDraftTime = (iso?: string | null): string => {
     border-radius: 50%;
     background: rgba(181, 154, 101, 0.18);
     color: currentColor;
+    font-size: 10px;
     transition: transform 0.36s cubic-bezier(0.22, 1, 0.36, 1), background 0.2s ease;
 }
 
@@ -5472,8 +5659,8 @@ const formatDraftTime = (iso?: string | null): string => {
 }
 
 .kb-quote-collapse-chevron svg {
-    width: 13px;
-    height: 13px;
+    width: 11px;
+    height: 11px;
 }
 
 .kb-quote-collapse-chevron.rotated {
@@ -5501,14 +5688,14 @@ const formatDraftTime = (iso?: string | null): string => {
 .kflex-global-brand-head strong {
     display: block;
     font-size: 13.8px;
-    color: #0f172a;
+    color: var(--ink, #29271f);
     margin-bottom: 3px;
 }
 
 .kflex-global-brand-head p {
     margin: 0;
     font-size: 12px;
-    color: #475569;
+    color: var(--muted, #888272);
     line-height: 1.45;
 }
 
@@ -5525,10 +5712,10 @@ const formatDraftTime = (iso?: string | null): string => {
     font-size: 12px;
     font-weight: 700;
     background: #ffffff;
-    color: #334155;
+    color: #463d2b;
     cursor: pointer;
     transition: all 0.18s ease;
-    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+    box-shadow: 0 1px 3px rgba(41, 39, 31, 0.04);
 }
 
 .kflex-quick-line-btn:hover {
@@ -5567,7 +5754,7 @@ const formatDraftTime = (iso?: string | null): string => {
         background 0.2s ease,
         box-shadow 0.22s ease,
         transform 0.2s ease;
-    box-shadow: 0 2px 6px rgba(15, 23, 42, 0.03);
+    box-shadow: 0 2px 6px rgba(41, 39, 31, 0.03);
 }
 
 .kflex-brand-pill:hover {
@@ -5600,13 +5787,14 @@ const formatDraftTime = (iso?: string | null): string => {
     height: 24px;
     margin-top: 2px;
     border-radius: 7px;
-    border: 1.5px solid #cbd5e1;
-    background: #f8fafc;
+    border: 1.5px solid #d5ccb9;
+    background: #faf7f0;
     color: transparent;
     display: inline-flex;
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
+    font-size: 12px;
     transition:
         background 0.2s ease,
         border-color 0.2s ease,
@@ -5615,8 +5803,8 @@ const formatDraftTime = (iso?: string | null): string => {
 }
 
 .kflex-brand-pill-check svg {
-    width: 14px;
-    height: 14px;
+    width: 12px;
+    height: 12px;
     transform: scale(0.6);
     transition: transform 0.2s cubic-bezier(0.22, 1, 0.36, 1);
 }
@@ -5654,7 +5842,7 @@ const formatDraftTime = (iso?: string | null): string => {
 .kflex-brand-pill-info strong {
     font-size: 14px;
     font-weight: 800;
-    color: #0f172a;
+    color: var(--ink, #29271f);
     letter-spacing: -0.01em;
 }
 
@@ -5688,11 +5876,11 @@ const formatDraftTime = (iso?: string | null): string => {
     align-items: center;
     gap: 6px;
     font-size: 12px;
-    color: #475569;
+    color: var(--muted, #888272);
 }
 
 .kflex-brand-pill-origin b {
-    color: #1e293b;
+    color: var(--ink, #29271f);
     font-weight: 700;
 }
 
@@ -5700,19 +5888,19 @@ const formatDraftTime = (iso?: string | null): string => {
     width: 6px;
     height: 6px;
     border-radius: 50%;
-    background: #cbd5e1;
+    background: #cfc6b2;
     flex-shrink: 0;
     transition: background 0.2s ease;
 }
 
 .kflex-brand-pill.checked .kflex-origin-dot {
-    background: #16a34a;
-    box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.16);
+    background: #18352e;
+    box-shadow: 0 0 0 3px rgba(24, 53, 46, 0.16);
 }
 
 .kflex-brand-pill-desc {
     font-size: 11.5px;
-    color: #64748b;
+    color: var(--muted, #888272);
     line-height: 1.3;
 }
 
@@ -5720,18 +5908,18 @@ const formatDraftTime = (iso?: string | null): string => {
     display: inline-block;
     padding: 4px 8px;
     border-radius: 5px;
-    background: #f1f5f9;
-    border: 1px solid #e2e8f0;
+    background: #f5f1e7;
+    border: 1px solid #e2d8c3;
     font-weight: 600;
     font-size: 12px;
-    color: #0f172a;
+    color: var(--ink, #29271f);
 }
 
 .kflex-readonly-origin {
     display: inline-block;
     font-size: 12px;
     font-weight: 500;
-    color: #334155;
+    color: #463d2b;
 }
 
 .kflex-groups-container {
@@ -5745,7 +5933,7 @@ const formatDraftTime = (iso?: string | null): string => {
     border-radius: 12px;
     background: #fcfaf5;
     padding: 12px;
-    box-shadow: 0 2px 6px rgba(15, 23, 42, 0.04);
+    box-shadow: 0 2px 6px rgba(41, 39, 31, 0.04);
 }
 
 .kflex-group-bar {
@@ -5773,8 +5961,8 @@ const formatDraftTime = (iso?: string | null): string => {
     align-items: center;
     padding: 4px 10px;
     border-radius: 6px;
-    background: #1e293b;
-    color: #ffffff;
+    background: #18352e;
+    color: #f5f1e8;
     font-weight: 700;
     font-size: 12px;
 }
@@ -5785,7 +5973,7 @@ const formatDraftTime = (iso?: string | null): string => {
     gap: 6px;
     font-size: 12.5px;
     font-weight: 600;
-    color: #334155;
+    color: #463d2b;
     cursor: pointer;
     user-select: none;
 }
@@ -5794,26 +5982,26 @@ const formatDraftTime = (iso?: string | null): string => {
     flex: 1;
     min-width: 260px;
     max-width: 520px;
-    border: 1px solid #cbd5e1;
+    border: 1px solid #d5ccb9;
     border-radius: 6px;
     padding: 6px 10px;
     font-size: 13px;
     font-weight: 700;
     text-transform: uppercase;
     background: #ffffff;
-    color: #0f172a;
+    color: var(--ink, #29271f);
 }
 
 .kflex-group-title-input:focus {
     outline: none;
-    border-color: #2563eb;
-    box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.12);
+    border-color: #b59a65;
+    box-shadow: 0 0 0 2px rgba(181, 154, 101, 0.16);
 }
 
 .kflex-group-no-title-hint {
     font-size: 12px;
     font-style: italic;
-    color: #64748b;
+    color: var(--muted, #888272);
 }
 
 .kflex-group-bar-right {
@@ -5854,8 +6042,8 @@ const formatDraftTime = (iso?: string | null): string => {
 }
 
 .kflex-entry-table thead th {
-    background: #fef08a;
-    color: #1f2937;
+    background: #f1ebe0;
+    color: #29271f;
     font-weight: 700;
     text-align: center;
     font-size: 11.5px;
@@ -5865,37 +6053,37 @@ const formatDraftTime = (iso?: string | null): string => {
 .kflex-entry-tt {
     text-align: center;
     font-weight: 700;
-    color: #4b5563;
+    color: #5f5641;
     background: #faf7f0;
 }
 
 .kflex-cell-input,
 .kflex-cell-select {
     width: 100%;
-    border: 1px solid #cbd5e1;
+    border: 1px solid #d5ccb9;
     border-radius: 5px;
     padding: 5px 6px;
     font-size: 12.5px;
     background: #ffffff;
-    color: #111827;
+    color: var(--ink, #29271f);
 }
 
 .kflex-cell-input:focus,
 .kflex-cell-select:focus {
     outline: none;
-    border-color: #2563eb;
-    box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.12);
+    border-color: #b59a65;
+    box-shadow: 0 0 0 2px rgba(181, 154, 101, 0.16);
 }
 
 .kflex-cell-subinput {
     width: 100%;
     margin-top: 3px;
-    border: 1px dashed #cbd5e1;
+    border: 1px dashed #d5ccb9;
     border-radius: 4px;
     padding: 2px 5px;
     font-size: 11px;
-    color: #475569;
-    background: #f8fafc;
+    color: var(--muted, #888272);
+    background: #faf7f0;
 }
 
 .kflex-cell-sec {
@@ -5915,8 +6103,8 @@ const formatDraftTime = (iso?: string | null): string => {
 .kflex-entry-total {
     text-align: right;
     font-weight: 700;
-    color: #111827;
-    background: #fafaf9;
+    color: var(--ink, #29271f);
+    background: #faf7f0;
     white-space: nowrap;
 }
 
@@ -5931,27 +6119,32 @@ const formatDraftTime = (iso?: string | null): string => {
     justify-content: center;
     width: 24px;
     height: 24px;
-    border: 1px solid #cbd5e1;
+    border: 1px solid #d5ccb9;
     border-radius: 5px;
-    background: #f8fafc;
-    color: #1e293b;
+    background: #faf7f0;
+    color: #463d2b;
+    font-size: 11px;
     font-weight: 700;
     cursor: pointer;
     margin: 0 2px;
+    transition: all 0.16s ease;
 }
 
 .kflex-icon-btn:hover {
-    background: #e2e8f0;
+    border-color: #18352e;
+    background: #eef4f1;
+    color: #18352e;
 }
 
 .kflex-icon-btn.danger {
-    color: #dc2626;
-    border-color: #fecaca;
-    background: #fef2f2;
+    color: #a75b4d;
+    border-color: #e6c5c0;
+    background: #fcf4f2;
 }
 
 .kflex-icon-btn.danger:hover {
-    background: #fee2e2;
+    background: #f8e5e1;
+    border-color: #d49b93;
 }
 
 /* Live Preview Paper — Khớp từng kích thước & căn lề với bản PDF mẫu */
@@ -6128,15 +6321,27 @@ const formatDraftTime = (iso?: string | null): string => {
 }
 
 .kflex-excel-btn {
-    border-color: #16a34a !important;
-    background: #16a34a !important;
-    color: #ffffff !important;
-    font-weight: 600;
+    border-color: #18352e !important;
+    background: linear-gradient(135deg, #18352e 0%, #23473b 100%) !important;
+    color: #f5f1e8 !important;
+    font-weight: 700;
 }
 
 .kflex-excel-btn:hover {
-    background: #15803d !important;
-    border-color: #15803d !important;
+    background: linear-gradient(135deg, #122a24 0%, #1b382f 100%) !important;
+    border-color: #122a24 !important;
+    color: #ffffff !important;
+}
+
+.kb-quote-items-actions .btn,
+.kflex-group-bar-right .btn,
+.kb-quote-preview-actions .btn,
+.kb-quote-compact-btns .mini,
+.kb-quote-img-picker .mini {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
 }
 
 .kb-quote-no-spin::-webkit-outer-spin-button,
@@ -6224,106 +6429,213 @@ const formatDraftTime = (iso?: string | null): string => {
     color: #0070c0;
 }
 
+.page-head {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-bottom: 16px;
+}
+
+.page-head-copy {
+    min-width: 260px;
+    flex: 1 1 360px;
+}
+
+.actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.kb-export-action-group {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.actions .btn,
+.kb-quote-draft-bar-card .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    height: 38px;
+    padding: 0 14px;
+    border-radius: 8px;
+    font-size: 12.5px;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+    white-space: nowrap;
+    transition: all 0.2s ease;
+}
+
+.actions .btn:disabled,
+.kb-quote-draft-bar-card .btn:disabled {
+    opacity: 0.65;
+    cursor: not-allowed;
+}
+
+.kb-fa-icon {
+    font-size: 13px;
+    flex-shrink: 0;
+}
+
+.kb-chevron-mini {
+    font-size: 10.5px;
+    opacity: 0.78;
+    margin-left: 1px;
+}
+
 .kb-hidden-file-input {
     display: none;
 }
 
 .kb-import-btn {
-    border-color: #2563eb !important;
-    background: #eff6ff !important;
-    color: #1d4ed8 !important;
-    font-weight: 600;
+    border-color: #c2d4cc !important;
+    background: #f2f7f5 !important;
+    color: #18352e !important;
+    font-weight: 700;
 }
 
-.kb-import-btn:hover {
-    background: #dbeafe !important;
+.kb-import-btn:hover:not(:disabled) {
+    border-color: #18352e !important;
+    background: #e4efeb !important;
+    color: #122a24 !important;
 }
 
 .kb-draft-save-btn {
-    border-color: #d97706 !important;
-    background: #fffbeb !important;
-    color: #b45309 !important;
-    font-weight: 600;
+    border-color: #18352e !important;
+    background: linear-gradient(135deg, #18352e 0%, #23473b 100%) !important;
+    color: #f5f1e8 !important;
+    font-weight: 700;
+    box-shadow: 0 3px 10px rgba(24, 53, 46, 0.16);
 }
 
-.kb-draft-save-btn:hover {
-    background: #fef3c7 !important;
+.kb-draft-save-btn:hover:not(:disabled) {
+    background: linear-gradient(135deg, #122a24 0%, #1b382f 100%) !important;
+    border-color: #122a24 !important;
+    color: #ffffff !important;
+}
+
+.kb-draft-list-toggle-btn.active {
+    border-color: #b59a65 !important;
+    background: #f6efe0 !important;
+    color: #5f4b23 !important;
 }
 
 .kb-quote-draft-bar-card {
-    background: #ffffff;
-    border: 1px solid #cbd5e1;
-    border-radius: 12px;
-    padding: 12px 14px;
-    margin-bottom: 14px;
-    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+    background: var(--surface, #fffdf8);
+    border: 1px solid var(--line, #e6dfd1);
+    border-radius: 14px;
+    padding: 14px 16px;
+    margin-bottom: 18px;
+    box-shadow: 0 6px 20px rgba(41, 39, 31, 0.04);
 }
 
 .kb-quote-draft-bar-top {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 10px;
+    gap: 12px;
     flex-wrap: wrap;
 }
 
 .kb-quote-draft-input-group {
     display: flex;
     align-items: center;
+    gap: 10px;
+    flex: 1 1 480px;
+    min-width: 0;
+}
+
+.kb-quote-draft-save-group {
+    display: inline-flex;
+    align-items: center;
     gap: 8px;
-    flex: 1 1 420px;
-    flex-wrap: wrap;
+    flex-shrink: 0;
 }
 
 .kb-quote-draft-badge {
     display: inline-flex;
     align-items: center;
-    padding: 5px 10px;
+    gap: 6px;
+    height: 36px;
+    padding: 0 12px;
     border-radius: 999px;
-    background: #f1f5f9;
-    color: #334155;
+    background: #f4efe4;
+    border: 1px solid #e2d8c3;
+    color: #5b4b2a;
     font-size: 12px;
     font-weight: 700;
     white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.kb-quote-draft-badge.editing {
+    background: #eef4f1;
+    border-color: #bfd3ca;
+    color: #18352e;
 }
 
 .kb-quote-draft-title-input {
     flex: 1 1 220px;
-    min-width: 180px;
-    padding: 7px 11px;
-    border: 1px solid #cbd5e1;
+    min-width: 160px;
+    height: 38px;
+    padding: 0 13px;
+    border: 1px solid #d8cfbd;
     border-radius: 8px;
+    background: #ffffff;
     font-size: 13px;
-    color: #0f172a;
+    color: var(--ink, #29271f);
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.kb-quote-draft-title-input::placeholder {
+    color: #9b9382;
 }
 
 .kb-quote-draft-title-input:focus {
     outline: none;
-    border-color: #2563eb;
-    box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.14);
+    border-color: var(--gold, #b59a65);
+    box-shadow: 0 0 0 3px rgba(181, 154, 101, 0.16);
 }
 
 .kb-quote-draft-right-actions {
     display: flex;
     align-items: center;
+    justify-content: flex-end;
     gap: 8px;
     flex-wrap: wrap;
 }
 
 .kb-quote-autosave-hint {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 34px;
     font-size: 12px;
-    color: #15803d;
-    background: #f0fdf4;
-    border: 1px solid #bbf7d0;
-    padding: 4px 9px;
+    color: #185835;
+    background: #eef7f2;
+    border: 1px solid #c3e2d0;
+    padding: 0 11px;
     border-radius: 999px;
     font-weight: 600;
+    white-space: nowrap;
 }
 
 .kb-quote-drafts-drawer {
-    margin-top: 12px;
-    padding-top: 12px;
-    border-top: 1px dashed #cbd5e1;
+    will-change: height, opacity, transform;
+}
+
+.kb-quote-drafts-drawer-inner {
+    margin-top: 14px;
+    padding-top: 14px;
+    border-top: 1px dashed #dfd6c3;
 }
 
 .kb-quote-drafts-drawer-head {
@@ -6332,24 +6644,28 @@ const formatDraftTime = (iso?: string | null): string => {
     justify-content: space-between;
     gap: 8px;
     flex-wrap: wrap;
-    margin-bottom: 10px;
+    margin-bottom: 12px;
 }
 
 .kb-quote-drafts-drawer-head strong {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
     font-size: 13.5px;
-    color: #0f172a;
+    color: var(--ink, #29271f);
 }
 
 .kb-quote-drafts-drawer-head small {
     font-size: 12px;
-    color: #64748b;
+    color: var(--muted, #888272);
 }
 
 .kb-quote-drafts-empty {
-    padding: 14px;
-    border-radius: 8px;
-    background: #f8fafc;
-    color: #475569;
+    padding: 16px;
+    border-radius: 10px;
+    background: #f8f5ed;
+    border: 1px dashed #dfd6c3;
+    color: #6b6352;
     font-size: 13px;
     text-align: center;
 }
@@ -6358,7 +6674,7 @@ const formatDraftTime = (iso?: string | null): string => {
     display: flex;
     flex-direction: column;
     gap: 8px;
-    max-height: 320px;
+    max-height: 340px;
     overflow-y: auto;
 }
 
@@ -6367,22 +6683,27 @@ const formatDraftTime = (iso?: string | null): string => {
     align-items: center;
     justify-content: space-between;
     gap: 12px;
-    padding: 10px 12px;
-    border: 1px solid #e2e8f0;
+    padding: 11px 14px;
+    border: 1px solid #e6dfd1;
     border-radius: 10px;
-    background: #f8fafc;
+    background: #faf7f0;
     flex-wrap: wrap;
+    transition: border-color 0.2s ease, background 0.2s ease;
+}
+
+.kb-quote-draft-item:hover {
+    border-color: #d0c3ab;
 }
 
 .kb-quote-draft-item.active {
-    border-color: #2563eb;
-    background: #eff6ff;
+    border-color: #18352e;
+    background: #f1f6f4;
 }
 
 .kb-quote-draft-item-main {
     display: flex;
     flex-direction: column;
-    gap: 3px;
+    gap: 4px;
     min-width: 220px;
     flex: 1;
 }
@@ -6396,31 +6717,32 @@ const formatDraftTime = (iso?: string | null): string => {
 
 .kb-quote-draft-item-title-row strong {
     font-size: 13.5px;
-    color: #0f172a;
+    color: var(--ink, #29271f);
 }
 
 .kb-quote-draft-type-tag {
     display: inline-block;
     padding: 2px 8px;
     border-radius: 999px;
-    font-size: 11px;
-    font-weight: 700;
+    font-size: 10.5px;
+    font-weight: 800;
+    letter-spacing: 0.03em;
     text-transform: uppercase;
 }
 
 .kb-quote-draft-type-tag.ariston {
-    background: #fee2e2;
-    color: #b91c1c;
+    background: #f6e8e4;
+    color: #9e3828;
 }
 
 .kb-quote-draft-type-tag.kflex {
-    background: #dbeafe;
-    color: #1d4ed8;
+    background: #e6efe9;
+    color: #18352e;
 }
 
 .kb-quote-draft-item-meta {
     font-size: 12px;
-    color: #475569;
+    color: #6b6352;
     display: flex;
     flex-wrap: wrap;
     gap: 6px;
@@ -6431,5 +6753,132 @@ const formatDraftTime = (iso?: string | null): string => {
     align-items: center;
     gap: 6px;
     flex-wrap: wrap;
+}
+
+@media (max-width: 1100px) {
+    .page-head {
+        align-items: flex-start;
+    }
+
+    .actions {
+        width: 100%;
+        justify-content: flex-start;
+    }
+
+    .kb-quote-draft-bar-top {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .kb-quote-draft-input-group {
+        flex: 1 1 auto;
+        width: 100%;
+    }
+
+    .kb-quote-draft-right-actions {
+        width: 100%;
+        justify-content: flex-start;
+        padding-top: 4px;
+        border-top: 1px dashed #e6dfd1;
+    }
+}
+
+@media (max-width: 680px) {
+    .actions {
+        width: 100%;
+    }
+
+    .kb-export-action-group {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        width: 100%;
+        gap: 8px;
+    }
+
+    .kb-export-action-group .btn {
+        width: 100%;
+        padding: 0 10px;
+        font-size: 12px;
+    }
+
+    .kb-quote-draft-bar-card {
+        padding: 12px;
+    }
+
+    .kb-quote-draft-input-group {
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+
+    .kb-quote-draft-badge {
+        height: 32px;
+        font-size: 11.5px;
+    }
+
+    .kb-quote-draft-title-input {
+        flex: 1 1 100%;
+        width: 100%;
+        order: 2;
+    }
+
+    .kb-quote-draft-save-group {
+        width: 100%;
+        order: 3;
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+        gap: 8px;
+    }
+
+    .kb-quote-draft-save-group .btn {
+        width: 100%;
+    }
+
+    .kb-quote-draft-right-actions {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px;
+        padding-top: 8px;
+    }
+
+    .kb-quote-autosave-hint {
+        grid-column: 1 / -1;
+        justify-content: center;
+    }
+
+    .kb-quote-draft-right-actions .btn {
+        width: 100%;
+        padding: 0 10px;
+        font-size: 12px;
+    }
+
+    .kb-quote-draft-right-actions .kb-reset-default-btn {
+        grid-column: 1 / -1;
+    }
+
+    .kb-quote-draft-item {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .kb-quote-draft-item-actions {
+        width: 100%;
+        display: grid;
+        grid-template-columns: 1.3fr 1fr 0.8fr;
+        gap: 6px;
+    }
+
+    .kb-quote-draft-item-actions .btn {
+        width: 100%;
+        padding: 0 8px;
+        font-size: 11.5px;
+    }
+}
+
+@media (max-width: 420px) {
+    .kb-export-action-group,
+    .kb-quote-draft-right-actions,
+    .kb-quote-draft-item-actions {
+        grid-template-columns: 1fr;
+    }
 }
 </style>
