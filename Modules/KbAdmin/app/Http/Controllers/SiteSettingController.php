@@ -39,14 +39,64 @@ class SiteSettingController extends Controller
             'facebook_url' => ['required', 'string', 'max:255'],
             'linkedin_url' => ['required', 'string', 'max:255'],
             'zalo_url' => ['required', 'string', 'max:255'],
+            'hero_banner_1_image' => ['nullable', 'string', 'max:500'],
+            'hero_banner_1_file' => ['nullable', 'image', 'max:8192'],
+            'hero_banner_2_image' => ['nullable', 'string', 'max:500'],
+            'hero_banner_2_file' => ['nullable', 'image', 'max:8192'],
+            'hero_banner_3_image' => ['nullable', 'string', 'max:500'],
+            'hero_banner_3_file' => ['nullable', 'image', 'max:8192'],
+            'hero_banners' => ['nullable', 'string', 'max:5000'],
+            'hero_banners_list' => ['nullable', 'array', 'min:1', 'max:10'],
+            'hero_banners_list.*' => ['nullable', 'string', 'max:500'],
+            'hero_banner_files' => ['nullable', 'array', 'max:10'],
+            'hero_banner_files.*' => ['nullable', 'image', 'max:8192'],
         ]);
 
-        unset($validated['site_logo_file']);
+        unset(
+            $validated['site_logo_file'],
+            $validated['hero_banner_1_file'],
+            $validated['hero_banner_2_file'],
+            $validated['hero_banner_3_file'],
+            $validated['hero_banners_list'],
+            $validated['hero_banner_files'],
+        );
         $validated['site_logo'] = trim((string) ($validated['site_logo'] ?? ''));
 
         if ($request->hasFile('site_logo_file')) {
             $storedPath = $request->file('site_logo_file')->store('settings', 'public');
             $validated['site_logo'] = '/storage/'.ltrim($storedPath, '/');
+        }
+
+        if ($request->has('hero_banners_list')) {
+            $rawBanners = (array) $request->input('hero_banners_list', []);
+            $resolvedBanners = [];
+
+            foreach (array_values($rawBanners) as $idx => $rawUrl) {
+                $bannerUrl = trim((string) ($rawUrl ?? ''));
+
+                if ($request->hasFile("hero_banner_files.{$idx}")) {
+                    $storedBannerPath = $request->file("hero_banner_files.{$idx}")->store('settings/banners', 'public');
+                    $bannerUrl = '/storage/'.ltrim($storedBannerPath, '/');
+                }
+
+                $resolvedBanners[] = $bannerUrl;
+            }
+
+            $validated['hero_banners'] = json_encode($resolvedBanners, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '';
+            $validated['hero_banner_1_image'] = $resolvedBanners[0] ?? '';
+            $validated['hero_banner_2_image'] = $resolvedBanners[1] ?? '';
+            $validated['hero_banner_3_image'] = $resolvedBanners[2] ?? '';
+        } else {
+            foreach ([1, 2, 3] as $index) {
+                $imageKey = "hero_banner_{$index}_image";
+                $fileKey = "hero_banner_{$index}_file";
+                $validated[$imageKey] = trim((string) ($validated[$imageKey] ?? ''));
+
+                if ($request->hasFile($fileKey)) {
+                    $storedBannerPath = $request->file($fileKey)->store('settings/banners', 'public');
+                    $validated[$imageKey] = '/storage/'.ltrim($storedBannerPath, '/');
+                }
+            }
         }
 
         SiteSetting::updateSettings($validated);

@@ -286,6 +286,108 @@
                 </div>
             </section>
 
+            <section class="site-settings-card site-settings-banners-card">
+                <div class="site-settings-card-head site-settings-banners-head">
+                    <div class="site-settings-banners-head-main">
+                        <span class="site-settings-card-icon">
+                            <FontAwesomeIcon icon="fa-solid fa-images" />
+                        </span>
+                        <div>
+                            <h3>Danh sách Banner Trang chủ (Hero Banners)</h3>
+                            <p>Quản lý các hình ảnh banner (tỷ lệ 16:9) chạy slide trên màn hình Trang chủ. Có thể tải ảnh mới, thêm hoặc xóa slide linh hoạt.</p>
+                        </div>
+                    </div>
+                    <div class="site-settings-banners-head-actions">
+                        <button
+                            type="button"
+                            class="btn"
+                            :disabled="form.hero_banners_list.length >= 10"
+                            @click="addBannerSlide"
+                        >
+                            <FontAwesomeIcon icon="fa-solid fa-plus" />
+                            Thêm slide banner
+                        </button>
+                    </div>
+                </div>
+
+                <div class="hero-banners-grid">
+                    <article
+                        v-for="(_, idx) in form.hero_banners_list"
+                        :key="`banner-item-${idx}`"
+                        class="hero-banner-item-card"
+                    >
+                        <div class="hero-banner-item-top">
+                            <div class="hero-banner-item-title">
+                                <span class="hero-banner-item-num">{{ formatSlideNumber(idx) }}</span>
+                                <div>
+                                    <strong>Slide Banner #{{ formatSlideNumber(idx) }}</strong>
+                                    <small>{{ hasCustomBannerAt(idx) ? 'Đang dùng ảnh tùy chỉnh' : 'Đang dùng ảnh mặc định' }}</small>
+                                </div>
+                            </div>
+                            <div class="hero-banner-item-top-actions">
+                                <button
+                                    v-if="hasCustomBannerAt(idx)"
+                                    type="button"
+                                    class="btn hero-banner-mini-btn"
+                                    title="Đặt lại ảnh mặc định cho slide này"
+                                    @click="clearBannerImageAt(idx)"
+                                >
+                                    <FontAwesomeIcon icon="fa-solid fa-rotate-left" />
+                                    Mặc định
+                                </button>
+                                <button
+                                    v-if="form.hero_banners_list.length > 1"
+                                    type="button"
+                                    class="btn hero-banner-mini-btn is-danger"
+                                    title="Xóa slide banner này"
+                                    @click="removeBannerSlide(idx)"
+                                >
+                                    <FontAwesomeIcon icon="fa-solid fa-trash-can" />
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="hero-banner-live-preview">
+                            <img
+                                :src="getBannerPreviewUrlAt(idx)"
+                                :alt="`Slide Banner #${formatSlideNumber(idx)}`"
+                                class="hero-banner-live-img"
+                            >
+                            <span class="hero-banner-live-badge">
+                                Slide {{ formatSlideNumber(idx) }} / {{ formatSlideNumber(form.hero_banners_list.length - 1) }}
+                            </span>
+                        </div>
+
+                        <div class="hero-banner-item-controls">
+                            <label class="btn site-settings-upload-btn hero-banner-upload-btn">
+                                <FontAwesomeIcon icon="fa-solid fa-upload" />
+                                Chọn ảnh từ máy tính
+                                <input
+                                    :ref="(el) => setBannerInputRef(idx, el as HTMLInputElement | null)"
+                                    type="file"
+                                    accept="image/*"
+                                    hidden
+                                    @change="(e) => onSelectBannerFileAt(idx, e)"
+                                >
+                            </label>
+
+                            <input
+                                :id="`settingBannerImage${idx + 1}`"
+                                v-model="form.hero_banners_list[idx]"
+                                type="text"
+                                maxlength="500"
+                                placeholder="Hoặc dán đường dẫn URL ảnh banner (tỷ lệ 16:9, để trống sẽ dùng ảnh mặc định)..."
+                                @input="onManualBannerUrlInputAt(idx)"
+                            >
+
+                            <small class="site-settings-logo-hint">
+                                Khuyến nghị ảnh ngang 1920×1080px (16:9), JPG/PNG/WEBP tối đa 8MB.
+                            </small>
+                        </div>
+                    </article>
+                </div>
+            </section>
+
             <section class="site-settings-card site-settings-preview-card">
                 <div class="site-settings-card-head">
                     <span class="site-settings-card-icon">
@@ -335,6 +437,9 @@
 <script setup lang="ts">
 import { useForm } from '@inertiajs/vue3';
 import { computed, onBeforeUnmount, ref } from 'vue';
+import defaultBannerAn3 from '../../../../../KbUser/resources/assets/images/banners/hero-banner-an3.jpg';
+import defaultBannerMflex from '../../../../../KbUser/resources/assets/images/banners/hero-banner-mflex.jpg';
+import defaultBannerSlim3 from '../../../../../KbUser/resources/assets/images/banners/hero-banner-slim3.jpg';
 import AdminLayout from '../../layout/AdminLayout.Vue';
 
 type SiteSettingsMap = {
@@ -352,11 +457,30 @@ type SiteSettingsMap = {
     facebook_url: string;
     linkedin_url: string;
     zalo_url: string;
+    hero_banner_1_image?: string;
+    hero_banner_2_image?: string;
+    hero_banner_3_image?: string;
+    hero_banners?: string;
 };
 
-type SiteSettingsForm = SiteSettingsMap & {
+type SiteSettingsForm = {
     site_logo: string;
     site_logo_file: File | null;
+    company_name: string;
+    company_tagline: string;
+    announcement_text: string;
+    footer_description: string;
+    copyright_text: string;
+    hotline: string;
+    zalo_phone: string;
+    contact_email: string;
+    address: string;
+    working_hours: string;
+    facebook_url: string;
+    linkedin_url: string;
+    zalo_url: string;
+    hero_banners_list: string[];
+    hero_banner_files: Array<File | null>;
 };
 
 type AdminStat = {
@@ -374,8 +498,34 @@ const props = defineProps<{
     supportProjectsCount?: number;
 }>();
 
+const defaultBannerImages = [defaultBannerSlim3, defaultBannerMflex, defaultBannerAn3];
+
+function parseInitialBanners(settings: SiteSettingsMap): string[] {
+    if (settings.hero_banners) {
+        try {
+            const parsed = JSON.parse(settings.hero_banners);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+                return parsed.map((item) => (typeof item === 'string' ? item : ''));
+            }
+        } catch {
+            // fallback below
+        }
+    }
+
+    return [
+        settings.hero_banner_1_image ?? '',
+        settings.hero_banner_2_image ?? '',
+        settings.hero_banner_3_image ?? '',
+    ];
+}
+
+const initialBanners = parseInitialBanners(props.settings);
+
 const logoFileInputRef = ref<HTMLInputElement | null>(null);
 const localLogoPreview = ref<string | null>(null);
+
+const bannerFileInputRefs = ref<Array<HTMLInputElement | null>>([]);
+const localBannerPreviews = ref<Array<string | null>>(initialBanners.map(() => null));
 
 const form = useForm<SiteSettingsForm>({
     site_logo: props.settings.site_logo ?? '',
@@ -393,6 +543,8 @@ const form = useForm<SiteSettingsForm>({
     facebook_url: props.settings.facebook_url,
     linkedin_url: props.settings.linkedin_url,
     zalo_url: props.settings.zalo_url,
+    hero_banners_list: [...initialBanners],
+    hero_banner_files: initialBanners.map(() => null),
 });
 
 const previewLogoUrl = computed<string>(() => {
@@ -412,11 +564,59 @@ const previewLogoUrl = computed<string>(() => {
     return `/storage/${raw}`;
 });
 
+function formatSlideNumber(idx: number): string {
+    return String(idx + 1).padStart(2, '0');
+}
+
+function setBannerInputRef(idx: number, el: HTMLInputElement | null): void {
+    bannerFileInputRefs.value[idx] = el;
+}
+
+function hasCustomBannerAt(idx: number): boolean {
+    return Boolean(localBannerPreviews.value[idx] || (form.hero_banners_list[idx] || '').trim());
+}
+
+function appendBannerCacheBuster(url: string): string {
+    if (url.includes('hero-banner-') && !url.includes('?')) {
+        return `${url}?v=lux2026`;
+    }
+    return url;
+}
+
+function getBannerPreviewUrlAt(idx: number): string {
+    if (localBannerPreviews.value[idx]) {
+        return localBannerPreviews.value[idx] as string;
+    }
+
+    const raw = (form.hero_banners_list[idx] || '').trim();
+    if (!raw) {
+        return defaultBannerImages[idx % defaultBannerImages.length];
+    }
+
+    if (raw.startsWith('data:') || raw.startsWith('http://') || raw.startsWith('https://') || raw.startsWith('/')) {
+        return appendBannerCacheBuster(raw);
+    }
+
+    return appendBannerCacheBuster(`/storage/${raw}`);
+}
+
 function revokeLocalPreview(): void {
     if (localLogoPreview.value) {
         URL.revokeObjectURL(localLogoPreview.value);
         localLogoPreview.value = null;
     }
+}
+
+function revokeBannerPreviewAt(idx: number): void {
+    const preview = localBannerPreviews.value[idx];
+    if (preview) {
+        URL.revokeObjectURL(preview);
+        localBannerPreviews.value[idx] = null;
+    }
+}
+
+function revokeAllBannerPreviews(): void {
+    localBannerPreviews.value.forEach((_, idx) => revokeBannerPreviewAt(idx));
 }
 
 function onSelectLogoFile(event: Event): void {
@@ -452,12 +652,67 @@ function clearSiteLogo(): void {
     }
 }
 
+function addBannerSlide(): void {
+    if (form.hero_banners_list.length >= 10) {
+        return;
+    }
+    form.hero_banners_list.push('');
+    form.hero_banner_files.push(null);
+    localBannerPreviews.value.push(null);
+}
+
+function removeBannerSlide(idx: number): void {
+    if (form.hero_banners_list.length <= 1) {
+        return;
+    }
+    revokeBannerPreviewAt(idx);
+    form.hero_banners_list.splice(idx, 1);
+    form.hero_banner_files.splice(idx, 1);
+    localBannerPreviews.value.splice(idx, 1);
+}
+
+function onSelectBannerFileAt(idx: number, event: Event): void {
+    const input = event.target as HTMLInputElement | null;
+    const file = input?.files?.[0] ?? null;
+    revokeBannerPreviewAt(idx);
+
+    if (!file) {
+        form.hero_banner_files[idx] = null;
+        return;
+    }
+
+    form.hero_banner_files[idx] = file;
+    localBannerPreviews.value[idx] = URL.createObjectURL(file);
+}
+
+function onManualBannerUrlInputAt(idx: number): void {
+    if (form.hero_banner_files[idx]) {
+        form.hero_banner_files[idx] = null;
+        revokeBannerPreviewAt(idx);
+        if (bannerFileInputRefs.value[idx]) {
+            bannerFileInputRefs.value[idx]!.value = '';
+        }
+    }
+}
+
+function clearBannerImageAt(idx: number): void {
+    form.hero_banners_list[idx] = '';
+    form.hero_banner_files[idx] = null;
+    revokeBannerPreviewAt(idx);
+    if (bannerFileInputRefs.value[idx]) {
+        bannerFileInputRefs.value[idx]!.value = '';
+    }
+}
+
 onBeforeUnmount(() => {
     revokeLocalPreview();
+    revokeAllBannerPreviews();
 });
 
 function restoreDefaults(): void {
     clearSiteLogo();
+    revokeAllBannerPreviews();
+
     form.site_logo = props.defaults.site_logo ?? '';
     form.company_name = props.defaults.company_name;
     form.company_tagline = props.defaults.company_tagline;
@@ -472,19 +727,34 @@ function restoreDefaults(): void {
     form.facebook_url = props.defaults.facebook_url;
     form.linkedin_url = props.defaults.linkedin_url;
     form.zalo_url = props.defaults.zalo_url;
+
+    form.hero_banners_list = ['', '', ''];
+    form.hero_banner_files = [null, null, null];
+    localBannerPreviews.value = [null, null, null];
 }
 
 function submitSettings(): void {
-    if (form.site_logo_file) {
+    const hasUploadedFiles = Boolean(
+        form.site_logo_file || form.hero_banner_files.some((file) => file !== null),
+    );
+
+    if (hasUploadedFiles) {
         form.post('/admin/settings', {
             forceFormData: true,
             preserveScroll: true,
             onSuccess: () => {
                 form.site_logo_file = null;
+                form.hero_banner_files = form.hero_banners_list.map(() => null);
                 revokeLocalPreview();
+                revokeAllBannerPreviews();
                 if (logoFileInputRef.value) {
                     logoFileInputRef.value.value = '';
                 }
+                bannerFileInputRefs.value.forEach((input) => {
+                    if (input) {
+                        input.value = '';
+                    }
+                });
             },
         });
 
@@ -496,3 +766,158 @@ function submitSettings(): void {
     });
 }
 </script>
+
+<style scoped>
+.site-settings-banners-card {
+    grid-column: 1 / -1;
+}
+
+.site-settings-banners-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+
+.site-settings-banners-head-main {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+
+.site-settings-banners-head-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.hero-banners-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+    gap: 18px;
+}
+
+.hero-banner-item-card {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    padding: 16px;
+    border-radius: 16px;
+    border: 1px solid var(--line, #e2e8f0);
+    background: var(--surface-muted, #f8fafc);
+}
+
+.hero-banner-item-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.hero-banner-item-title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+}
+
+.hero-banner-item-num {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 10px;
+    background: linear-gradient(135deg, #c99a49 0%, #a57526 100%);
+    font-size: 12.5px;
+    font-weight: 800;
+    color: #fff;
+    flex-shrink: 0;
+}
+
+.hero-banner-item-title strong {
+    display: block;
+    font-size: 14px;
+    font-weight: 800;
+    color: #1e293b;
+}
+
+.hero-banner-item-title small {
+    display: block;
+    font-size: 12px;
+    color: #64748b;
+}
+
+.hero-banner-item-top-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.hero-banner-mini-btn {
+    padding: 6px 10px;
+    font-size: 12px;
+}
+
+.hero-banner-mini-btn.is-danger {
+    color: #dc2626;
+    border-color: rgba(220, 38, 38, 0.25);
+}
+
+.hero-banner-mini-btn.is-danger:hover {
+    background: #fef2f2;
+    border-color: #dc2626;
+}
+
+.hero-banner-live-preview {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 16 / 7.5;
+    border-radius: 14px;
+    overflow: hidden;
+    border: 1px solid rgba(223, 205, 169, 0.35);
+    background: #100e0b;
+    box-shadow: 0 14px 30px -12px rgba(15, 12, 8, 0.28);
+}
+
+.hero-banner-live-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center center;
+    display: block;
+}
+
+.hero-banner-live-badge {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    z-index: 3;
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: rgba(255, 253, 248, 0.9);
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(184, 137, 58, 0.3);
+    color: #574932;
+    font-size: 11px;
+    font-weight: 700;
+}
+
+.hero-banner-item-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.hero-banner-upload-btn {
+    justify-content: center;
+    width: 100%;
+}
+
+@media (max-width: 760px) {
+    .hero-banners-grid {
+        grid-template-columns: 1fr;
+    }
+}
+</style>

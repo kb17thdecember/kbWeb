@@ -1,9 +1,12 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
-import { Head, Link, router, useForm } from '@inertiajs/vue3';
+import { Head, Link, router, useForm, usePage } from '@inertiajs/vue3';
 import UserLayout from '../layout/UserLayout.Vue';
 import { lockPageScroll } from '../utils/pageScrollLock';
 import { buildProductDetailUrl } from '../utils/recentlyViewedProducts';
+import heroBannerSlim3 from '../../assets/images/banners/hero-banner-slim3.jpg';
+import heroBannerMflex from '../../assets/images/banners/hero-banner-mflex.jpg';
+import heroBannerAn3 from '../../assets/images/banners/hero-banner-an3.jpg';
 
 type HomeProduct = {
     id: number;
@@ -86,6 +89,145 @@ const contactSuccessMessage = ref('');
 let toastTimer: ReturnType<typeof setTimeout> | undefined;
 let revealObserver: IntersectionObserver | undefined;
 let releasePageScrollLock: (() => void) | null = null;
+
+type HeroBannerSlide = {
+    id: string;
+    indexLabel: string;
+    imageUrl: string;
+    altText: string;
+    href: string;
+};
+
+const page = usePage<{
+    siteSettings?: Record<string, string>;
+}>();
+
+const siteSettings = computed<Record<string, string>>(() => page.props.siteSettings ?? {});
+
+const defaultBannerImages = [heroBannerSlim3, heroBannerMflex, heroBannerAn3];
+const defaultBannerAlts = [
+    'Ariston SLIM3 30B VN — Bảo vệ cả gia đình qua mùa đông',
+    'Bảo ôn K-Flex M-Flex — Thất thoát nhiệt không còn là nỗi lo',
+    'Ariston AN3 30B VN — Thiết kế mới, sang trọng, hiện đại',
+];
+
+const appendLuxuryCacheBuster = (url: string): string => {
+    if (url.includes('hero-banner-') && !url.includes('?')) {
+        return `${url}?v=lux2026`;
+    }
+    return url;
+};
+
+const resolveBannerImageUrl = (rawUrl: string | undefined, fallbackImage: string): string => {
+    const trimmed = (rawUrl || '').trim();
+    if (!trimmed) {
+        return fallbackImage;
+    }
+    if (
+        trimmed.startsWith('data:') ||
+        trimmed.startsWith('http://') ||
+        trimmed.startsWith('https://') ||
+        trimmed.startsWith('/')
+    ) {
+        return appendLuxuryCacheBuster(trimmed);
+    }
+    return appendLuxuryCacheBuster(`/storage/${trimmed}`);
+};
+
+const heroSlides = computed<HeroBannerSlide[]>(() => {
+    const s = siteSettings.value;
+    let rawList: string[] | null = null;
+
+    if (s.hero_banners) {
+        try {
+            const parsed = JSON.parse(s.hero_banners);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+                rawList = parsed.map((item) => (typeof item === 'string' ? item : ''));
+            }
+        } catch {
+            rawList = null;
+        }
+    }
+
+    if (!rawList) {
+        rawList = [
+            s.hero_banner_1_image ?? '',
+            s.hero_banner_2_image ?? '',
+            s.hero_banner_3_image ?? '',
+        ];
+    }
+
+    return rawList.map((rawUrl, idx) => {
+        const indexLabel = String(idx + 1).padStart(2, '0');
+        const fallback = defaultBannerImages[idx % defaultBannerImages.length];
+        const defaultAlt = defaultBannerAlts[idx] ?? `Banner trang chủ ${indexLabel}`;
+
+        return {
+            id: `banner-${idx + 1}`,
+            indexLabel,
+            imageUrl: resolveBannerImageUrl(rawUrl, fallback),
+            altText: defaultAlt,
+            href: '/products',
+        };
+    });
+});
+
+const activeBannerIndex = ref(0);
+const isBannerPaused = ref(false);
+const bannerProgress = ref(0);
+let bannerRafId: number | null = null;
+let bannerLastTick = 0;
+let touchStartX = 0;
+const BANNER_AUTOPLAY_MS = 6800;
+
+const selectBannerSlide = (index: number): void => {
+    const total = heroSlides.value.length;
+    activeBannerIndex.value = ((index % total) + total) % total;
+    bannerProgress.value = 0;
+    bannerLastTick = performance.now();
+};
+
+const nextBannerSlide = (): void => {
+    selectBannerSlide(activeBannerIndex.value + 1);
+};
+
+const prevBannerSlide = (): void => {
+    selectBannerSlide(activeBannerIndex.value - 1);
+};
+
+const stepBannerAutoplay = (now: number): void => {
+    if (!bannerLastTick) {
+        bannerLastTick = now;
+    }
+    const delta = now - bannerLastTick;
+    bannerLastTick = now;
+
+    if (!isBannerPaused.value) {
+        bannerProgress.value += (delta / BANNER_AUTOPLAY_MS) * 100;
+        if (bannerProgress.value >= 100) {
+            activeBannerIndex.value = (activeBannerIndex.value + 1) % heroSlides.value.length;
+            bannerProgress.value = 0;
+        }
+    }
+
+    bannerRafId = window.requestAnimationFrame(stepBannerAutoplay);
+};
+
+const onBannerTouchStart = (event: TouchEvent): void => {
+    touchStartX = event.touches[0]?.clientX ?? 0;
+};
+
+const onBannerTouchEnd = (event: TouchEvent): void => {
+    const endX = event.changedTouches[0]?.clientX ?? 0;
+    const diff = endX - touchStartX;
+    if (Math.abs(diff) > 44) {
+        if (diff < 0) {
+            nextBannerSlide();
+        } else {
+            prevBannerSlide();
+        }
+    }
+};
 const attachmentInput = ref<HTMLInputElement | null>(null);
 const checkoutForm = useForm({
     name: '',
@@ -614,6 +756,9 @@ onMounted(() => {
             element.classList.add('visible');
         });
     }
+
+    bannerLastTick = performance.now();
+    bannerRafId = window.requestAnimationFrame(stepBannerAutoplay);
 });
 
 onUnmounted(() => {
@@ -622,6 +767,10 @@ onUnmounted(() => {
     window.removeEventListener('keydown', onEscape);
     revealObserver?.disconnect();
     clearTimeout(toastTimer);
+    if (bannerRafId !== null) {
+        window.cancelAnimationFrame(bannerRafId);
+        bannerRafId = null;
+    }
     releasePageScrollLock?.();
     releasePageScrollLock = null;
 });
@@ -639,130 +788,74 @@ onUnmounted(() => {
         <main>
         <section id="home" class="hero">
           <div class="wrap">
-            <div class="hero-grid">
-              <div class="hero-copy">
-                <div class="eyebrow"><span class="dot"></span> Đối tác vật tư kỹ thuật đáng tin cậy</div>
-                <h1>HVAC Mart.<br><span>Vật tư HVAC cho công trình.</span></h1>
-                <p class="hero-lead">Khám phá thiết bị HVAC, vật tư bảo ôn K-FLEX và bình nước nóng Ariston. Nhận tư vấn kỹ thuật và báo giá sản phẩm phù hợp cho công trình.</p>
-                <div class="hero-ctas">
-                  <Link href="/products" class="btn btn-primary">Khám phá sản phẩm <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14m-6-6 6 6-6 6"/></svg></Link>
-                  <button type="button" class="btn btn-outline" @click="openCalculatorFromHome">Tính chọn thiết bị</button>
-                  <Link href="/featured-projects" class="btn btn-outline">Xem dự án <FontAwesomeIcon :icon="['fas', 'arrow-right']" class="icon-ne" /></Link>
-                </div>
-                <div class="hero-bottom">
-                  <div class="mini-stat"><strong>MEP</strong><span>Giải pháp kỹ thuật</span>
-                  </div>
-                  <div class="mini-stat"><strong>24/7</strong><span>Hỗ trợ xuyên suốt</span>
-                  </div>
-                  <div class="mini-stat"><strong>B2B</strong><span>Đồng hành dự án</span>
-                  </div>
-                </div>
-              </div>
-              <div class="hero-art" role="img" aria-label="Hình minh họa thiết bị kỹ thuật">
-                <div class="orb"></div>
-                <div class="hero-orb-secondary" aria-hidden="true"></div>
-
-                <svg class="hero-art-waves" viewBox="0 0 600 600" fill="none" aria-hidden="true" preserveAspectRatio="none">
-                  <path d="M-60 140 C 120 40, 280 260, 460 120 C 540 60, 620 110, 680 80" stroke="url(#heroWaveGold)" stroke-width="1.4" stroke-dasharray="4 6" />
-                  <path d="M-80 340 C 90 210, 260 450, 450 290 C 540 210, 610 260, 670 230" stroke="url(#heroWaveGold)" stroke-width="1.2" />
-                  <path d="M-40 490 C 150 380, 320 560, 510 420 C 580 370, 630 400, 680 380" stroke="url(#heroWaveSoft)" stroke-width="1" />
-                  <circle cx="450" cy="290" r="4" fill="#dfcda9" fill-opacity="0.7" />
-                  <circle cx="175" cy="145" r="3" fill="#b79a63" fill-opacity="0.6" />
-                  <defs>
-                    <linearGradient id="heroWaveGold" x1="0" y1="0" x2="600" y2="0" gradientUnits="userSpaceOnUse">
-                      <stop offset="0%" stop-color="#dfcda9" stop-opacity="0" />
-                      <stop offset="35%" stop-color="#dfcda9" stop-opacity="0.32" />
-                      <stop offset="70%" stop-color="#b79a63" stop-opacity="0.22" />
-                      <stop offset="100%" stop-color="#dfcda9" stop-opacity="0" />
-                    </linearGradient>
-                    <linearGradient id="heroWaveSoft" x1="0" y1="0" x2="600" y2="0" gradientUnits="userSpaceOnUse">
-                      <stop offset="0%" stop-color="#b79a63" stop-opacity="0" />
-                      <stop offset="50%" stop-color="#b79a63" stop-opacity="0.18" />
-                      <stop offset="100%" stop-color="#b79a63" stop-opacity="0" />
-                    </linearGradient>
-                  </defs>
-                </svg>
-
-                <div class="hero-art-head">
-                  <div class="art-tag">Phân phối chính hãng · Ariston &amp; K-FLEX</div>
-                  <span class="hero-art-badge">CO / CQ · MEP SUPPLY</span>
-                </div>
-
-                <div class="hero-art-showcase">
-                  <article class="hero-art-card is-ariston">
-                    <div class="hero-art-card-glow" aria-hidden="true"></div>
-                    <div class="hero-art-card-top">
-                      <span class="hero-art-brand">ARISTON</span>
-                      <small>15L – 150L · HEATPUMP</small>
-                    </div>
-                    <div class="hero-art-visual">
-                      <div class="hero-art-halo" aria-hidden="true"></div>
-                      <img src="../../assets/images/ariston_water_heater.svg" alt="Bình nước nóng Ariston">
-                      <span class="hero-art-spec-pill">75°C MAX · ITALIAN DESIGN</span>
-                    </div>
-                    <div class="hero-art-card-foot">
-                      <div class="hero-art-card-copy">
-                        <strong>Bình nước nóng &amp; Bơm nhiệt</strong>
-                        <span>Giải pháp nhiệt dân dụng &amp; công nghiệp</span>
-                      </div>
-                      <Link href="/products" class="hero-art-card-arrow" aria-label="Khám phá sản phẩm Ariston">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M7 17 17 7M9 7h8v8"/></svg>
-                      </Link>
-                    </div>
-                  </article>
-
-                  <div class="hero-art-bridge" aria-hidden="true">
-                    <div class="hero-art-bridge-ring"></div>
-                    <div class="hero-art-bridge-core">
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
-                        <path d="M12 3c2.8 3.2 4.2 5.8 4.2 8.2a4.2 4.2 0 1 1-8.4 0C7.8 8.8 9.2 6.2 12 3Z"/>
-                        <path d="M4 18c2.2-1.4 4.8-1.4 7 0s4.8 1.4 7 0"/>
-                      </svg>
-                      <small>THERMAL FLOW</small>
-                    </div>
-                  </div>
-
-                  <article class="hero-art-card is-kflex">
-                    <div class="hero-art-card-glow" aria-hidden="true"></div>
-                    <div class="hero-art-card-top">
-                      <span class="hero-art-brand">K·FLEX</span>
-                      <small>CLASS 0 · CLASS 1</small>
-                    </div>
-                    <div class="hero-art-visual">
-                      <div class="hero-art-halo" aria-hidden="true"></div>
-                      <img src="../../assets/images/foam.png" alt="Bảo ôn K-FLEX">
-                      <span class="hero-art-spec-pill">λ ≤ 0.032 W/m·K · NBR/PVC</span>
-                    </div>
-                    <div class="hero-art-card-foot">
-                      <div class="hero-art-card-copy">
-                        <strong>Bảo ôn cách nhiệt K-FLEX</strong>
-                        <span>Ống định hình, tấm cuộn &amp; phụ kiện</span>
-                      </div>
-                      <Link href="/products" class="hero-art-card-arrow" aria-label="Khám phá sản phẩm K-FLEX">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M7 17 17 7M9 7h8v8"/></svg>
-                      </Link>
-                    </div>
+            <div
+              class="hero-grid hero-supersports-banner"
+              @mouseenter="isBannerPaused = true"
+              @mouseleave="isBannerPaused = false"
+              @touchstart.passive="onBannerTouchStart"
+              @touchend.passive="onBannerTouchEnd"
+            >
+              <!-- Supersports-Style Horizontal Image Slider Track -->
+              <div class="ss-banner-viewport">
+                <div
+                  class="ss-banner-track"
+                  :style="{
+                    transform: `translate3d(-${activeBannerIndex * 100}%, 0, 0)`,
+                  }"
+                >
+                  <article
+                    v-for="(slide, sIdx) in heroSlides"
+                    :key="slide.id"
+                    class="ss-banner-slide"
+                    :class="{ 'is-active': sIdx === activeBannerIndex }"
+                    :aria-hidden="sIdx !== activeBannerIndex"
+                  >
+                    <Link
+                      :href="slide.href"
+                      class="ss-banner-media-link"
+                      :aria-label="slide.altText"
+                    >
+                      <img
+                        :src="slide.imageUrl"
+                        :alt="slide.altText"
+                        class="ss-banner-img"
+                        :loading="sIdx === 0 ? 'eager' : 'lazy'"
+                      />
+                    </Link>
                   </article>
                 </div>
 
-                <div class="hero-art-footer">
-                  <div class="floating-card">
-                    <div class="floating-card-head">
-                      <span class="floating-card-icon" aria-hidden="true">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m12 3 8 4v5c0 5-3.5 7.8-8 9-4.5-1.2-8-4-8-9V7z"/><path d="m8.5 12 2.2 2.2 4.8-5"/></svg>
-                      </span>
-                      <div>
-                        <small>TIÊU CHUẨN CUNG ỨNG DỰ ÁN</small>
-                        <strong>Hồ sơ kỹ thuật &amp; Submittal đồng bộ</strong>
-                      </div>
-                    </div>
-                    <span>Đáp ứng tiến độ nhà thầu cơ điện MEP</span>
-                    <div class="tinyline"></div>
-                  </div>
-                  <div class="art-caption">
-                    <strong>Engineered for life.</strong>
-                    <span>SMARTER MATERIALS · BETTER BUILDS</span>
-                  </div>
+                <!-- Supersports-Style Floating Left / Right Circular Navigation Arrows -->
+                <button
+                  type="button"
+                  class="ss-banner-nav-btn is-prev"
+                  aria-label="Banner trước"
+                  @click="prevBannerSlide"
+                >
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="m15 18-6-6 6-6"/></svg>
+                </button>
+                <button
+                  type="button"
+                  class="ss-banner-nav-btn is-next"
+                  aria-label="Banner tiếp theo"
+                  @click="nextBannerSlide"
+                >
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="m9 18 6-6-6-6"/></svg>
+                </button>
+
+                <!-- Circular Dot Indicators -->
+                <div class="ss-banner-dots" role="tablist" aria-label="Chọn slide banner">
+                  <button
+                    v-for="(slide, idx) in heroSlides"
+                    :key="`dot-${slide.id}`"
+                    type="button"
+                    role="tab"
+                    class="ss-banner-dot"
+                    :class="{ 'is-active': idx === activeBannerIndex }"
+                    :aria-label="slide.altText"
+                    :aria-selected="idx === activeBannerIndex"
+                    @click="selectBannerSlide(idx)"
+                  ></button>
                 </div>
               </div>
             </div>
@@ -1627,3 +1720,234 @@ onUnmounted(() => {
     </div>
     </UserLayout>
 </template>
+
+<style scoped>
+.hero {
+    padding: 28px 0 56px;
+}
+
+.hero-grid.hero-supersports-banner {
+    display: block;
+    width: 100%;
+    min-height: 0 !important;
+    aspect-ratio: 16 / 7.5;
+    padding: 0;
+    border: 1px solid rgba(223, 205, 169, 0.34);
+    border-radius: 24px;
+    background: #0f0d0a;
+    box-shadow:
+        0 38px 88px -20px rgba(15, 12, 8, 0.46),
+        0 16px 36px -12px rgba(15, 12, 8, 0.24),
+        0 0 0 1px rgba(183, 154, 99, 0.14);
+    position: relative;
+    overflow: hidden;
+    isolation: isolate;
+}
+
+.hero-grid.hero-supersports-banner::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    z-index: 4;
+    box-shadow:
+        inset 0 1px 0 rgba(255, 245, 220, 0.22),
+        inset 0 -1px 0 rgba(223, 205, 169, 0.12);
+}
+
+/* 100% Pure Image Slider Viewport & Track */
+.ss-banner-viewport {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    border-radius: inherit;
+}
+
+.ss-banner-track {
+    display: flex;
+    width: 100%;
+    height: 100%;
+    will-change: transform;
+    transition: transform 0.88s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.ss-banner-slide {
+    position: relative;
+    flex: 0 0 100%;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+}
+
+.ss-banner-media-link {
+    display: block;
+    width: 100%;
+    height: 100%;
+}
+
+.ss-banner-img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center center;
+    transform: scale(1.016);
+    transition: transform 6.8s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.ss-banner-slide.is-active .ss-banner-img {
+    transform: scale(1);
+}
+
+/* Smoked-Glass & Brushed Champagne-Gold Navigation Buttons */
+.ss-banner-nav-btn {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 6;
+    width: 46px;
+    height: 46px;
+    border-radius: 50%;
+    border: 1px solid rgba(223, 205, 169, 0.42);
+    background: rgba(16, 13, 10, 0.66);
+    backdrop-filter: blur(14px);
+    color: #f3e4c6;
+    display: grid;
+    place-items: center;
+    cursor: pointer;
+    box-shadow:
+        0 14px 32px -6px rgba(0, 0, 0, 0.55),
+        inset 0 1px 0 rgba(255, 246, 224, 0.16);
+    transition:
+        transform 0.32s cubic-bezier(0.22, 1, 0.36, 1),
+        background 0.28s ease,
+        border-color 0.28s ease,
+        color 0.28s ease,
+        opacity 0.32s ease,
+        box-shadow 0.28s ease;
+}
+
+.ss-banner-nav-btn.is-prev {
+    left: 20px;
+}
+
+.ss-banner-nav-btn.is-next {
+    right: 20px;
+}
+
+.ss-banner-nav-btn svg {
+    width: 19px;
+    height: 19px;
+}
+
+@media (hover: hover) and (pointer: fine) {
+    .ss-banner-nav-btn {
+        opacity: 0;
+        transform: translateY(-50%) scale(0.92);
+    }
+
+    .hero-supersports-banner:hover .ss-banner-nav-btn,
+    .ss-banner-nav-btn:focus-visible {
+        opacity: 1;
+        transform: translateY(-50%) scale(1);
+    }
+
+    .ss-banner-nav-btn:hover {
+        transform: translateY(-50%) scale(1.08);
+        background: linear-gradient(135deg, #ecd39d 0%, #c4974b 55%, #9f732b 100%);
+        border-color: #f5e2b8;
+        color: #15110a;
+        box-shadow: 0 16px 34px rgba(196, 151, 75, 0.42);
+    }
+}
+
+/* Luxury Circular Dot Indicators */
+.ss-banner-dots {
+    position: absolute;
+    bottom: 16px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 6;
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 7px 14px;
+    border-radius: 999px;
+    border: 1px solid rgba(223, 205, 169, 0.28);
+    background: rgba(14, 12, 9, 0.62);
+    backdrop-filter: blur(12px);
+    box-shadow: 0 10px 26px rgba(0, 0, 0, 0.42);
+}
+
+.ss-banner-dot {
+    width: 9px;
+    height: 9px;
+    padding: 0;
+    border-radius: 50%;
+    border: 1.5px solid rgba(235, 222, 198, 0.68);
+    background: rgba(235, 222, 198, 0.25);
+    cursor: pointer;
+    transition:
+        transform 0.28s cubic-bezier(0.22, 1, 0.36, 1),
+        background 0.25s ease,
+        border-color 0.25s ease,
+        box-shadow 0.25s ease;
+}
+
+@media (hover: hover) and (pointer: fine) {
+    .ss-banner-dot:hover {
+        background: rgba(248, 234, 204, 0.78);
+        border-color: #f6e6c2;
+        transform: scale(1.16);
+    }
+}
+
+.ss-banner-dot.is-active {
+    background: linear-gradient(135deg, #f3deb0 0%, #c99a49 100%);
+    border-color: #fff6df;
+    transform: scale(1.24);
+    box-shadow: 0 0 10px rgba(216, 174, 96, 0.75);
+}
+
+/* Responsive Breakpoints */
+@media (max-width: 760px) {
+    .hero {
+        padding: 16px 0 36px;
+    }
+
+    .hero-grid.hero-supersports-banner {
+        border-radius: 16px;
+    }
+
+    .ss-banner-nav-btn {
+        width: 32px;
+        height: 32px;
+    }
+
+    .ss-banner-nav-btn svg {
+        width: 15px;
+        height: 15px;
+    }
+
+    .ss-banner-nav-btn.is-prev {
+        left: 8px;
+    }
+
+    .ss-banner-nav-btn.is-next {
+        right: 8px;
+    }
+
+    .ss-banner-dots {
+        bottom: 10px;
+        gap: 8px;
+        padding: 5px 10px;
+    }
+
+    .ss-banner-dot {
+        width: 7px;
+        height: 7px;
+    }
+}
+</style>

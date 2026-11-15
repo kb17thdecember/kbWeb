@@ -78,6 +78,10 @@ class SiteSetting extends Model
             'seo_last_ping_at' => '',
             'seo_last_ping_url' => '',
             'seo_last_ping_status' => 'Tự động kích hoạt khi thêm/sửa Sản phẩm, Dự án, Bài viết',
+            'hero_banner_1_image' => '',
+            'hero_banner_2_image' => '',
+            'hero_banner_3_image' => '',
+            'hero_banners' => '',
         ];
     }
 
@@ -93,6 +97,10 @@ class SiteSetting extends Model
         $defaults = self::defaults();
         $optionalEmptyKeys = [
             'site_logo',
+            'hero_banner_1_image',
+            'hero_banner_2_image',
+            'hero_banner_3_image',
+            'hero_banners',
             'seo_google_verification',
             'seo_google_analytics_id',
             'seo_google_service_account_json',
